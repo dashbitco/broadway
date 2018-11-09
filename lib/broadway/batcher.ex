@@ -5,7 +5,7 @@ defmodule Broadway.Batcher do
     defstruct [
       :batch_size,
       :batch_timeout,
-      :partition,
+      :publisher_key,
       :pending_events
     ]
   end
@@ -21,19 +21,19 @@ defmodule Broadway.Batcher do
   def init(args) do
     batch_timeout = Keyword.get(args, :batch_timeout, 1000)
     batch_size = Keyword.get(args, :batch_size, 100)
-    partition = Keyword.fetch!(args, :partition)
+    publisher_key = Keyword.fetch!(args, :publisher_key)
 
     subscribe_to =
       args
       |> Keyword.fetch!(:processors)
-      |> Enum.map(&{&1, partition: partition, max_demand: 4, min_demand: 2})
+      |> Enum.map(&{&1, partition: publisher_key, max_demand: 4, min_demand: 2})
 
     schedule_flush_pending(batch_timeout)
 
     {
       :producer_consumer,
       %State{
-        partition: partition,
+        publisher_key: publisher_key,
         batch_size: batch_size,
         batch_timeout: batch_timeout,
         pending_events: []
@@ -54,17 +54,17 @@ defmodule Broadway.Batcher do
   end
 
   defp do_handle_events(events, state, min_size) do
-    %State{batch_size: batch_size, partition: partition} = state
-    {batch_events, new_pending_events} = split_events(events, partition, batch_size, min_size)
+    %State{batch_size: batch_size, publisher_key: publisher_key} = state
+    {batch_events, new_pending_events} = split_events(events, publisher_key, batch_size, min_size)
 
     {:noreply, batch_events, %State{state | pending_events: new_pending_events}}
   end
 
-  defp split_events(events, partition, batch_size, min_size) do
+  defp split_events(events, publisher_key, batch_size, min_size) do
     {batch_events, pending_events} = Enum.split(events, batch_size)
 
     if length(batch_events) >= min_size do
-      {[%Broadway.Batch{events: batch_events, partition: partition, batcher: self()}],
+      {[%Broadway.Batch{messages: batch_events, publisher_key: publisher_key, batcher: self()}],
        pending_events}
     else
       {[], events}

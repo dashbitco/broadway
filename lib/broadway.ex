@@ -1,10 +1,10 @@
 defmodule Broadway do
   use GenServer
 
-  @callback handle_message(event :: any, context :: any) :: {:partition, key :: any, event :: any}
-  @callback handle_batch(partition :: any, batch :: any, context :: any) :: {:ok, batch :: any}
+  alias Broadway.{Processor, Batcher, Consumer, Message}
 
-  alias Broadway.{Processor, Batcher, Consumer}
+  @callback handle_message(message :: Message.t, context :: any) :: {:ok, message :: Message.t}
+  @callback handle_batch(publisher :: atom, batch :: Batch.t, context :: any) :: {:ack, successful: [Message.t], failed: [Message.t]}
 
   defmodule State do
     defstruct name: nil,
@@ -131,12 +131,12 @@ defmodule Broadway do
     } = state
 
     stages =
-      Enum.reduce(publishers_config, %{batchers: [], consumers: []}, fn publisher, acc ->
-        {batcher, batcher_spec} = init_batcher(broadway_name, publisher, processors)
+      Enum.reduce(publishers_config, %{batchers: [], consumers: []}, fn config, acc ->
+        {batcher, batcher_spec} = init_batcher(broadway_name, config, processors)
         {:ok, _} = Supervisor.start_child(supervisor, batcher_spec)
 
         {consumer, consumer_spec} =
-          init_consumer(broadway_name, module, context, publisher, batcher)
+          init_consumer(broadway_name, module, context, config, batcher)
 
         {:ok, _} = Supervisor.start_child(supervisor, consumer_spec)
 
@@ -150,22 +150,22 @@ defmodule Broadway do
     }
   end
 
-  defp init_batcher(broadway_name, publisher, processors) do
-    {key, options} = publisher
+  defp init_batcher(broadway_name, publisher_config, processors) do
+    {key, options} = publisher_config
     batcher = process_name(broadway_name, "Batcher", key)
     opts = [name: batcher]
 
     spec =
       Supervisor.child_spec(
-        {Batcher, [options ++ [partition: key, processors: processors], opts]},
+        {Batcher, [options ++ [publisher_key: key, processors: processors], opts]},
         id: make_ref()
       )
 
     {batcher, spec}
   end
 
-  defp init_consumer(broadway_name, module, context, publisher, batcher) do
-    {key, _options} = publisher
+  defp init_consumer(broadway_name, module, context, publisher_config, batcher) do
+    {key, _options} = publisher_config
     consumer = process_name(broadway_name, "Consumer", key)
     opts = [name: consumer]
 

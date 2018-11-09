@@ -25,10 +25,10 @@ defmodule Broadway.Consumer do
   def handle_events(events, _from, state) do
     %State{module: module, context: context} = state
     [batch] = events
-    %Broadway.Batch{partition: partition} = batch
+    %Broadway.Batch{publisher_key: publisher_key} = batch
 
     {:ack, successful: successful_messages, failed: failed_messages} =
-      module.handle_batch(partition, batch, context)
+      module.handle_batch(publisher_key, batch, context)
 
     ack_messages(successful_messages, failed_messages, context)
 

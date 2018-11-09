@@ -64,8 +64,8 @@ defmodule BroadwayTest do
     end
 
     def handle_batch(publisher, batch, target_pid) do
-      send(target_pid, {:batch_handled, publisher, batch.events})
-      {:ack, successful: batch.events, failed: []}
+      send(target_pid, {:batch_handled, publisher, batch.messages})
+      {:ack, successful: batch.messages, failed: []}
     end
   end
 
@@ -77,8 +77,8 @@ defmodule BroadwayTest do
     end
 
     def handle_batch(publisher, batch, target_pid) do
-      send(target_pid, {:batch_handled, publisher, batch.events})
-      {:ack, successful: batch.events, failed: []}
+      send(target_pid, {:batch_handled, publisher, batch.messages})
+      {:ack, successful: batch.messages, failed: []}
     end
   end
 
