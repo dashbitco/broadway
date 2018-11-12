@@ -1,12 +1,19 @@
 defmodule Broadway.Batcher do
   use GenStage
 
+  @subscribe_to_options [
+    max_demand: 4,
+    min_demand: 2,
+    cancel: :temporary
+  ]
+
   defmodule State do
     defstruct [
       :batch_size,
       :batch_timeout,
       :publisher_key,
-      :pending_events
+      :pending_events,
+      :processors_refs
     ]
   end
 
@@ -23,12 +30,11 @@ defmodule Broadway.Batcher do
     batch_size = Keyword.get(args, :batch_size, 100)
     publisher_key = Keyword.fetch!(args, :publisher_key)
 
+    processors = Keyword.fetch!(args, :processors)
+    processors_refs = Enum.map(processors, &Process.monitor(&1))
+
     subscribe_to =
-      args
-      |> Keyword.fetch!(:processors)
-      |> Enum.map(
-        &{&1, partition: publisher_key, max_demand: 4, min_demand: 2, cancel: :temporary}
-      )
+      Enum.map(processors, &{&1, [partition: publisher_key] ++ @subscribe_to_options})
 
     schedule_flush_pending(batch_timeout)
 
@@ -38,7 +44,8 @@ defmodule Broadway.Batcher do
         publisher_key: publisher_key,
         batch_size: batch_size,
         batch_timeout: batch_timeout,
-        pending_events: []
+        pending_events: [],
+        processors_refs: processors_refs
       },
       subscribe_to: subscribe_to
     }
@@ -53,6 +60,39 @@ defmodule Broadway.Batcher do
     %State{pending_events: pending_events, batch_timeout: batch_timeout} = state
     schedule_flush_pending(batch_timeout)
     do_handle_events(pending_events, state, 1)
+  end
+
+  def handle_info({:resubscribe, {processor_name, _}}, state) do
+    %{
+      processors_refs: processors_refs,
+      publisher_key: publisher_key
+    } = state
+
+    processor = Process.whereis(processor_name)
+
+    if processor && Process.alive?(processor) do
+      ref = Process.monitor(processor)
+      opts = [to: processor, partition: publisher_key] ++ @subscribe_to_options
+      GenStage.async_subscribe(self(), opts)
+      {:noreply, [], %{state | processors_refs: [ref | processors_refs]}}
+    else
+      schedule_resubscribe(processor)
+      {:noreply, [], state}
+    end
+  end
+
+  def handle_info({:DOWN, ref, _, processor, _reason}, %{processors_refs: refs} = state) do
+    if ref in refs do
+      schedule_resubscribe(processor)
+      new_refs = List.delete(refs, ref)
+      {:noreply, [], %{state | processors_refs: new_refs}}
+    else
+      {:noreply, [], state}
+    end
+  end
+
+  def handle_info(_, state) do
+    {:noreply, [], state}
   end
 
   defp do_handle_events(events, state, min_size) do
@@ -75,5 +115,9 @@ defmodule Broadway.Batcher do
 
   defp schedule_flush_pending(delay) do
     Process.send_after(self(), :flush_pending, delay)
+  end
+
+  defp schedule_resubscribe(processor) do
+    Process.send_after(self(), {:resubscribe, processor}, 10)
   end
 end
