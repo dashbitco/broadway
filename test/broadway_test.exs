@@ -206,7 +206,7 @@ defmodule BroadwayTest do
       {:ok, broadway} = Broadway.start_link(Forwarder, self(), producers: [])
       schedulers_online = :erlang.system_info(:schedulers_online)
 
-      assert length(:sys.get_state(broadway).processors) == schedulers_online * 2
+      assert get_n_processors(broadway) == schedulers_online * 2
     end
 
     test "set number of processors" do
@@ -222,8 +222,13 @@ defmodule BroadwayTest do
           producers: []
         )
 
-      assert length(:sys.get_state(broadway1).processors) == 5
-      assert length(:sys.get_state(broadway2).processors) == 10
+      assert get_n_processors(broadway1) == 5
+      assert get_n_processors(broadway2) == 10
     end
+  end
+
+  defp get_n_processors(broadway) do
+    name = :sys.get_state(broadway).name
+    Supervisor.count_children(:"#{name}.ProcessorSupervisor").workers
   end
 end

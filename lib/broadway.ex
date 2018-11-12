@@ -3,41 +3,34 @@ defmodule Broadway do
 
   alias Broadway.{Processor, Batcher, Consumer, Message}
 
-  @callback handle_message(message :: Message.t, context :: any) :: {:ok, message :: Message.t}
-  @callback handle_batch(publisher :: atom, batch :: Batch.t, context :: any) :: {:ack, successful: [Message.t], failed: [Message.t]}
+  @callback handle_message(message :: Message.t(), context :: any) ::
+              {:ok, message :: Message.t()}
+  @callback handle_batch(publisher :: atom, batch :: Batch.t(), context :: any) ::
+              {:ack, successful: [Message.t()], failed: [Message.t()]}
 
   defmodule State do
     defstruct name: nil,
               module: nil,
-              processors_config: nil,
+              processors_config: [],
               producers_config: [],
               publishers_config: [],
               context: nil,
-              supervisor: nil,
-              producers: [],
-              processors: [],
-              batchers: [],
-              consumers: []
+              supervisor: nil
   end
 
   def start_link(module, context, opts) do
-    opts = Keyword.put(opts, :name, opts[:name] || broadway_name())
+    opts = Keyword.put(opts, :name, opts[:name] || default_broadway_name())
     GenServer.start_link(__MODULE__, {module, context, opts}, opts)
   end
 
   def init({module, context, opts}) do
-    state =
-      opts
-      |> init_state(module, context)
-      |> init_supervisor()
-      |> init_producers()
-      |> init_processors()
-      |> init_batchers_and_consumers()
+    state = init_state(module, context, opts)
+    {:ok, supervisor} = start_supervisor(state)
 
-    {:ok, state}
+    {:ok, %{state | supervisor: supervisor}}
   end
 
-  defp init_state(opts, module, context) do
+  defp init_state(module, context, opts) do
     broadway_name = Keyword.fetch!(opts, :name)
     producers_config = Keyword.fetch!(opts, :producers)
     publishers_config = Keyword.get(opts, :publishers) |> normalize_publishers_config()
@@ -53,22 +46,35 @@ defmodule Broadway do
     }
   end
 
-  def init_supervisor(%State{name: name} = state) do
-    supervisor_name = Module.concat(name, "Supervisor")
-    {:ok, supervisor} = Supervisor.start_link([], name: supervisor_name, strategy: :rest_for_one)
+  def start_supervisor(%State{name: broadway_name} = state) do
+    supervisor_name = Module.concat(broadway_name, "Supervisor")
+    {producers_names, producers_specs} = build_producers_specs(state)
+    {processors_names, processors_specs} = build_processors_specs(state, producers_names)
 
-    %State{state | supervisor: supervisor}
+    children = [
+      build_producer_supervisor_spec(producers_specs, broadway_name),
+      build_processor_supervisor_spec(processors_specs, broadway_name),
+      build_publisher_supervisor_spec(
+        build_batchers_consumers_supervisors_specs(state, processors_names),
+        broadway_name
+      )
+    ]
+
+    Supervisor.start_link(children, name: supervisor_name, strategy: :one_for_one)
   end
 
-  defp init_producers(state) do
+  defp build_producers_specs(state) do
     %State{
       name: broadway_name,
-      producers_config: producers_config,
-      supervisor: supervisor
+      producers_config: producers_config
     } = state
 
+    init_acc = %{names: [], specs: []}
+
     producers =
-      for {[module: mod, arg: args], index} <- Enum.with_index(producers_config, 1) do
+      producers_config
+      |> Enum.with_index(1)
+      |> Enum.reduce(init_acc, fn {[module: mod, arg: args], index}, acc ->
         mod_name = mod |> Module.split() |> Enum.join(".")
         name = process_name(broadway_name, mod_name, index, 1)
         opts = [name: name]
@@ -79,14 +85,13 @@ defmodule Broadway do
             id: make_ref()
           )
 
-        {:ok, _} = Supervisor.start_child(supervisor, spec)
-        name
-      end
+        %{acc | names: [name | acc.names], specs: [spec | acc.specs]}
+      end)
 
-    %State{state | producers: producers}
+    {Enum.reverse(producers.names), Enum.reverse(producers.specs)}
   end
 
-  defp init_processors(state) do
+  defp build_processors_specs(state, producers) do
     %State{
       name: broadway_name,
       module: module,
@@ -94,14 +99,15 @@ defmodule Broadway do
       context: context,
       supervisor: supervisor,
       publishers_config: publishers_config,
-      producers: producers,
       supervisor: supervisor
     } = state
 
     n_processors = Keyword.fetch!(processors_config, :stages)
 
+    init_acc = %{names: [], specs: []}
+
     processors =
-      for index <- 1..n_processors do
+      Enum.reduce(1..n_processors, init_acc, fn index, acc ->
         args = [
           publishers_config: publishers_config,
           module: module,
@@ -112,45 +118,37 @@ defmodule Broadway do
         name = process_name(broadway_name, "Processor", index, n_processors)
         opts = [name: name]
         spec = Supervisor.child_spec({Processor, [args, opts]}, id: make_ref())
-        {:ok, _} = Supervisor.start_child(supervisor, spec)
-        name
-      end
 
-    %State{state | processors: processors}
+        %{acc | names: [name | acc.names], specs: [spec | acc.specs]}
+      end)
+
+    {Enum.reverse(processors.names), Enum.reverse(processors.specs)}
   end
 
-  defp init_batchers_and_consumers(state) do
+  defp build_batchers_consumers_supervisors_specs(state, processors) do
     %State{
       name: broadway_name,
       module: module,
       context: context,
-      supervisor: supervisor,
-      publishers_config: publishers_config,
-      supervisor: supervisor,
-      processors: processors
+      publishers_config: publishers_config
     } = state
 
-    stages =
-      Enum.reduce(publishers_config, %{batchers: [], consumers: []}, fn config, acc ->
-        {batcher, batcher_spec} = init_batcher(broadway_name, config, processors)
-        {:ok, _} = Supervisor.start_child(supervisor, batcher_spec)
+    for {key, _} = config <- publishers_config do
+      {batcher, batcher_spec} = build_batcher_spec(broadway_name, config, processors)
 
-        {consumer, consumer_spec} =
-          init_consumer(broadway_name, module, context, config, batcher)
+      {_consumer, consumer_spec} =
+        build_consumer_spec(broadway_name, module, context, config, batcher)
 
-        {:ok, _} = Supervisor.start_child(supervisor, consumer_spec)
+      children = [
+        batcher_spec,
+        build_consumer_supervisor_spec([consumer_spec], broadway_name, key, batcher)
+      ]
 
-        %{acc | batchers: [batcher | acc.batchers], consumers: [consumer | acc.consumers]}
-      end)
-
-    %State{
-      state
-      | batchers: Enum.reverse(stages.batchers),
-        consumers: Enum.reverse(stages.consumers)
-    }
+      build_batcher_consumer_supervisor_spec(children, broadway_name, key)
+    end
   end
 
-  defp init_batcher(broadway_name, publisher_config, processors) do
+  defp build_batcher_spec(broadway_name, publisher_config, processors) do
     {key, options} = publisher_config
     batcher = process_name(broadway_name, "Batcher", key)
     opts = [name: batcher]
@@ -164,7 +162,7 @@ defmodule Broadway do
     {batcher, spec}
   end
 
-  defp init_consumer(broadway_name, module, context, publisher_config, batcher) do
+  defp build_consumer_spec(broadway_name, module, context, publisher_config, batcher) do
     {key, _options} = publisher_config
     consumer = process_name(broadway_name, "Consumer", key)
     opts = [name: consumer]
@@ -197,7 +195,7 @@ defmodule Broadway do
     end)
   end
 
-  defp broadway_name() do
+  defp default_broadway_name() do
     :"Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
@@ -210,5 +208,35 @@ defmodule Broadway do
     |> to_string()
     |> String.pad_leading(String.length("#{max}"), "0")
     |> (&:"#{prefix}.#{type}_#{&1}").()
+  end
+
+  defp build_producer_supervisor_spec(children, prefix) do
+    build_supervisor_spec(children, :"#{prefix}.ProducerSupervisor")
+  end
+
+  defp build_processor_supervisor_spec(children, prefix) do
+    build_supervisor_spec(children, :"#{prefix}.ProcessorSupervisor")
+  end
+
+  defp build_publisher_supervisor_spec(children, prefix) do
+    build_supervisor_spec(children, :"#{prefix}.PublisherSupervisor")
+  end
+
+  defp build_batcher_consumer_supervisor_spec(children, prefix, key) do
+    build_supervisor_spec(children, :"#{prefix}.BatcherConsumerSupervisor_#{key}")
+  end
+
+  defp build_consumer_supervisor_spec(children, prefix, key, batcher) do
+    build_supervisor_spec(children, :"#{prefix}.ConsumerSupervisor_#{key}", batcher: batcher)
+  end
+
+  defp build_supervisor_spec(children, name, extra_opts \\ []) do
+    opts = [name: name, strategy: :one_for_one]
+
+    %{
+      id: make_ref(),
+      start: {Supervisor, :start_link, [children, opts ++ extra_opts]},
+      type: :supervisor
+    }
   end
 end

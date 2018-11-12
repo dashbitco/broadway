@@ -17,7 +17,7 @@ defmodule Broadway.Consumer do
     module = Keyword.fetch!(args, :module)
     context = Keyword.fetch!(args, :context)
     batcher = Keyword.fetch!(args, :batcher)
-    subscribe_to = [{batcher, max_demand: 2, min_demand: 1}]
+    subscribe_to = [{batcher, max_demand: 2, min_demand: 1, cancel: :temporary}]
 
     {:consumer, %State{module: module, context: context}, subscribe_to: subscribe_to}
   end

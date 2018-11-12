@@ -26,7 +26,9 @@ defmodule Broadway.Batcher do
     subscribe_to =
       args
       |> Keyword.fetch!(:processors)
-      |> Enum.map(&{&1, partition: publisher_key, max_demand: 4, min_demand: 2})
+      |> Enum.map(
+        &{&1, partition: publisher_key, max_demand: 4, min_demand: 2, cancel: :temporary}
+      )
 
     schedule_flush_pending(batch_timeout)
 

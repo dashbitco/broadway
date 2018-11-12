@@ -24,7 +24,7 @@ defmodule Broadway.Processor do
     subscribe_to =
       args
       |> Keyword.fetch!(:producers)
-      |> Enum.map(&{&1, max_demand: 4, min_demand: 2})
+      |> Enum.map(&{&1, max_demand: 4, min_demand: 2, cancel: :temporary})
 
     {:producer_consumer, state,
      subscribe_to: subscribe_to,
