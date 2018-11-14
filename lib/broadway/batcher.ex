@@ -31,7 +31,7 @@ defmodule Broadway.Batcher do
     publisher_key = Keyword.fetch!(args, :publisher_key)
 
     processors = Keyword.fetch!(args, :processors)
-    processors_refs = Enum.map(processors, &Process.monitor(&1))
+    processors_refs = Enum.into(processors, %{}, fn p -> {Process.monitor(p), p} end)
 
     subscribe_to =
       Enum.map(processors, &{&1, [partition: publisher_key] ++ @subscribe_to_options})
@@ -62,32 +62,33 @@ defmodule Broadway.Batcher do
     do_handle_events(pending_events, state, 1)
   end
 
-  def handle_info({:resubscribe, {processor_name, _}}, state) do
+  def handle_info({:resubscribe, processor}, state) do
     %{
       processors_refs: processors_refs,
       publisher_key: publisher_key
     } = state
 
-    processor = Process.whereis(processor_name)
-
-    if processor && Process.alive?(processor) do
+    if Process.whereis(processor) do
       ref = Process.monitor(processor)
       opts = [to: processor, partition: publisher_key] ++ @subscribe_to_options
       GenStage.async_subscribe(self(), opts)
-      {:noreply, [], %{state | processors_refs: [ref | processors_refs]}}
+      new_refs = Map.put(processors_refs, ref, processor)
+      {:noreply, [], %{state | processors_refs: new_refs}}
     else
       schedule_resubscribe(processor)
       {:noreply, [], state}
     end
   end
 
-  def handle_info({:DOWN, ref, _, processor, _reason}, %{processors_refs: refs} = state) do
-    if ref in refs do
-      schedule_resubscribe(processor)
-      new_refs = List.delete(refs, ref)
-      {:noreply, [], %{state | processors_refs: new_refs}}
-    else
-      {:noreply, [], state}
+  def handle_info({:DOWN, ref, _, _, _reason}, %{processors_refs: refs} = state) do
+    case refs do
+      %{^ref => processor} ->
+        schedule_resubscribe(processor)
+        new_refs = Map.delete(refs, ref)
+        {:noreply, [], %{state | processors_refs: new_refs}}
+
+      _ ->
+        {:noreply, [], state}
     end
   end
 
