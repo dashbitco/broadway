@@ -86,6 +86,7 @@ defmodule BroadwayTest do
     test "handle all produced messages" do
       {:ok, _} =
         Broadway.start_link(Forwarder, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 200]]],
           publishers: [:even, :odd]
         )
@@ -100,6 +101,7 @@ defmodule BroadwayTest do
     test "forward messages to the specified batcher" do
       {:ok, _} =
         Broadway.start_link(Forwarder, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 200]]],
           publishers: [:even, :odd]
         )
@@ -118,6 +120,7 @@ defmodule BroadwayTest do
     test "generate batches based on :batch_size" do
       {:ok, _} =
         Broadway.start_link(Forwarder, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 40]]],
           publishers: [
             odd: [batch_size: 10],
@@ -137,6 +140,7 @@ defmodule BroadwayTest do
     test "generate batches with the remaining messages when :batch_timeout is reached" do
       {:ok, _} =
         Broadway.start_link(Forwarder, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 5]]],
           publishers: [
             odd: [batch_size: 10, batch_timeout: 20],
@@ -154,6 +158,7 @@ defmodule BroadwayTest do
     test "handle all generated batches" do
       {:ok, _} =
         Broadway.start_link(Forwarder, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 200]]],
           publishers: [
             odd: [batch_size: 10],
@@ -171,6 +176,7 @@ defmodule BroadwayTest do
     test "pass messages to be acknowledged" do
       {:ok, _} =
         Broadway.start_link(Forwarder, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 200]]],
           publishers: [:odd, :even]
         )
@@ -182,6 +188,7 @@ defmodule BroadwayTest do
     test "messages including extra data for acknowledgement" do
       {:ok, _} =
         Broadway.start_link(Forwarder, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 200]]],
           publishers: [:odd, :even]
         )
@@ -196,6 +203,7 @@ defmodule BroadwayTest do
     test "define a default publisher when none is defined" do
       {:ok, _} =
         Broadway.start_link(ForwarderWithNoPublisherDefined, self(),
+          name: new_unique_name(),
           producers: [[module: Counter, arg: [from: 1, to: 100]]]
         )
 
@@ -203,32 +211,45 @@ defmodule BroadwayTest do
     end
 
     test "default number of processors is schedulers_online * 2" do
-      {:ok, broadway} = Broadway.start_link(Forwarder, self(), producers: [])
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, self(),
+        name: broadway,
+        producers: []
+      )
+
       schedulers_online = :erlang.system_info(:schedulers_online)
 
       assert get_n_processors(broadway) == schedulers_online * 2
     end
 
     test "set number of processors" do
-      {:ok, broadway1} =
-        Broadway.start_link(Forwarder, self(),
-          processors: [stages: 5],
-          producers: []
-        )
+      broadway1 = new_unique_name()
 
-      {:ok, broadway2} =
-        Broadway.start_link(Forwarder, self(),
-          processors: [stages: 10],
-          producers: []
-        )
+      Broadway.start_link(Forwarder, self(),
+        name: broadway1,
+        processors: [stages: 5],
+        producers: []
+      )
+
+      broadway2 = new_unique_name()
+
+      Broadway.start_link(Forwarder, self(),
+        name: broadway2,
+        processors: [stages: 10],
+        producers: []
+      )
 
       assert get_n_processors(broadway1) == 5
       assert get_n_processors(broadway2) == 10
     end
   end
 
-  defp get_n_processors(broadway) do
-    name = :sys.get_state(broadway).name
-    Supervisor.count_children(:"#{name}.ProcessorSupervisor").workers
+  defp new_unique_name() do
+    :"Broadway#{System.unique_integer([:positive, :monotonic])}"
+  end
+
+  defp get_n_processors(broadway_name) do
+    Supervisor.count_children(:"#{broadway_name}.ProcessorSupervisor").workers
   end
 end

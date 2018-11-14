@@ -19,7 +19,6 @@ defmodule Broadway do
   end
 
   def start_link(module, context, opts) do
-    opts = Keyword.put(opts, :name, opts[:name] || default_broadway_name())
     GenServer.start_link(__MODULE__, {module, context, opts}, opts)
   end
 
@@ -193,10 +192,6 @@ defmodule Broadway do
       publisher when is_atom(publisher) -> {publisher, []}
       publisher -> publisher
     end)
-  end
-
-  defp default_broadway_name() do
-    :"Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
   defp process_name(prefix, type, key) do
