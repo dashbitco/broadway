@@ -19,7 +19,7 @@ defmodule Broadway.MixProject do
 
   defp deps do
     [
-      {:gen_stage, "~> 0.14"},
+      {:gen_stage, "~> 0.14"}
     ]
   end
 end
