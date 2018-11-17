@@ -2,12 +2,14 @@ defmodule Broadway.Message do
   @type t :: %__MODULE__{
           data: any,
           acknowledger: {module, data :: any},
-          publisher: atom
+          publisher: atom,
+          processor_pid: pid
         }
 
   defstruct data: nil,
             acknowledger: nil,
-            publisher: :default
+            publisher: :default,
+            processor_pid: nil
 
   defmodule Actions do
     alias Broadway.Message

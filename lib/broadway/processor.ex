@@ -36,9 +36,9 @@ defmodule Broadway.Processor do
 
     events =
       Enum.map(messages, fn message ->
-        {:ok, %Message{publisher: publisher} = new_message} =
-          module.handle_message(message, context)
-
+        new_message = %Message{message | processor_pid: self()}
+        {:ok, new_message} = module.handle_message(new_message, context)
+        %Message{publisher: publisher} = new_message
         {new_message, publisher}
       end)
 
