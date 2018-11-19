@@ -1,11 +1,8 @@
 defmodule Broadway.Batcher do
   use GenStage
 
-  @subscribe_to_options [
-    max_demand: 4,
-    min_demand: 2,
-    cancel: :temporary
-  ]
+  @default_min_demand 2
+  @default_max_demand 4
 
   defmodule State do
     defstruct [
@@ -13,7 +10,8 @@ defmodule Broadway.Batcher do
       :batch_timeout,
       :publisher_key,
       :pending_events,
-      :processors_refs
+      :processors_refs,
+      :subscribe_to_options
     ]
   end
 
@@ -29,12 +27,20 @@ defmodule Broadway.Batcher do
     batch_timeout = Keyword.get(args, :batch_timeout, 1000)
     batch_size = Keyword.get(args, :batch_size, 100)
     publisher_key = Keyword.fetch!(args, :publisher_key)
+    min_demand = Keyword.get(args, :min_demand, @default_min_demand)
+    max_demand = Keyword.get(args, :max_demand, @default_max_demand)
 
     processors = Keyword.fetch!(args, :processors)
     processors_refs = Enum.into(processors, %{}, fn p -> {Process.monitor(p), p} end)
 
-    subscribe_to =
-      Enum.map(processors, &{&1, [partition: publisher_key] ++ @subscribe_to_options})
+    subscribe_to_options = [
+      partition: publisher_key,
+      min_demand: min_demand,
+      max_demand: max_demand,
+      cancel: :temporary
+    ]
+
+    subscribe_to = Enum.map(processors, &{&1, subscribe_to_options})
 
     schedule_flush_pending(batch_timeout)
 
@@ -45,7 +51,8 @@ defmodule Broadway.Batcher do
         batch_size: batch_size,
         batch_timeout: batch_timeout,
         pending_events: [],
-        processors_refs: processors_refs
+        processors_refs: processors_refs,
+        subscribe_to_options: subscribe_to_options
       },
       subscribe_to: subscribe_to
     }
@@ -65,12 +72,13 @@ defmodule Broadway.Batcher do
   def handle_info({:resubscribe, processor}, state) do
     %{
       processors_refs: processors_refs,
-      publisher_key: publisher_key
+      publisher_key: publisher_key,
+      subscribe_to_options: subscribe_to_options
     } = state
 
     if Process.whereis(processor) do
       ref = Process.monitor(processor)
-      opts = [to: processor, partition: publisher_key] ++ @subscribe_to_options
+      opts = [to: processor, partition: publisher_key] ++ subscribe_to_options
       GenStage.async_subscribe(self(), opts)
       new_refs = Map.put(processors_refs, ref, processor)
       {:noreply, [], %{state | processors_refs: new_refs}}
