@@ -3,6 +3,9 @@ defmodule Broadway.Processor do
 
   alias Broadway.Message
 
+  @default_min_demand 2
+  @default_max_demand 4
+
   defmodule State do
     defstruct [:module, :context]
   end
@@ -17,14 +20,17 @@ defmodule Broadway.Processor do
 
   def init(args) do
     publishers_config = Keyword.fetch!(args, :publishers_config)
+    processors_config = Keyword.fetch!(args, :processors_config)
     context = Keyword.fetch!(args, :context)
     keys = Keyword.keys(publishers_config)
+    min_demand = Keyword.get(processors_config, :min_demand, @default_min_demand)
+    max_demand = Keyword.get(processors_config, :max_demand, @default_max_demand)
     state = %State{module: Keyword.fetch!(args, :module), context: context}
 
     subscribe_to =
       args
       |> Keyword.fetch!(:producers)
-      |> Enum.map(&{&1, max_demand: 4, min_demand: 2, cancel: :temporary})
+      |> Enum.map(&{&1, max_demand: max_demand, min_demand: min_demand, cancel: :temporary})
 
     {:producer_consumer, state,
      subscribe_to: subscribe_to,

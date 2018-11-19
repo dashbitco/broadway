@@ -109,6 +109,7 @@ defmodule Broadway do
       Enum.reduce(1..n_processors, init_acc, fn index, acc ->
         args = [
           publishers_config: publishers_config,
+          processors_config: processors_config,
           module: module,
           context: context,
           producers: producers
