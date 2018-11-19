@@ -271,7 +271,7 @@ defmodule BroadwayTest do
   describe "handle processor crash" do
     setup do
       handle_message = fn message, %{target_pid: target_pid} ->
-        if message.data == 5 do
+        if message.data == 3 do
           Process.exit(message.processor_pid, :kill)
         end
 
@@ -289,17 +289,17 @@ defmodule BroadwayTest do
       {:ok, _pid} =
         Broadway.start_link(ForwarderWithCustomHandlers, context,
           name: broadway_name,
-          processors: [stages: 1],
-          producers: [[module: Counter, arg: [from: 1, to: 20]]],
-          publishers: [default: [batch_size: 8]]
+          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          producers: [[module: Counter, arg: [from: 1, to: 6]]],
+          publishers: [default: [batch_size: 2]]
         )
 
       %{broadway_name: broadway_name}
     end
 
     test "processor will be restarted in order to handle other messages" do
-      assert_receive {:message_handled, %{data: 4, processor_pid: processor1}}
-      assert_receive {:message_handled, %{data: 9, processor_pid: processor2}}
+      assert_receive {:message_handled, %{data: 1, processor_pid: processor1}}
+      assert_receive {:message_handled, %{data: 5, processor_pid: processor2}}
       assert processor1 != processor2
     end
 
@@ -314,27 +314,24 @@ defmodule BroadwayTest do
     end
 
     test "only the messages in the crashing processor are lost" do
-      for counter <- 1..4 do
-        assert_receive {:message_handled, %{data: ^counter}}
-      end
+      assert_receive {:message_handled, %{data: 1}}
+      assert_receive {:message_handled, %{data: 2}}
 
-      for counter <- 5..8 do
-        refute_receive {:message_handled, %{data: ^counter}}
-      end
+      refute_receive {:message_handled, %{data: 3}}
+      refute_receive {:message_handled, %{data: 4}}
 
-      for counter <- 9..20 do
-        assert_receive {:message_handled, %{data: ^counter}}
-      end
+      assert_receive {:message_handled, %{data: 5}}
+      assert_receive {:message_handled, %{data: 6}}
     end
 
     test "batches are created normally (without the lost messages)" do
       assert_receive {:batch_handled, _, messages}
       values = messages |> Enum.map(& &1.data)
-      assert values == [1, 2, 3, 4, 9, 10, 11, 12]
+      assert values == [1, 2]
 
       assert_receive {:batch_handled, _, messages}
       values = messages |> Enum.map(& &1.data)
-      assert values == [13, 14, 15, 16, 17, 18, 19, 20]
+      assert values == [5, 6]
     end
   end
 
