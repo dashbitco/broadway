@@ -2,7 +2,7 @@ defmodule BroadwayTest do
   use ExUnit.Case
 
   import Integer
-  alias Broadway.Message
+  alias Broadway.{Message, Batch}
 
   defmodule Counter do
     use GenStage
@@ -332,6 +332,52 @@ defmodule BroadwayTest do
       assert_receive {:batch_handled, _, messages}
       values = messages |> Enum.map(& &1.data)
       assert values == [5, 6]
+    end
+  end
+
+  describe "handle batcher crash" do
+    setup do
+      handle_batch = fn _publisher, batch, %{target_pid: target_pid} ->
+        if Enum.at(batch.messages, 0).data == 1 do
+          Process.exit(batch.batcher, :kill)
+        end
+
+        send(target_pid, {:batch_handled, batch})
+        {:ack, successful: batch.messages, failed: []}
+      end
+
+      context = %{
+        target_pid: self(),
+        handle_batch: handle_batch
+      }
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers, context,
+          name: new_unique_name(),
+          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          producers: [[module: Counter, arg: [from: 1, to: 6]]],
+          publishers: [default: [batch_size: 2, min_demand: 0, max_demand: 2]]
+        )
+
+      :ok
+    end
+
+    test "batcher will be restarted in order to handle other messages" do
+      assert_receive {:batch_handled, %Batch{batcher: batcher1}}
+      assert_receive {:batch_handled, %Batch{batcher: batcher2}}
+      assert batcher1 != batcher2
+    end
+
+    test "only the messages in the crashing batcher are lost" do
+      assert_receive {:ack, successful, _failed}
+      values = Enum.map(successful, & &1.data)
+      assert values == [1, 2]
+
+      assert_receive {:ack, successful, _failed}
+      values = Enum.map(successful, & &1.data)
+      assert values == [5, 6]
+
+      refute_receive {:ack, _successful, _failed}
     end
   end
 
