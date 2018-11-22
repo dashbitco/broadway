@@ -1,6 +1,8 @@
 defmodule Broadway.Consumer do
   use GenStage
 
+  alias Broadway.Subscription
+
   defmodule State do
     defstruct [:module, :context, :batcher, :batcher_ref, :subscribe_to_options]
   end
@@ -17,19 +19,19 @@ defmodule Broadway.Consumer do
     module = Keyword.fetch!(args, :module)
     context = Keyword.fetch!(args, :context)
     batcher = Keyword.fetch!(args, :batcher)
-    batcher_ref = Process.monitor(batcher)
     subscribe_to_options = [max_demand: 1, min_demand: 0, cancel: :temporary]
-    subscribe_to = [{batcher, subscribe_to_options}]
+
+    ref = Subscription.subscribe(batcher, subscribe_to_options)
 
     state = %State{
       module: module,
       context: context,
       batcher: batcher,
-      batcher_ref: batcher_ref,
+      batcher_ref: ref,
       subscribe_to_options: subscribe_to_options
     }
 
-    {:consumer, state, subscribe_to: subscribe_to}
+    {:consumer, state}
   end
 
   def handle_events(events, _from, state) do
@@ -45,31 +47,24 @@ defmodule Broadway.Consumer do
     {:noreply, [], state}
   end
 
-  def handle_info({:resubscribe, batcher}, state) do
-    %{subscribe_to_options: subscribe_to_options} = state
+  def handle_info(:resubscribe, state) do
+    %{
+      subscribe_to_options: subscribe_to_options,
+      batcher: batcher
+    } = state
 
-    if Process.whereis(batcher) do
-      ref = Process.monitor(batcher)
-      opts = [to: batcher] ++ subscribe_to_options
-      GenStage.async_subscribe(self(), opts)
-      {:noreply, [], %{state | batcher_ref: ref}}
-    else
-      schedule_resubscribe(batcher)
-      {:noreply, [], state}
-    end
+    ref = Subscription.subscribe(batcher, subscribe_to_options)
+
+    {:noreply, [], %{state | batcher_ref: ref}}
   end
 
-  def handle_info({:DOWN, ref, _, _, _reason}, %State{batcher: batcher, batcher_ref: ref} = state) do
-    schedule_resubscribe(batcher)
+  def handle_info({:DOWN, ref, _, _, _reason}, %State{batcher_ref: ref} = state) do
+    Subscription.schedule_resubscribe()
     {:noreply, [], %{state | batcher_ref: nil}}
   end
 
   def handle_info(_, state) do
     {:noreply, [], state}
-  end
-
-  defp schedule_resubscribe(batcher) do
-    Process.send_after(self(), {:resubscribe, batcher}, 10)
   end
 
   defp ack_messages(successful_messages, failed_messages, context) do

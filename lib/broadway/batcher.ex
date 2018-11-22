@@ -1,6 +1,8 @@
 defmodule Broadway.Batcher do
   use GenStage
 
+  alias Broadway.Subscription
+
   @default_min_demand 2
   @default_max_demand 4
 
@@ -11,6 +13,7 @@ defmodule Broadway.Batcher do
       :publisher_key,
       :pending_events,
       :processors_refs,
+      :failed_subscriptions,
       :subscribe_to_options
     ]
   end
@@ -29,9 +32,7 @@ defmodule Broadway.Batcher do
     publisher_key = Keyword.fetch!(args, :publisher_key)
     min_demand = Keyword.get(args, :min_demand, @default_min_demand)
     max_demand = Keyword.get(args, :max_demand, @default_max_demand)
-
     processors = Keyword.fetch!(args, :processors)
-    processors_refs = Enum.into(processors, %{}, fn p -> {Process.monitor(p), p} end)
 
     subscribe_to_options = [
       partition: publisher_key,
@@ -40,7 +41,7 @@ defmodule Broadway.Batcher do
       cancel: :temporary
     ]
 
-    subscribe_to = Enum.map(processors, &{&1, subscribe_to_options})
+    {refs, failed_subscriptions} = Subscription.subscribe_all(processors, subscribe_to_options)
 
     schedule_flush_pending(batch_timeout)
 
@@ -51,10 +52,10 @@ defmodule Broadway.Batcher do
         batch_size: batch_size,
         batch_timeout: batch_timeout,
         pending_events: [],
-        processors_refs: processors_refs,
+        processors_refs: refs,
+        failed_subscriptions: failed_subscriptions,
         subscribe_to_options: subscribe_to_options
-      },
-      subscribe_to: subscribe_to
+      }
     }
   end
 
@@ -69,35 +70,49 @@ defmodule Broadway.Batcher do
     do_handle_events(pending_events, state, 1)
   end
 
-  def handle_info({:resubscribe, processor}, state) do
-    %{
+  def handle_info(:resubscribe, state) do
+    %State{
       processors_refs: processors_refs,
-      publisher_key: publisher_key,
-      subscribe_to_options: subscribe_to_options
+      subscribe_to_options: subscribe_to_options,
+      failed_subscriptions: failed_subscriptions
     } = state
 
-    if Process.whereis(processor) do
-      ref = Process.monitor(processor)
-      opts = [to: processor, partition: publisher_key] ++ subscribe_to_options
-      GenStage.async_subscribe(self(), opts)
-      new_refs = Map.put(processors_refs, ref, processor)
-      {:noreply, [], %{state | processors_refs: new_refs}}
-    else
-      schedule_resubscribe(processor)
-      {:noreply, [], state}
-    end
+    {refs, failed_subscriptions} =
+      Subscription.subscribe_all(failed_subscriptions, subscribe_to_options)
+
+    new_state = %State{
+      state
+      | processors_refs: Map.merge(processors_refs, refs),
+        failed_subscriptions: failed_subscriptions
+    }
+
+    {:noreply, [], new_state}
   end
 
-  def handle_info({:DOWN, ref, _, _, _reason}, %{processors_refs: refs} = state) do
-    case refs do
-      %{^ref => processor} ->
-        schedule_resubscribe(processor)
-        new_refs = Map.delete(refs, ref)
-        {:noreply, [], %{state | processors_refs: new_refs}}
+  def handle_info({:DOWN, ref, _, _, _reason}, state) do
+    %State{
+      processors_refs: refs,
+      failed_subscriptions: failed_subscriptions
+    } = state
 
-      _ ->
-        {:noreply, [], state}
-    end
+    new_state =
+      case refs do
+        %{^ref => processor} ->
+          if Enum.empty?(failed_subscriptions) do
+            Subscription.schedule_resubscribe()
+          end
+
+          %State{
+            state
+            | processors_refs: Map.delete(refs, ref),
+              failed_subscriptions: [processor | failed_subscriptions]
+          }
+
+        _ ->
+          state
+      end
+
+    {:noreply, [], new_state}
   end
 
   def handle_info(_, state) do
@@ -124,9 +139,5 @@ defmodule Broadway.Batcher do
 
   defp schedule_flush_pending(delay) do
     Process.send_after(self(), :flush_pending, delay)
-  end
-
-  defp schedule_resubscribe(processor) do
-    Process.send_after(self(), {:resubscribe, processor}, 10)
   end
 end
