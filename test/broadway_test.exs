@@ -16,7 +16,8 @@ defmodule BroadwayTest do
     def init(args) do
       from = Keyword.fetch!(args, :from)
       to = Keyword.fetch!(args, :to)
-      {:producer, %{to: to, counter: from}}
+      target_pid = Keyword.get(args, :target_pid)
+      {:producer, %{to: to, counter: from, target_pid: target_pid}}
     end
 
     def handle_demand(demand, %{to: to, counter: counter} = state)
@@ -24,19 +25,23 @@ defmodule BroadwayTest do
       {:noreply, [], state}
     end
 
-    def handle_demand(demand, %{to: to, counter: counter} = state) when demand > 0 do
+    def handle_demand(demand, state) when demand > 0 do
+      %{to: to, counter: counter, target_pid: target_pid} = state
       max = min(to, counter + demand - 1)
 
       events =
         Enum.map(counter..max, fn e ->
-          %Message{data: e, acknowledger: {__MODULE__, %{id: e}}}
+          %Message{data: e, acknowledger: {__MODULE__, %{id: e, target_pid: target_pid}}}
         end)
 
       {:noreply, events, %{state | counter: max + 1}}
     end
 
-    def ack(successful, failed, %{target_pid: target_pid}) do
-      send(target_pid, {:ack, successful, failed})
+    def ack(successful, failed) do
+      [%Message{acknowledger: {_, %{target_pid: target_pid}}}|_] = successful
+      if target_pid do
+        send(target_pid, {:ack, successful, failed})
+      end
     end
   end
 
@@ -200,7 +205,7 @@ defmodule BroadwayTest do
       {:ok, _} =
         Broadway.start_link(Forwarder, %{target_pid: self()},
           name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 200]]],
+          producers: [[module: Counter, arg: [from: 1, to: 200, target_pid: self()]]],
           publishers: [:odd, :even]
         )
 
@@ -212,7 +217,7 @@ defmodule BroadwayTest do
       {:ok, _} =
         Broadway.start_link(Forwarder, %{target_pid: self()},
           name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 200]]],
+          producers: [[module: Counter, arg: [from: 1, to: 200, target_pid: self()]]],
           publishers: [:odd, :even]
         )
 
@@ -398,7 +403,7 @@ defmodule BroadwayTest do
         Broadway.start_link(ForwarderWithCustomHandlers, context,
           name: new_unique_name(),
           processors: [stages: 1, min_demand: 1, max_demand: 2],
-          producers: [[module: Counter, arg: [from: 1, to: 6]]],
+          producers: [[module: Counter, arg: [from: 1, to: 6, target_pid: self()]]],
           publishers: [default: [batch_size: 2, min_demand: 0, max_demand: 2]]
         )
 

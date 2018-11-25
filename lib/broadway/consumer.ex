@@ -42,7 +42,7 @@ defmodule Broadway.Consumer do
     {:ack, successful: successful_messages, failed: failed_messages} =
       module.handle_batch(publisher_key, batch, context)
 
-    ack_messages(successful_messages, failed_messages, context)
+    ack_messages(successful_messages, failed_messages)
 
     {:noreply, [], state}
   end
@@ -67,11 +67,11 @@ defmodule Broadway.Consumer do
     {:noreply, [], state}
   end
 
-  defp ack_messages(successful_messages, failed_messages, context) do
+  defp ack_messages(successful_messages, failed_messages) do
     %{}
     |> reduce_messages_grouping_by_acknowledger(successful_messages, :successful)
     |> reduce_messages_grouping_by_acknowledger(failed_messages, :failed)
-    |> Enum.each(&call_ack(&1, context))
+    |> Enum.each(&call_ack(&1))
   end
 
   defp reduce_messages_grouping_by_acknowledger(grouped_messages, messages, key) do
@@ -87,7 +87,7 @@ defmodule Broadway.Consumer do
     |> (&Map.put(acc, acknowledger, &1)).()
   end
 
-  defp call_ack({acknowledger, %{successful: successful, failed: failed}}, context) do
-    acknowledger.ack(Enum.reverse(successful), Enum.reverse(failed), context)
+  defp call_ack({acknowledger, %{successful: successful, failed: failed}}) do
+    acknowledger.ack(Enum.reverse(successful), Enum.reverse(failed))
   end
 end
