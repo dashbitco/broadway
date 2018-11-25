@@ -266,6 +266,49 @@ defmodule BroadwayTest do
       assert get_n_processors(broadway1) == 5
       assert get_n_processors(broadway2) == 10
     end
+
+    test "default number of consumers is 1 per publisher" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{target_pid: self()},
+        name: broadway,
+        producers: [],
+        publishers: [:p1, :p2]
+      )
+
+      assert get_n_consumers(broadway, :p1) == 1
+      assert get_n_consumers(broadway, :p2) == 1
+    end
+
+    test "set number of consumers" do
+      broadway1 = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{target_pid: self()},
+        name: broadway1,
+        producers: [],
+        publishers: [
+          p1: [stages: 2],
+          p2: [stages: 3]
+        ]
+      )
+
+      broadway2 = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{target_pid: self()},
+        name: broadway2,
+        producers: [],
+        publishers: [
+          p1: [stages: 4],
+          p2: [stages: 6]
+        ]
+      )
+
+      assert get_n_consumers(broadway1, :p1) == 2
+      assert get_n_consumers(broadway1, :p2) == 3
+
+      assert get_n_consumers(broadway2, :p1) == 4
+      assert get_n_consumers(broadway2, :p2) == 6
+    end
   end
 
   describe "handle processor crash" do
@@ -422,5 +465,9 @@ defmodule BroadwayTest do
 
   defp get_n_processors(broadway_name) do
     Supervisor.count_children(:"#{broadway_name}.ProcessorSupervisor").workers
+  end
+
+  defp get_n_consumers(broadway_name, key) do
+    Supervisor.count_children(:"#{broadway_name}.ConsumerSupervisor_#{key}").workers
   end
 end

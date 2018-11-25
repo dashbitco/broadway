@@ -143,12 +143,11 @@ defmodule Broadway do
     for {key, _} = config <- publishers_config do
       {batcher, batcher_spec} = build_batcher_spec(broadway_name, config, processors)
 
-      {_consumer, consumer_spec} =
-        build_consumer_spec(broadway_name, module, context, config, batcher)
+      consumers_specs = build_consumers_specs(broadway_name, module, context, config, batcher)
 
       children = [
         batcher_spec,
-        build_consumer_supervisor_spec([consumer_spec], broadway_name, key, batcher)
+        build_consumer_supervisor_spec(consumers_specs, broadway_name, key, batcher)
       ]
 
       build_batcher_consumer_supervisor_spec(children, broadway_name, key)
@@ -169,18 +168,25 @@ defmodule Broadway do
     {batcher, spec}
   end
 
-  defp build_consumer_spec(broadway_name, module, context, publisher_config, batcher) do
-    {key, _options} = publisher_config
-    consumer = process_name(broadway_name, "Consumer", key)
-    opts = [name: consumer]
+  defp build_consumers_specs(broadway_name, module, context, publisher_config, batcher) do
+    {key, options} = publisher_config
+    n_consumers = Keyword.get(options, :stages, 1)
 
-    spec =
+    for index <- 1..n_consumers do
+      args = [
+        module: module,
+        context: context,
+        batcher: batcher
+      ]
+
+      name = process_name(broadway_name, "Consumer_#{key}", index, n_consumers)
+      opts = [name: name]
+
       Supervisor.child_spec(
-        {Consumer, [[module: module, context: context, batcher: batcher], opts]},
+        {Consumer, [args, opts]},
         id: make_ref()
       )
-
-    {consumer, spec}
+    end
   end
 
   defp normalize_processors_config(nil) do
