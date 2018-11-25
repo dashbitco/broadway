@@ -381,6 +381,41 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "shutdown" do
+    test "shutting down broadway waits until the Broadway.Supervisor is down" do
+      Process.flag(:trap_exit, true)
+
+      {:ok, pid} =
+        Broadway.start_link(ForwarderWithNoPublisherDefined, %{target_pid: self()},
+          name: new_unique_name(),
+          producers: [[module: Counter, arg: [from: 1, to: 10]]]
+        )
+
+      %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
+
+      Process.exit(pid, :shutdown)
+
+      assert_receive {:EXIT, ^pid, :shutdown}
+      assert Process.alive?(supervisor_pid) == false
+    end
+
+    @tag :capture_log
+    test "killing the supervisor brings down the broadway GenServer" do
+      Process.flag(:trap_exit, true)
+
+      {:ok, pid} =
+        Broadway.start_link(ForwarderWithNoPublisherDefined, %{target_pid: self()},
+          name: new_unique_name(),
+          producers: [[module: Counter, arg: [from: 1, to: 10]]]
+        )
+
+      %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
+
+      Process.exit(supervisor_pid, :kill)
+      assert_receive {:EXIT, ^pid, :killed}
+    end
+  end
+
   defp new_unique_name() do
     :"Broadway#{System.unique_integer([:positive, :monotonic])}"
   end

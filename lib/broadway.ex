@@ -1,5 +1,5 @@
 defmodule Broadway do
-  use GenServer
+  use GenServer, shutdown: :infinity
 
   alias Broadway.{Processor, Batcher, Consumer, Message}
 
@@ -15,7 +15,7 @@ defmodule Broadway do
               producers_config: [],
               publishers_config: [],
               context: nil,
-              supervisor: nil
+              supervisor_pid: nil
   end
 
   def start_link(module, context, opts) do
@@ -23,10 +23,11 @@ defmodule Broadway do
   end
 
   def init({module, context, opts}) do
+    Process.flag(:trap_exit, true)
     state = init_state(module, context, opts)
-    {:ok, supervisor} = start_supervisor(state)
+    {:ok, supervisor_pid} = start_supervisor(state)
 
-    {:ok, %{state | supervisor: supervisor}}
+    {:ok, %State{state | supervisor_pid: supervisor_pid}}
   end
 
   defp init_state(module, context, opts) do
@@ -60,6 +61,14 @@ defmodule Broadway do
     ]
 
     Supervisor.start_link(children, name: supervisor_name, strategy: :one_for_one)
+  end
+
+  def handle_info({:EXIT, _, reason}, state) do
+    {:stop, reason, state}
+  end
+
+  def handle_info(_, state) do
+    {:noreply, state}
   end
 
   defp build_producers_specs(state) do
@@ -96,9 +105,7 @@ defmodule Broadway do
       module: module,
       processors_config: processors_config,
       context: context,
-      supervisor: supervisor,
-      publishers_config: publishers_config,
-      supervisor: supervisor
+      publishers_config: publishers_config
     } = state
 
     n_processors = Keyword.fetch!(processors_config, :stages)
@@ -234,5 +241,15 @@ defmodule Broadway do
       start: {Supervisor, :start_link, [children, opts ++ extra_opts]},
       type: :supervisor
     }
+  end
+
+  def terminate(_reason, %State{supervisor_pid: supervisor_pid}) do
+    ref = Process.monitor(supervisor_pid)
+    Process.exit(supervisor_pid, :shutdown)
+
+    receive do
+      {:DOWN, ^ref, _, _, _} ->
+        :ok
+    end
   end
 end
