@@ -2,7 +2,7 @@ defmodule BroadwayTest do
   use ExUnit.Case
 
   import Integer
-  alias Broadway.{Message, BatchInfo}
+  alias Broadway.{Producer, Message, BatchInfo}
 
   defmodule Counter do
     use GenStage
@@ -112,7 +112,6 @@ defmodule BroadwayTest do
   end
 
   describe "producer" do
-
     test "multiple producers" do
       {:ok, _} =
         Broadway.start_link(Forwarder, %{test_pid: self()},
@@ -126,6 +125,30 @@ defmodule BroadwayTest do
 
       for counter <- 1..20 do
         assert_receive {:message_handled, ^counter}
+        assert_receive {:message_handled, ^counter}
+      end
+
+      refute_receive {:message_handled, _}
+    end
+
+    test "push_message/2" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{test_pid: self()},
+        name: broadway,
+        producers: [
+          counter1: [module: Counter, arg: [from: 1, to: 20]]
+        ],
+        publishers: [:even, :odd]
+      )
+
+      producer = :"#{broadway}.Producer_counter1"
+      message1 = %Message{data: 21, acknowledger: {Counter, %{id: 21, test_pid: self()}}}
+      message2 = %Message{data: 22, acknowledger: {Counter, %{id: 22, test_pid: self()}}}
+      Producer.push_message(producer, message1)
+      Producer.push_message(producer, message2)
+
+      for counter <- 1..22 do
         assert_receive {:message_handled, ^counter}
       end
 

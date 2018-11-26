@@ -1,7 +1,7 @@
 defmodule Broadway do
   use GenServer, shutdown: :infinity
 
-  alias Broadway.{Processor, Batcher, Consumer, Message, BatchInfo}
+  alias Broadway.{Producer, Processor, Batcher, Consumer, Message, BatchInfo}
 
   @callback handle_message(message :: Message.t(), context :: any) ::
               {:ok, message :: Message.t()}
@@ -105,13 +105,12 @@ defmodule Broadway do
     producers =
       producers_config
       |> Enum.reduce(init_acc, fn {key, [module: mod, arg: args]}, acc ->
-        mod_name = mod |> Module.split() |> Enum.join(".")
-        name = process_name(broadway_name, mod_name, key)
+        name = process_name(broadway_name, "Producer", key)
         opts = [name: name]
 
         spec =
           Supervisor.child_spec(
-            %{start: {mod, :start_link, [args, opts]}},
+            %{start: {Producer, :start_link, [[module: mod, args: args], opts]}},
             id: make_ref()
           )
 
