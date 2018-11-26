@@ -18,6 +18,25 @@ defmodule Broadway do
               supervisor_pid: nil
   end
 
+  @doc false
+  defmacro __using__(opts) do
+    quote location: :keep, bind_quoted: [opts: opts, module: __CALLER__.module] do
+      @behaviour Broadway
+
+      @doc false
+      def child_spec(arg) do
+        default = %{
+          id: unquote(module),
+          start: {Broadway, :start_link, [__MODULE__, %{}, arg]}
+        }
+
+        Supervisor.child_spec(default, unquote(Macro.escape(opts)))
+      end
+
+      defoverridable child_spec: 1
+    end
+  end
+
   def start_link(module, context, opts) do
     GenServer.start_link(__MODULE__, {module, context, opts}, opts)
   end

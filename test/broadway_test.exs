@@ -47,7 +47,7 @@ defmodule BroadwayTest do
   end
 
   defmodule Forwarder do
-    @behaviour Broadway
+    use Broadway
 
     import Message.Actions
 
@@ -77,7 +77,7 @@ defmodule BroadwayTest do
   end
 
   defmodule ForwarderWithNoPublisherDefined do
-    @behaviour Broadway
+    use Broadway
 
     def handle_message(message, _context) do
       {:ok, message}
@@ -90,7 +90,7 @@ defmodule BroadwayTest do
   end
 
   defmodule ForwarderWithCustomHandlers do
-    @behaviour Broadway
+    use Broadway
 
     def handle_message(message, %{handle_message: handler} = context) do
       handler.(message, context)
@@ -462,6 +462,32 @@ defmodule BroadwayTest do
 
       Process.exit(supervisor_pid, :kill)
       assert_receive {:EXIT, ^pid, :killed}
+    end
+  end
+
+  describe "use Broadway" do
+    test "generates child_spec/1" do
+      defmodule MyBroadway do
+        use Broadway
+        def handle_message(_, _), do: nil
+        def handle_batch(_, _, _), do: nil
+      end
+
+      assert MyBroadway.child_spec(:arg) == %{
+               id: BroadwayTest.MyBroadway,
+               start: {Broadway, :start_link, [BroadwayTest.MyBroadway, %{}, :arg]}
+             }
+    end
+
+    test "generates child_spec/1 with overriden options" do
+      defmodule BroadwayWithCustomOptions do
+        use Broadway, id: :some_id
+
+        def handle_message(_, _), do: nil
+        def handle_batch(_, _, _), do: nil
+      end
+
+      assert BroadwayWithCustomOptions.child_spec(:arg).id == :some_id
     end
   end
 
