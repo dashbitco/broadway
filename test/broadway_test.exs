@@ -111,6 +111,28 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "producer" do
+
+    test "multiple producers" do
+      {:ok, _} =
+        Broadway.start_link(Forwarder, %{test_pid: self()},
+          name: new_unique_name(),
+          producers: [
+            counter1: [module: Counter, arg: [from: 1, to: 20]],
+            counter2: [module: Counter, arg: [from: 1, to: 20]]
+          ],
+          publishers: [:even, :odd]
+        )
+
+      for counter <- 1..20 do
+        assert_receive {:message_handled, ^counter}
+        assert_receive {:message_handled, ^counter}
+      end
+
+      refute_receive {:message_handled, _}
+    end
+  end
+
   describe "processor" do
     test "handle all produced messages" do
       {:ok, _} =

@@ -55,7 +55,7 @@ defmodule Broadway do
 
   defp init_state(module, context, opts) do
     broadway_name = Keyword.fetch!(opts, :name)
-    producers_config = Keyword.fetch!(opts, :producers)
+    producers_config = Keyword.fetch!(opts, :producers) |> normalize_producers_config()
     publishers_config = Keyword.get(opts, :publishers) |> normalize_publishers_config()
     processors_config = Keyword.get(opts, :processors) |> normalize_processors_config()
 
@@ -104,10 +104,9 @@ defmodule Broadway do
 
     producers =
       producers_config
-      |> Enum.with_index(1)
-      |> Enum.reduce(init_acc, fn {[module: mod, arg: args], index}, acc ->
+      |> Enum.reduce(init_acc, fn {key, [module: mod, arg: args]}, acc ->
         mod_name = mod |> Module.split() |> Enum.join(".")
-        name = process_name(broadway_name, mod_name, index, 1)
+        name = process_name(broadway_name, mod_name, key)
         opts = [name: name]
 
         spec =
@@ -228,6 +227,17 @@ defmodule Broadway do
     Enum.map(publishers, fn
       publisher when is_atom(publisher) -> {publisher, []}
       publisher -> publisher
+    end)
+  end
+
+  defp normalize_producers_config(producers) do
+    if length(producers) > 1 && !Enum.all?(producers, &is_tuple/1) do
+      raise "Multiple producers must be named"
+    end
+
+    Enum.map(producers, fn
+      producer when is_list(producer) -> {:default, producer}
+      producer -> producer
     end)
   end
 
