@@ -2,7 +2,7 @@ defmodule BroadwayTest do
   use ExUnit.Case
 
   import Integer
-  alias Broadway.{Message, Batch}
+  alias Broadway.{Message, BatchInfo}
 
   defmodule Counter do
     use GenStage
@@ -70,9 +70,9 @@ defmodule BroadwayTest do
        |> put_publisher(:even)}
     end
 
-    def handle_batch(publisher, batch, %{test_pid: test_pid}) do
-      send(test_pid, {:batch_handled, publisher, batch.messages})
-      {:ack, successful: batch.messages, failed: []}
+    def handle_batch(publisher, messages, _, %{test_pid: test_pid}) do
+      send(test_pid, {:batch_handled, publisher, messages})
+      {:ack, successful: messages, failed: []}
     end
   end
 
@@ -83,9 +83,9 @@ defmodule BroadwayTest do
       {:ok, message}
     end
 
-    def handle_batch(publisher, batch, %{test_pid: test_pid}) do
-      send(test_pid, {:batch_handled, publisher, batch.messages})
-      {:ack, successful: batch.messages, failed: []}
+    def handle_batch(publisher, messages, _, %{test_pid: test_pid}) do
+      send(test_pid, {:batch_handled, publisher, messages})
+      {:ack, successful: messages, failed: []}
     end
   end
 
@@ -101,13 +101,13 @@ defmodule BroadwayTest do
       {:ok, message}
     end
 
-    def handle_batch(publisher, batch, %{handle_batch: handler} = context) do
-      handler.(publisher, batch, context)
+    def handle_batch(publisher, messages, batch_info, %{handle_batch: handler} = context) do
+      handler.(publisher, messages, batch_info, context)
     end
 
-    def handle_batch(publisher, batch, %{test_pid: test_pid}) do
-      send(test_pid, {:batch_handled, publisher, batch.messages})
-      {:ack, successful: batch.messages, failed: []}
+    def handle_batch(publisher, messages, batch_info, %{test_pid: test_pid}) do
+      send(test_pid, {:batch_handled, publisher, messages, batch_info})
+      {:ack, successful: messages, failed: []}
     end
   end
 
@@ -356,8 +356,8 @@ defmodule BroadwayTest do
       batcher_name = :"#{broadway_name}.Batcher_default"
       batcher_pid = Process.whereis(batcher_name)
 
-      assert_receive {:batch_handled, _, _}
-      assert_receive {:batch_handled, _, _}
+      assert_receive {:batch_handled, _, _, _}
+      assert_receive {:batch_handled, _, _, _}
 
       assert batcher_pid == Process.whereis(batcher_name)
     end
@@ -374,11 +374,11 @@ defmodule BroadwayTest do
     end
 
     test "batches are created normally (without the lost messages)" do
-      assert_receive {:batch_handled, _, messages}
+      assert_receive {:batch_handled, _, messages, _}
       values = messages |> Enum.map(& &1.data)
       assert values == [1, 2]
 
-      assert_receive {:batch_handled, _, messages}
+      assert_receive {:batch_handled, _, messages, _}
       values = messages |> Enum.map(& &1.data)
       assert values == [5, 6]
     end
@@ -386,13 +386,13 @@ defmodule BroadwayTest do
 
   describe "handle batcher crash" do
     setup do
-      handle_batch = fn _publisher, batch, %{test_pid: test_pid} ->
-        if Enum.at(batch.messages, 0).data == 1 do
-          Process.exit(batch.batcher, :kill)
+      handle_batch = fn _publisher, messages, batch_info, %{test_pid: test_pid} ->
+        if Enum.at(messages, 0).data == 1 do
+          Process.exit(batch_info.batcher, :kill)
         end
 
-        send(test_pid, {:batch_handled, batch})
-        {:ack, successful: batch.messages, failed: []}
+        send(test_pid, {:batch_handled, messages, batch_info})
+        {:ack, successful: messages, failed: []}
       end
 
       context = %{
@@ -412,8 +412,8 @@ defmodule BroadwayTest do
     end
 
     test "batcher will be restarted in order to handle other messages" do
-      assert_receive {:batch_handled, %Batch{batcher: batcher1}}
-      assert_receive {:batch_handled, %Batch{batcher: batcher2}}
+      assert_receive {:batch_handled, _, %BatchInfo{batcher: batcher1}}
+      assert_receive {:batch_handled, _, %BatchInfo{batcher: batcher2}}
       assert batcher1 != batcher2
     end
 
@@ -470,7 +470,7 @@ defmodule BroadwayTest do
       defmodule MyBroadway do
         use Broadway
         def handle_message(_, _), do: nil
-        def handle_batch(_, _, _), do: nil
+        def handle_batch(_, _, _, _), do: nil
       end
 
       assert MyBroadway.child_spec(:arg) == %{
@@ -484,7 +484,7 @@ defmodule BroadwayTest do
         use Broadway, id: :some_id
 
         def handle_message(_, _), do: nil
-        def handle_batch(_, _, _), do: nil
+        def handle_batch(_, _, _, _), do: nil
       end
 
       assert BroadwayWithCustomOptions.child_spec(:arg).id == :some_id

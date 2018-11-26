@@ -1,12 +1,16 @@
 defmodule Broadway do
   use GenServer, shutdown: :infinity
 
-  alias Broadway.{Processor, Batcher, Consumer, Message}
+  alias Broadway.{Processor, Batcher, Consumer, Message, BatchInfo}
 
   @callback handle_message(message :: Message.t(), context :: any) ::
               {:ok, message :: Message.t()}
-  @callback handle_batch(publisher :: atom, batch :: Batch.t(), context :: any) ::
-              {:ack, successful: [Message.t()], failed: [Message.t()]}
+  @callback handle_batch(
+              publisher :: atom,
+              messages :: [Message.t()],
+              BatchInfo.t(),
+              context :: any
+            ) :: {:ack, successful: [Message.t()], failed: [Message.t()]}
 
   defmodule State do
     defstruct name: nil,

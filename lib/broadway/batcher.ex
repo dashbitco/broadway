@@ -130,7 +130,7 @@ defmodule Broadway.Batcher do
     {batch_events, pending_events} = Enum.split(events, batch_size)
 
     if length(batch_events) >= min_size do
-      {[%Broadway.Batch{messages: batch_events, publisher_key: publisher_key, batcher: self()}],
+      {[{batch_events, %Broadway.BatchInfo{publisher_key: publisher_key, batcher: self()}}],
        pending_events}
     else
       {[], events}
