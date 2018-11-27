@@ -4,6 +4,22 @@ defmodule BroadwayTest do
   import Integer
   alias Broadway.{Producer, Message, BatchInfo}
 
+  defmodule ManualProducer do
+    use GenStage
+
+    def start_link(args, opts \\ []) do
+      GenStage.start_link(__MODULE__, args, opts)
+    end
+
+    def init(_args) do
+      {:producer, %{}}
+    end
+
+    def handle_demand(_demand, state) do
+      {:noreply, [], state}
+    end
+  end
+
   defmodule Counter do
     use GenStage
 
@@ -113,22 +129,25 @@ defmodule BroadwayTest do
 
   describe "producer" do
     test "multiple producers" do
-      {:ok, _} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
-          name: new_unique_name(),
-          producers: [
-            counter1: [module: Counter, arg: [from: 1, to: 20]],
-            counter2: [module: Counter, arg: [from: 1, to: 20]]
-          ],
-          publishers: [:even, :odd]
-        )
+      broadway = new_unique_name()
 
-      for counter <- 1..20 do
-        assert_receive {:message_handled, ^counter}
-        assert_receive {:message_handled, ^counter}
-      end
+      Broadway.start_link(Forwarder, %{test_pid: self()},
+        name: broadway,
+        producers: [
+          producer1: [module: ManualProducer, arg: []],
+          producer2: [module: ManualProducer, arg: []]
+        ],
+        publishers: [:even, :odd]
+      )
 
-      refute_receive {:message_handled, _}
+      producer1 = get_producer(broadway, :producer1)
+      producer2 = get_producer(broadway, :producer2)
+
+      Producer.push_message(producer1, %Message{data: 1})
+      Producer.push_message(producer2, %Message{data: 3})
+
+      assert_receive {:message_handled, 1}
+      assert_receive {:message_handled, 3}
     end
 
     test "push_message/2" do
@@ -136,23 +155,17 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [
-          counter1: [module: Counter, arg: [from: 1, to: 20]]
-        ],
+        producers: [[module: ManualProducer, arg: []]],
         publishers: [:even, :odd]
       )
 
-      producer = :"#{broadway}.Producer_counter1"
-      message1 = %Message{data: 21, acknowledger: {Counter, %{id: 21, test_pid: self()}}}
-      message2 = %Message{data: 22, acknowledger: {Counter, %{id: 22, test_pid: self()}}}
-      Producer.push_message(producer, message1)
-      Producer.push_message(producer, message2)
+      producer = get_producer(broadway, :default)
 
-      for counter <- 1..22 do
-        assert_receive {:message_handled, ^counter}
-      end
+      Producer.push_message(producer, %Message{data: 1})
+      Producer.push_message(producer, %Message{data: 3})
 
-      refute_receive {:message_handled, _}
+      assert_receive {:message_handled, 1}
+      assert_receive {:message_handled, 3}
     end
   end
 
@@ -538,6 +551,10 @@ defmodule BroadwayTest do
 
   defp new_unique_name() do
     :"Broadway#{System.unique_integer([:positive, :monotonic])}"
+  end
+
+  defp get_producer(broadway_name, key) do
+    :"#{broadway_name}.Producer_#{key}"
   end
 
   defp get_n_processors(broadway_name) do

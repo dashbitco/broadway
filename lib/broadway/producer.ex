@@ -10,7 +10,7 @@ defmodule Broadway.Producer do
   end
 
   def push_message(producer, message) do
-    GenStage.cast(producer, {:push_message, message})
+    GenStage.call(producer, {:push_message, message})
   end
 
   def init(args) do
@@ -30,7 +30,7 @@ defmodule Broadway.Producer do
     end
   end
 
-  def handle_cast({:push_message, message}, state) do
-    {:noreply, [message], state}
+  def handle_call({:push_message, message}, _from, state) do
+    {:reply, :ok, [message], state}
   end
 end
