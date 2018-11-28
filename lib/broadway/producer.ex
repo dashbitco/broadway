@@ -9,8 +9,8 @@ defmodule Broadway.Producer do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
-  def push_message(producer, message) do
-    GenStage.call(producer, {:push_message, message})
+  def push_messages(producer, messages) do
+    GenStage.call(producer, {:push_messages, messages})
   end
 
   def init(args) do
@@ -30,7 +30,7 @@ defmodule Broadway.Producer do
     end
   end
 
-  def handle_call({:push_message, message}, _from, state) do
-    {:reply, :ok, [message], state}
+  def handle_call({:push_messages, messages}, _from, state) do
+    {:reply, :ok, messages, state}
   end
 end
