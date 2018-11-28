@@ -30,48 +30,6 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule Counter do
-    use GenStage
-
-    @behaviour Broadway.Acknowledger
-
-    def start_link(args, opts \\ []) do
-      GenStage.start_link(__MODULE__, args, opts)
-    end
-
-    def init(args) do
-      from = Keyword.fetch!(args, :from)
-      to = Keyword.fetch!(args, :to)
-      test_pid = Keyword.get(args, :test_pid)
-      {:producer, %{to: to, counter: from, test_pid: test_pid}}
-    end
-
-    def handle_demand(demand, %{to: to, counter: counter} = state)
-        when demand > 0 and counter > to do
-      {:noreply, [], state}
-    end
-
-    def handle_demand(demand, state) when demand > 0 do
-      %{to: to, counter: counter, test_pid: test_pid} = state
-      max = min(to, counter + demand - 1)
-
-      events =
-        Enum.map(counter..max, fn e ->
-          %Message{data: e, acknowledger: {__MODULE__, %{id: e, test_pid: test_pid}}}
-        end)
-
-      {:noreply, events, %{state | counter: max + 1}}
-    end
-
-    def ack(successful, failed) do
-      [%Message{acknowledger: {_, %{test_pid: test_pid}}} | _] = successful
-
-      if test_pid do
-        send(test_pid, {:ack, successful, failed})
-      end
-    end
-  end
-
   defmodule Forwarder do
     use Broadway
 
@@ -312,7 +270,7 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "publisher/batcher" do
+  describe "publisher" do
     setup do
       broadway = new_unique_name()
 
@@ -341,7 +299,7 @@ defmodule BroadwayTest do
       refute_receive {:batch_handled, _, _}
     end
 
-    test "generate batches with the remaining messages when :batch_timeout is reached", %{
+    test "generate batches with the remaining messages after :batch_timeout is reached", %{
       producer: producer
     } do
       push_messages(producer, 1..5)
@@ -350,46 +308,21 @@ defmodule BroadwayTest do
       assert_receive {:batch_handled, :even, messages} when length(messages) == 2
       refute_receive {:batch_handled, _, _}
     end
-  end
 
-  describe "publisher/consumer" do
-    test "handle all generated batches" do
-      {:ok, _} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
-          name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 200]]],
-          publishers: [
-            odd: [batch_size: 10],
-            even: [batch_size: 10]
-          ]
-        )
-
-      for _ <- 1..20 do
-        assert_receive {:batch_handled, _, _}
-      end
-
-      refute_receive {:batch_handled, _, _}
-    end
-
-    test "pass messages to be acknowledged" do
-      {:ok, _} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
-          name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 200, test_pid: self()]]],
-          publishers: [:odd, :even]
-        )
+    test "pass all messages to the acknowledger", %{producer: producer} do
+      push_messages(producer, [1, 3, 5, 7, 9, 11, 13, 15, 17, 19])
 
       assert_receive {:ack, successful, _failed}
-      assert length(successful) == 100
+      assert length(successful) == 10
+
+      push_messages(producer, [2, 4, 6, 8, 10])
+
+      assert_receive {:ack, successful, _failed}
+      assert length(successful) == 5
     end
 
-    test "messages including extra data for acknowledgement" do
-      {:ok, _} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
-          name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 200, test_pid: self()]]],
-          publishers: [:odd, :even]
-        )
+    test "pass all messages to the acknowledger, including extra data", %{producer: producer} do
+      push_messages(producer, [2, 4, 6, 8, 10])
 
       assert_receive {:ack, successful, _failed}
 
@@ -489,7 +422,7 @@ defmodule BroadwayTest do
   describe "handle batcher crash" do
     setup do
       handle_batch = fn _publisher, messages, batch_info, %{test_pid: test_pid} ->
-        if Enum.at(messages, 0).data == 1 do
+        if Enum.any?(messages, fn msg -> msg.data == :kill_batcher end) do
           Process.exit(batch_info.batcher, :kill)
         end
 
@@ -502,31 +435,54 @@ defmodule BroadwayTest do
         handle_batch: handle_batch
       }
 
+      broadway_name = new_unique_name()
+
       {:ok, _pid} =
         Broadway.start_link(ForwarderWithCustomHandlers, context,
-          name: new_unique_name(),
+          name: broadway_name,
           processors: [stages: 1, min_demand: 1, max_demand: 2],
-          producers: [[module: Counter, arg: [from: 1, to: 6, test_pid: self()]]],
+          producers: [[module: ManualProducer, arg: []]],
           publishers: [default: [batch_size: 2, min_demand: 0, max_demand: 2]]
         )
 
-      :ok
+      producer = get_producer(broadway_name, :default)
+      processor = get_processor(broadway_name, 1)
+      batcher = get_batcher(broadway_name, :default)
+
+      %{producer: producer, processor: processor, batcher: batcher}
     end
 
-    test "batcher will be restarted in order to handle other messages" do
+    test "batcher will be restarted in order to handle other messages", %{producer: producer} do
+      push_messages(producer, [1, 2])
       assert_receive {:batch_handled, _, %BatchInfo{batcher: batcher1}}
+
+      ref = Process.monitor(batcher1)
+
+      push_messages(producer, [:kill_batcher, 3])
+      assert_receive {:batch_handled, _, %BatchInfo{batcher: ^batcher1}}
+
+      assert_receive {:DOWN, ^ref, _, obj, _}
+
+      push_messages(producer, [4, 5])
       assert_receive {:batch_handled, _, %BatchInfo{batcher: batcher2}}
+
       assert batcher1 != batcher2
     end
 
-    test "only the messages in the crashing batcher are lost" do
+    test "only the messages in the crashing batcher are lost", %{producer: producer} do
+      push_messages(producer, [1, 2, :kill_batcher, 3, 4, 5, 6, 7])
+
       assert_receive {:ack, successful, _failed}
       values = Enum.map(successful, & &1.data)
       assert values == [1, 2]
 
       assert_receive {:ack, successful, _failed}
       values = Enum.map(successful, & &1.data)
-      assert values == [5, 6]
+      assert values == [:kill_batcher, 3]
+
+      assert_receive {:ack, successful, _failed}
+      values = Enum.map(successful, & &1.data)
+      assert values == [6, 7]
 
       refute_receive {:ack, _successful, _failed}
     end
@@ -539,7 +495,7 @@ defmodule BroadwayTest do
       {:ok, pid} =
         Broadway.start_link(ForwarderWithNoPublisherDefined, %{test_pid: self()},
           name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 10]]]
+          producers: [[module: ManualProducer, arg: []]]
         )
 
       %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
@@ -557,7 +513,7 @@ defmodule BroadwayTest do
       {:ok, pid} =
         Broadway.start_link(ForwarderWithNoPublisherDefined, %{test_pid: self()},
           name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 10]]]
+          producers: [[module: ManualProducer, arg: []]]
         )
 
       %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
