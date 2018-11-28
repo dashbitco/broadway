@@ -137,6 +137,100 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "use Broadway" do
+    test "generates child_spec/1" do
+      defmodule MyBroadway do
+        use Broadway
+        def handle_message(_, _), do: nil
+        def handle_batch(_, _, _, _), do: nil
+      end
+
+      assert MyBroadway.child_spec(:arg) == %{
+               id: BroadwayTest.MyBroadway,
+               start: {Broadway, :start_link, [BroadwayTest.MyBroadway, %{}, :arg]}
+             }
+    end
+
+    test "generates child_spec/1 with overriden options" do
+      defmodule MyBroadwayWithCustomOptions do
+        use Broadway, id: :some_id
+
+        def handle_message(_, _), do: nil
+        def handle_batch(_, _, _, _), do: nil
+      end
+
+      assert MyBroadwayWithCustomOptions.child_spec(:arg).id == :some_id
+    end
+  end
+
+  describe "broadway config" do
+    test "default number of processors is schedulers_online * 2" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{},
+        name: broadway,
+        producers: []
+      )
+
+      schedulers_online = :erlang.system_info(:schedulers_online)
+
+      assert get_n_processors(broadway) == schedulers_online * 2
+    end
+
+    test "set number of processors" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{},
+        name: broadway,
+        processors: [stages: 13],
+        producers: []
+      )
+
+      assert get_n_processors(broadway) == 13
+    end
+
+    test "default number of consumers is 1 per publisher" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{test_pid: self()},
+        name: broadway,
+        producers: [],
+        publishers: [:p1, :p2]
+      )
+
+      assert get_n_consumers(broadway, :p1) == 1
+      assert get_n_consumers(broadway, :p2) == 1
+    end
+
+    test "set number of consumers" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{test_pid: self()},
+        name: broadway,
+        producers: [],
+        publishers: [
+          p1: [stages: 2],
+          p2: [stages: 3]
+        ]
+      )
+
+      assert get_n_consumers(broadway, :p1) == 2
+      assert get_n_consumers(broadway, :p2) == 3
+    end
+
+    test "define a default publisher when none is defined" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(ForwarderWithNoPublisherDefined, %{},
+        name: broadway,
+        producers: []
+      )
+
+      batcher = get_batcher(broadway, :default)
+      assert Process.whereis(batcher) != nil
+    end
+  end
+
   describe "producer" do
     test "multiple producers" do
       broadway = new_unique_name()
@@ -173,7 +267,7 @@ defmodule BroadwayTest do
 
       Producer.push_messages(producer, [
         %Message{data: 1},
-        %Message{data: 3},
+        %Message{data: 3}
       ])
 
       assert_receive {:message_handled, 1}
@@ -205,7 +299,7 @@ defmodule BroadwayTest do
       refute_receive {:message_handled, _}
     end
 
-    test "forward messages to the specified batcher", %{producer: producer}  do
+    test "forward messages to the specified batcher", %{producer: producer} do
       push_messages(producer, 1..200)
 
       assert_receive {:batch_handled, :odd, messages}
@@ -247,7 +341,9 @@ defmodule BroadwayTest do
       refute_receive {:batch_handled, _, _}
     end
 
-    test "generate batches with the remaining messages when :batch_timeout is reached", %{producer: producer} do
+    test "generate batches with the remaining messages when :batch_timeout is reached", %{
+      producer: producer
+    } do
       push_messages(producer, 1..5)
 
       assert_receive {:batch_handled, :odd, messages} when length(messages) == 3
@@ -300,93 +396,6 @@ defmodule BroadwayTest do
       assert Enum.all?(successful, fn %Message{acknowledger: {_, ack_data}, data: data} ->
                data == ack_data.id + 1000
              end)
-    end
-
-    test "define a default publisher when none is defined" do
-      {:ok, _} =
-        Broadway.start_link(ForwarderWithNoPublisherDefined, %{test_pid: self()},
-          name: new_unique_name(),
-          producers: [[module: Counter, arg: [from: 1, to: 100]]]
-        )
-
-      assert_receive {:batch_handled, :default, _messages}
-    end
-
-    test "default number of processors is schedulers_online * 2" do
-      broadway = new_unique_name()
-
-      Broadway.start_link(Forwarder, %{test_pid: self()},
-        name: broadway,
-        producers: []
-      )
-
-      schedulers_online = :erlang.system_info(:schedulers_online)
-
-      assert get_n_processors(broadway) == schedulers_online * 2
-    end
-
-    test "set number of processors" do
-      broadway1 = new_unique_name()
-
-      Broadway.start_link(Forwarder, %{test_pid: self()},
-        name: broadway1,
-        processors: [stages: 5],
-        producers: []
-      )
-
-      broadway2 = new_unique_name()
-
-      Broadway.start_link(Forwarder, %{test_pid: self()},
-        name: broadway2,
-        processors: [stages: 10],
-        producers: []
-      )
-
-      assert get_n_processors(broadway1) == 5
-      assert get_n_processors(broadway2) == 10
-    end
-
-    test "default number of consumers is 1 per publisher" do
-      broadway = new_unique_name()
-
-      Broadway.start_link(Forwarder, %{test_pid: self()},
-        name: broadway,
-        producers: [],
-        publishers: [:p1, :p2]
-      )
-
-      assert get_n_consumers(broadway, :p1) == 1
-      assert get_n_consumers(broadway, :p2) == 1
-    end
-
-    test "set number of consumers" do
-      broadway1 = new_unique_name()
-
-      Broadway.start_link(Forwarder, %{test_pid: self()},
-        name: broadway1,
-        producers: [],
-        publishers: [
-          p1: [stages: 2],
-          p2: [stages: 3]
-        ]
-      )
-
-      broadway2 = new_unique_name()
-
-      Broadway.start_link(Forwarder, %{test_pid: self()},
-        name: broadway2,
-        producers: [],
-        publishers: [
-          p1: [stages: 4],
-          p2: [stages: 6]
-        ]
-      )
-
-      assert get_n_consumers(broadway1, :p1) == 2
-      assert get_n_consumers(broadway1, :p2) == 3
-
-      assert get_n_consumers(broadway2, :p1) == 4
-      assert get_n_consumers(broadway2, :p2) == 6
     end
   end
 
@@ -464,7 +473,7 @@ defmodule BroadwayTest do
       assert_receive {:message_handled, %{data: 5}}
     end
 
-    test "batches are created normally (without the lost messages)", %{producer: producer}  do
+    test "batches are created normally (without the lost messages)", %{producer: producer} do
       push_messages(producer, [1, 2, :kill_processor, 3, 4, 5])
 
       assert_receive {:batch_handled, _, messages, _}
@@ -558,32 +567,6 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "use Broadway" do
-    test "generates child_spec/1" do
-      defmodule MyBroadway do
-        use Broadway
-        def handle_message(_, _), do: nil
-        def handle_batch(_, _, _, _), do: nil
-      end
-
-      assert MyBroadway.child_spec(:arg) == %{
-               id: BroadwayTest.MyBroadway,
-               start: {Broadway, :start_link, [BroadwayTest.MyBroadway, %{}, :arg]}
-             }
-    end
-
-    test "generates child_spec/1 with overriden options" do
-      defmodule BroadwayWithCustomOptions do
-        use Broadway, id: :some_id
-
-        def handle_message(_, _), do: nil
-        def handle_batch(_, _, _, _), do: nil
-      end
-
-      assert BroadwayWithCustomOptions.child_spec(:arg).id == :some_id
-    end
-  end
-
   defp new_unique_name() do
     :"Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
@@ -609,9 +592,11 @@ defmodule BroadwayTest do
   end
 
   defp push_messages(producer, list) do
-    messages = Enum.map(list, fn data ->
-      %Message{data: data, acknowledger: {__MODULE__, %{id: data, test_pid: self()}}}
-    end)
+    messages =
+      Enum.map(list, fn data ->
+        %Message{data: data, acknowledger: {__MODULE__, %{id: data, test_pid: self()}}}
+      end)
+
     Producer.push_messages(producer, messages)
   end
 end
