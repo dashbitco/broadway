@@ -1,14 +1,210 @@
 defmodule Broadway do
+  @moduledoc ~S"""
+  Broadway is a concurrent, multi-stage event processing tool that aims to streamline data processing pipelines.
+  It allows developers to consume data efficiently from different sources, such as Amazon SQS, RabbitMQ and others.
+
+  ## Built-in features
+
+    - Back-pressure
+    - Batching
+    - Rate-limiting (TODO)
+    - Partitioning (TODO)
+    - Statistics/Metrics (TODO)
+    - Back-off (TODO)
+    - Fault tolerance (WIP)
+
+  ## The Broadway Behaviour
+
+  In order to use Broadway, you need to:
+
+    1. Define your pipeline configuration
+    2. Define a module implementing the Broadway behaviour
+
+  ### Example
+
+  ```Elixir
+  {:ok, pid} =
+    Broadway.start_link(MyBroadway, %{},
+      name: MyBroadwayExample,
+      producers: [[module: Counter]],
+      processors: [stages: 2],
+      publishers: [
+        sqs: [stages: 2, batch_size: 10],
+        s3: [stages: 1, batch_size: 10]
+      ]
+    )
+  ```
+
+  In the configuration above we've defined that our pipeline will have:
+  - One producer (Counter)
+  - Two processors
+  - Two publishers. One with 2 consumers and the other one with only 1 consumer.
+
+  Here is how this pipeline cound be represented:
+
+  ```
+                           [producer]  (Counter)
+                              / \
+                             /   \
+                            /     \
+                           /       \
+                  [processor_1] [processor_2]   <- ideal for CPU bounded tasks
+                           /\     /\
+                          /  \   /  \
+                         /    \ /    \
+                        /      x      \
+                       /      / \      \
+                      /      /   \      \
+                     /      /     \      \
+                [batcher_sqs]    [batcher_s3]
+                     /\                   \
+                    /  \                   \
+                   /    \                   \
+                  /      \                   \
+      [consumer_sqs_1] [consumer_sqs_2]   [consumer_s3_1]   <- usually publish results (IO bounded tasks)
+  ```
+
+  And here is how an implementation of the Broadway behaviour would look like:
+
+  ```Elixir
+    defmodule MyBroadway do
+      use Broadway
+
+      def handle_message(%Message{data: data} = message, _) when is_odd(data) do
+        new_message =
+          message
+          |> update_data(&process_data/1)
+          |> put_publisher(:sqs)}
+
+        {:ok, new_message}
+      end
+
+      def handle_message(%Message{data: data} = message, _) do
+        new_message =
+          message
+          |> update_data(&process_message/1)
+          |> put_publisher(:s3)}
+
+        {:ok, new_message}
+      end
+
+      def handle_batch(:sqs, batch, _) do
+        {successful, failed} = send_messages_to_sqs(batch.messages)
+        {:ack, successful: successful, failed: failed}
+      end
+
+      def handle_batch(:s3, batch, _) do
+        {successful, failed} = send_messages_to_s3(batch.messages)
+        {:ack, successful: successful, failed: failed}
+      end
+
+      defp process_data(data) do
+        # Do some calculations, generate a JSON representation, etc.
+      end
+
+      defp send_messages_to_sqs() do
+        ...
+      end
+
+      defp send_messages_to_s3() do
+        ...
+      end
+    end
+  ```
+
+  ## General Architecture
+
+  Broadway's architecture is built on top GenStage. That means we structure our processing units as
+  independent stages that are responsible for one individual task in the pipeline.
+
+  ### The Pipeline Model
+
+  ```
+                                            [producer]   (pulls data from SQS, RabbitMQ, etc.)
+                                                |
+                                                |   (demand dispatcher)
+                                                |
+          handle_message/3 runs here ->   [processors]
+                                              / \
+                                             /   \   (partition dispatcher)
+                                            /     \
+                                      [batcher]   [batcher]   (one for each publisher key)
+                                        |           |
+                                        |           |   (demand dispatcher)
+                                        |           |
+      handle_batch/3 runs here ->   [consumers]  [consumers]
+  ```
+
+  ### Stages
+
+  - **Broadway** _\[User defined\]_ - Not actually a Stage. This is the parent GenServer that creates and owns the pipeline (Must implement the Broadway bahaviour).
+  - **Broadway.Producer** _\[User defined\]_ - This is a ordinary GenStage producer that will serve as the source of the pipeline.
+  - **Broadway.Processor** _\[Internal\]_ - This is where you usually process your messages, e.g. do calculations, convert data into a custom json format etc. Here is where the code from handle_message/3 will run.
+  - **Broadway.Batcher** _\[Internal\]_ - Create batches of messages based on the publisher's key. One Batcher for each key will be created.
+  - **Broadway.Consumer** _\[Internal\]_ - Here is where the code from handle_batch/3 will run.
+
+  ## Fault Tolerance
+
+  Broadway was design to provide fault tolerance out of the box. Each layer of the pipeline is independently supervised, so
+  crashes in one part of the pipeline will have minimum effect in other parts.
+
+  ```
+                                      [Broadway GenServer]
+                                              |
+                                              |
+                                              |
+                                [Broadway Pipeline Supervisor]
+                                    /   (:one_for_all)      \
+                                   /           |             \
+                                  /            |              \
+                                 /             |               \
+                                /              |                \
+                               /               |                 \
+                [ProducerSupervisor]  [ProcessorSupervisor]    [PublisherSupervisor]
+                  (:one_for_one)         (:one_for_one)          (:one_for_one)
+                       / \                    / \                /            \
+                      /   \                  /   \              /              \
+                     /     \                /     \            /                \
+                    /       \              /       \          /                  \
+              [Producer_1]  ...    [Processor_1]  ...  [BatcherConsumerSuperv_1]  ...
+                                                            (:one_for_one)
+                                                                /  \
+                                                               /    \
+                                                              /      \
+                                                        [Batcher] [Supervisor]
+                                                                  (:one_for_one)
+                                                                        |
+                                                                    [Consumer]
+  ```
+  """
+
   use GenServer, shutdown: :infinity
 
   alias Broadway.{Producer, Processor, Batcher, Consumer, Message, BatchInfo}
 
+  @doc """
+  Invoked to handle/process indiviual messages sent from a producer.
+
+  `message` is the message to be processed and `context` is the user defined data structure
+  passed to `start_link/3`.
+  """
   @callback handle_message(message :: Message.t(), context :: any) ::
               {:ok, message :: Message.t()}
+
+  @doc """
+  Invoked to handle generated batches.
+
+  `publisher` is the key that defines how the messages will be grouped as batches and then forwarded to
+  the set of consumers that handle the batches with the same key. This value can be set in `handle_message/2`
+  using `put_publisher/2`.
+  The `messages` are the list of messages grouped together as a batch for a specific key.
+  The `bach_info` is a struct containing information about the generated batch.
+  The `context` is the user defined data structure passed to `start_link/3`.
+  """
   @callback handle_batch(
               publisher :: atom,
               messages :: [Message.t()],
-              BatchInfo.t(),
+              batch_info :: BatchInfo.t(),
               context :: any
             ) :: {:ack, successful: [Message.t()], failed: [Message.t()]}
 
@@ -41,6 +237,20 @@ defmodule Broadway do
     end
   end
 
+  @doc """
+  Starts a `Broadway` process linked to the current process.
+
+  `module` is the module implementing the `Broadway` behaviour, `context` is a user defined
+  data structure that will be passed to `handle_message/2` and `handle_batch/4`.
+
+  ## Options
+
+    * `:name` - required parameter used for name registration. All processes/stages created will be named using this value as prefix.
+    * `:processors` - defines the processors configuration.
+    * `:producers` - defines the producers configuration.
+    * `:publishers` - defines the publishers configuration.
+
+  """
   def start_link(module, context, opts) do
     GenServer.start_link(__MODULE__, {module, context, opts}, opts)
   end
