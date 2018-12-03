@@ -100,12 +100,21 @@ defmodule Broadway do
       producers_config: producers_config
     } = state
 
+    [{key, producer_config} | other_producers] = producers_config
+
+    if Enum.any?(other_producers) do
+      raise "Only one set of producers is allowed for now"
+    end
+
+    mod = Keyword.fetch!(producer_config, :module)
+    args = Keyword.fetch!(producer_config, :arg)
+    n_producers = Keyword.get(producer_config, :stages, 1)
+
     init_acc = %{names: [], specs: []}
 
     producers =
-      producers_config
-      |> Enum.reduce(init_acc, fn {key, [module: mod, arg: args]}, acc ->
-        name = process_name(broadway_name, "Producer", key)
+      Enum.reduce(1..n_producers, init_acc, fn index, acc ->
+        name = process_name(broadway_name, "Producer_#{key}", index, n_producers)
         opts = [name: name]
 
         spec =

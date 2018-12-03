@@ -122,12 +122,34 @@ defmodule BroadwayTest do
   end
 
   describe "broadway config" do
+    test "default number of producers is 1" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{test_pid: self()},
+        name: broadway,
+        producers: [[module: ManualProducer, arg: []]]
+      )
+
+      assert get_n_producers(broadway) == 1
+    end
+
+    test "set number of producers" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder, %{test_pid: self()},
+        name: broadway,
+        producers: [[module: ManualProducer, arg: [], stages: 3]]
+      )
+
+      assert get_n_producers(broadway) == 3
+    end
+
     test "default number of processors is schedulers_online * 2" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder, %{},
         name: broadway,
-        producers: []
+        producers: [[module: ManualProducer, arg: []]]
       )
 
       schedulers_online = :erlang.system_info(:schedulers_online)
@@ -141,7 +163,7 @@ defmodule BroadwayTest do
       Broadway.start_link(Forwarder, %{},
         name: broadway,
         processors: [stages: 13],
-        producers: []
+        producers: [[module: ManualProducer, arg: []]]
       )
 
       assert get_n_processors(broadway) == 13
@@ -152,7 +174,7 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [],
+        producers: [[module: ManualProducer, arg: []]],
         publishers: [:p1, :p2]
       )
 
@@ -165,7 +187,7 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [],
+        producers: [[module: ManualProducer, arg: []]],
         publishers: [
           p1: [stages: 2],
           p2: [stages: 3]
@@ -181,7 +203,7 @@ defmodule BroadwayTest do
 
       Broadway.start_link(ForwarderWithNoPublisherDefined, %{},
         name: broadway,
-        producers: []
+        producers: [[module: ManualProducer, arg: []]]
       )
 
       batcher = get_batcher(broadway, :default)
@@ -190,28 +212,6 @@ defmodule BroadwayTest do
   end
 
   describe "producer" do
-    test "multiple producers" do
-      broadway = new_unique_name()
-
-      Broadway.start_link(Forwarder, %{test_pid: self()},
-        name: broadway,
-        producers: [
-          producer1: [module: ManualProducer, arg: []],
-          producer2: [module: ManualProducer, arg: []]
-        ],
-        publishers: [:even, :odd]
-      )
-
-      producer1 = get_producer(broadway, :producer1)
-      producer2 = get_producer(broadway, :producer2)
-
-      push_messages(producer1, [1])
-      push_messages(producer2, [3])
-
-      assert_receive {:message_handled, 1}
-      assert_receive {:message_handled, 3}
-    end
-
     test "push_messages/2" do
       broadway = new_unique_name()
 
@@ -527,8 +527,8 @@ defmodule BroadwayTest do
     :"Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
-  defp get_producer(broadway_name, key \\ :default) do
-    :"#{broadway_name}.Producer_#{key}"
+  defp get_producer(broadway_name, key \\ :default, index \\ 1) do
+    :"#{broadway_name}.Producer_#{key}_#{index}"
   end
 
   defp get_processor(broadway_name, key) do
@@ -537,6 +537,10 @@ defmodule BroadwayTest do
 
   defp get_batcher(broadway_name, key) do
     :"#{broadway_name}.Batcher_#{key}"
+  end
+
+  defp get_n_producers(broadway_name) do
+    Supervisor.count_children(:"#{broadway_name}.ProducerSupervisor").workers
   end
 
   defp get_n_processors(broadway_name) do
