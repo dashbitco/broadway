@@ -1,7 +1,9 @@
 defmodule Broadway.Producer do
+  @moduledoc false
   use GenStage
 
   defmodule State do
+    @moduledoc false
     defstruct [:module, :state]
   end
 

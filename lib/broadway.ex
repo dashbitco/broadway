@@ -299,6 +299,7 @@ defmodule Broadway do
             ) :: {:ack, successful: [Message.t()], failed: [Message.t()]}
 
   defmodule State do
+    @moduledoc false
     defstruct name: nil,
               module: nil,
               processors_config: [],
@@ -345,12 +346,31 @@ defmodule Broadway do
     GenServer.start_link(__MODULE__, {module, context, opts}, opts)
   end
 
+  @doc false
   def init({module, context, opts}) do
     Process.flag(:trap_exit, true)
     state = init_state(module, context, opts)
     {:ok, supervisor_pid} = start_supervisor(state)
 
     {:ok, %State{state | supervisor_pid: supervisor_pid}}
+  end
+
+  def handle_info({:EXIT, _, reason}, state) do
+    {:stop, reason, state}
+  end
+
+  def handle_info(_, state) do
+    {:noreply, state}
+  end
+
+  def terminate(_reason, %State{supervisor_pid: supervisor_pid}) do
+    ref = Process.monitor(supervisor_pid)
+    Process.exit(supervisor_pid, :shutdown)
+
+    receive do
+      {:DOWN, ^ref, _, _, _} ->
+        :ok
+    end
   end
 
   defp init_state(module, context, opts) do
@@ -369,7 +389,7 @@ defmodule Broadway do
     }
   end
 
-  def start_supervisor(%State{name: broadway_name} = state) do
+  defp start_supervisor(%State{name: broadway_name} = state) do
     supervisor_name = Module.concat(broadway_name, "Supervisor")
     {producers_names, producers_specs} = build_producers_specs(state)
     {processors_names, processors_specs} = build_processors_specs(state, producers_names)
@@ -384,14 +404,6 @@ defmodule Broadway do
     ]
 
     Supervisor.start_link(children, name: supervisor_name, strategy: :one_for_one)
-  end
-
-  def handle_info({:EXIT, _, reason}, state) do
-    {:stop, reason, state}
-  end
-
-  def handle_info(_, state) do
-    {:noreply, state}
   end
 
   defp build_producers_specs(state) do
@@ -588,15 +600,5 @@ defmodule Broadway do
       start: {Supervisor, :start_link, [children, opts ++ extra_opts]},
       type: :supervisor
     }
-  end
-
-  def terminate(_reason, %State{supervisor_pid: supervisor_pid}) do
-    ref = Process.monitor(supervisor_pid)
-    Process.exit(supervisor_pid, :shutdown)
-
-    receive do
-      {:DOWN, ^ref, _, _, _} ->
-        :ok
-    end
   end
 end

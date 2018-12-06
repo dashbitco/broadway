@@ -1,4 +1,5 @@
 defmodule Broadway.Processor do
+  @moduledoc false
   use GenStage
 
   alias Broadway.Message
@@ -7,6 +8,7 @@ defmodule Broadway.Processor do
   @default_max_demand 4
 
   defmodule State do
+    @moduledoc false
     defstruct [:module, :context]
   end
 

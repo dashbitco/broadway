@@ -1,4 +1,5 @@
 defmodule Broadway.Batcher do
+  @moduledoc false
   use GenStage
 
   alias Broadway.Subscription
@@ -7,6 +8,7 @@ defmodule Broadway.Batcher do
   @default_max_demand 4
 
   defmodule State do
+    @moduledoc false
     defstruct [
       :batch_size,
       :batch_timeout,

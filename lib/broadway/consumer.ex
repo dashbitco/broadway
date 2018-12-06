@@ -1,9 +1,11 @@
 defmodule Broadway.Consumer do
+  @moduledoc false
   use GenStage
 
   alias Broadway.Subscription
 
   defmodule State do
+    @moduledoc false
     defstruct [:module, :context, :batcher, :batcher_ref, :subscribe_to_options]
   end
 

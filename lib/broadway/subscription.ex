@@ -1,4 +1,6 @@
 defmodule Broadway.Subscription do
+  @moduledoc false
+
   def subscribe(processe_name, subscribe_to_options) do
     ref = monitor_and_subscribe(processe_name, subscribe_to_options)
 
