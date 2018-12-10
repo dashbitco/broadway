@@ -352,7 +352,7 @@ defmodule Broadway do
   def init({module, context, opts}) do
     Process.flag(:trap_exit, true)
 
-    case Options.validate(opts, validation_spec()) do
+    case Options.validate(opts, configuration_spec()) do
       {:error, message} ->
         {:stop, {:bad_opts, message}}
 
@@ -575,7 +575,7 @@ defmodule Broadway do
     }
   end
 
-  defp validation_spec() do
+  defp configuration_spec() do
     [
       name: [required: true, type: :atom],
       producers: [
