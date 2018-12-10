@@ -26,7 +26,9 @@ defmodule Broadway do
   {:ok, pid} =
     Broadway.start_link(MyBroadway, %{},
       name: MyBroadwayExample,
-      producers: [[module: Counter, stages: 1]],
+      producers: [
+        default: [module: Counter, stages: 1]
+      ],
       processors: [stages: 2],
       publishers: [
         sqs: [stages: 2, batch_size: 10],
@@ -132,7 +134,7 @@ defmodule Broadway do
     * `:stages` - Optional. The number of stages that will be created by Broadway. Use this option to control the concurrency level
     of each set of producers. The default value is `1`.
 
-  `:processors` - Optional. Defines a list of options that apply to all processors. The options are:
+  `:processors` - Required. Defines a list of options that apply to all processors. The options are:
 
     * `:stages` - Optional. The number of stages that will be created by Broadway. Use this option to control the concurrency level
     of the processors. The default value is `:erlang.system_info(:schedulers_online) * 2`.
@@ -237,7 +239,7 @@ defmodule Broadway do
 
   use GenServer, shutdown: :infinity
 
-  alias Broadway.{Producer, Processor, Batcher, Consumer, Message, BatchInfo}
+  alias Broadway.{Producer, Processor, Batcher, Consumer, Message, BatchInfo, Options}
 
   @doc """
   Invoked to handle/process indiviual messages sent from a producer.
@@ -337,7 +339,7 @@ defmodule Broadway do
   ## Options
 
     * `:name` - Required. This option is used for name registration. All processes/stages created will be named using this value as prefix.
-    * `:processors` - Optional. Defines a single set of options for all processors. See the "Configuration" section for more details.
+    * `:processors` - Required. Defines a single set of options for all processors. See the "Configuration" section for more details.
     * `:producers` - Required. Defines a list of producers. Each one with its own set of options. See the "Configuration" section for more details.
     * `:publishers` - Required. Defines a list of publishers. Each one with its own set of options. See the "Configuration" section for more details.
 
@@ -349,10 +351,16 @@ defmodule Broadway do
   @doc false
   def init({module, context, opts}) do
     Process.flag(:trap_exit, true)
-    state = init_state(module, context, opts)
-    {:ok, supervisor_pid} = start_supervisor(state)
 
-    {:ok, %State{state | supervisor_pid: supervisor_pid}}
+    case Options.validate(opts, validation_spec()) do
+      {:error, message} ->
+        {:stop, {:bad_opts, message}}
+
+      opts ->
+        state = init_state(module, context, opts)
+        {:ok, supervisor_pid} = start_supervisor(state)
+        {:ok, %State{state | supervisor_pid: supervisor_pid}}
+    end
   end
 
   def handle_info({:EXIT, _, reason}, state) do
@@ -374,17 +382,12 @@ defmodule Broadway do
   end
 
   defp init_state(module, context, opts) do
-    broadway_name = Keyword.fetch!(opts, :name)
-    producers_config = Keyword.fetch!(opts, :producers) |> normalize_producers_config()
-    publishers_config = Keyword.get(opts, :publishers) |> normalize_publishers_config()
-    processors_config = Keyword.get(opts, :processors) |> normalize_processors_config()
-
     %State{
-      name: broadway_name,
+      name: opts[:name],
       module: module,
-      processors_config: processors_config,
-      producers_config: producers_config,
-      publishers_config: publishers_config,
+      processors_config: opts[:processors],
+      producers_config: opts[:producers],
+      publishers_config: opts[:publishers],
       context: context
     }
   end
@@ -418,9 +421,9 @@ defmodule Broadway do
       raise "Only one set of producers is allowed for now"
     end
 
-    mod = Keyword.fetch!(producer_config, :module)
-    args = Keyword.fetch!(producer_config, :arg)
-    n_producers = Keyword.get(producer_config, :stages, 1)
+    mod = producer_config[:module]
+    args = producer_config[:arg]
+    n_producers = producer_config[:stages]
 
     init_acc = %{names: [], specs: []}
 
@@ -450,7 +453,7 @@ defmodule Broadway do
       publishers_config: publishers_config
     } = state
 
-    n_processors = Keyword.fetch!(processors_config, :stages)
+    n_processors = processors_config[:stages]
 
     init_acc = %{names: [], specs: []}
 
@@ -512,7 +515,7 @@ defmodule Broadway do
 
   defp build_consumers_specs(broadway_name, module, context, publisher_config, batcher) do
     {key, options} = publisher_config
-    n_consumers = Keyword.get(options, :stages, 1)
+    n_consumers = options[:stages]
 
     for index <- 1..n_consumers do
       args = [
@@ -529,36 +532,6 @@ defmodule Broadway do
         id: make_ref()
       )
     end
-  end
-
-  defp normalize_processors_config(nil) do
-    [stages: :erlang.system_info(:schedulers_online) * 2]
-  end
-
-  defp normalize_processors_config(config) do
-    config
-  end
-
-  defp normalize_publishers_config(nil) do
-    [{:default, []}]
-  end
-
-  defp normalize_publishers_config(publishers) do
-    Enum.map(publishers, fn
-      publisher when is_atom(publisher) -> {publisher, []}
-      publisher -> publisher
-    end)
-  end
-
-  defp normalize_producers_config(producers) do
-    if length(producers) > 1 && !Enum.all?(producers, &is_tuple/1) do
-      raise "Multiple producers must be named"
-    end
-
-    Enum.map(producers, fn
-      producer when is_list(producer) -> {:default, producer}
-      producer -> producer
-    end)
   end
 
   defp process_name(prefix, type, key) do
@@ -600,5 +573,44 @@ defmodule Broadway do
       start: {Supervisor, :start_link, [children, opts ++ extra_opts]},
       type: :supervisor
     }
+  end
+
+  defp validation_spec() do
+    [
+      name: [required: true, type: :atom],
+      producers: [
+        required: true,
+        type: :keyword_list,
+        keys: [
+          *: [
+            module: [required: true, type: :atom],
+            arg: [required: true],
+            stages: [type: :pos_integer, default: 1]
+          ]
+        ]
+      ],
+      processors: [
+        required: true,
+        type: :keyword_list,
+        keys: [
+          stages: [type: :pos_integer, default: :erlang.system_info(:schedulers_online) * 2],
+          min_demand: [type: :non_neg_integer, default: 2],
+          max_demand: [type: :non_neg_integer, default: 4]
+        ]
+      ],
+      publishers: [
+        required: true,
+        type: :keyword_list,
+        keys: [
+          *: [
+            stages: [type: :pos_integer, default: 1],
+            batch_size: [type: :pos_integer, default: 100],
+            batch_timeout: [type: :pos_integer, default: 1000],
+            min_demand: [type: :non_neg_integer, default: 2],
+            max_demand: [type: :non_neg_integer, default: 4]
+          ]
+        ]
+      ]
+    ]
   end
 end

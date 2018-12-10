@@ -4,9 +4,6 @@ defmodule Broadway.Batcher do
 
   alias Broadway.Subscription
 
-  @default_min_demand 2
-  @default_max_demand 4
-
   defmodule State do
     @moduledoc false
     defstruct [
@@ -29,21 +26,18 @@ defmodule Broadway.Batcher do
   end
 
   def init(args) do
-    batch_timeout = Keyword.get(args, :batch_timeout, 1000)
-    batch_size = Keyword.get(args, :batch_size, 100)
-    publisher_key = Keyword.fetch!(args, :publisher_key)
-    min_demand = Keyword.get(args, :min_demand, @default_min_demand)
-    max_demand = Keyword.get(args, :max_demand, @default_max_demand)
-    processors = Keyword.fetch!(args, :processors)
+    publisher_key = args[:publisher_key]
+    batch_timeout = args[:batch_timeout]
 
     subscribe_to_options = [
       partition: publisher_key,
-      min_demand: min_demand,
-      max_demand: max_demand,
+      min_demand: args[:min_demand],
+      max_demand: args[:max_demand],
       cancel: :temporary
     ]
 
-    {refs, failed_subscriptions} = Subscription.subscribe_all(processors, subscribe_to_options)
+    {refs, failed_subscriptions} =
+      Subscription.subscribe_all(args[:processors], subscribe_to_options)
 
     schedule_flush_pending(batch_timeout)
 
@@ -51,7 +45,7 @@ defmodule Broadway.Batcher do
       :producer_consumer,
       %State{
         publisher_key: publisher_key,
-        batch_size: batch_size,
+        batch_size: args[:batch_size],
         batch_timeout: batch_timeout,
         pending_events: [],
         processors_refs: refs,
