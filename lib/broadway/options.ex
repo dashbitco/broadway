@@ -37,7 +37,8 @@ defmodule Broadway.Options do
   defp validate_option(opts, key, spec) do
     with value <- get_value_or_default(opts, key, spec),
          :ok <- validate_required(opts, key, spec),
-         :ok <- validate_type(spec[:type], key, value) do
+         :ok <- validate_type(spec[:type], key, value),
+         :ok <- validate_keys(spec[:keys], key, value) do
       if spec[:keys] do
         keys = normalize_keys(spec[:keys], value)
         validate(opts[key], keys)
@@ -61,6 +62,14 @@ defmodule Broadway.Options do
        "required option #{inspect(key)} not found, received options: #{
          inspect(Keyword.keys(opts))
        }"}
+    else
+      :ok
+    end
+  end
+
+  defp validate_keys(keys, key, value) do
+    if keys[:*] && value == [] do
+      {:error, "expected #{inspect(key)} to be a non-empty keyword list, got: #{inspect(value)}"}
     else
       :ok
     end

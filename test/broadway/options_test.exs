@@ -169,5 +169,26 @@ defmodule Broadway.OptionsTest do
       assert Options.validate(opts, spec) ==
                {:error, "expected :stages to be a positive integer, got: :an_atom"}
     end
+
+    test "validate empty custom keys" do
+      spec = [
+        producers: [
+          type: :keyword_list,
+          keys: [
+            *: [
+              module: [required: true, type: :atom],
+              stages: [type: :pos_integer]
+            ]
+          ]
+        ]
+      ]
+
+      opts = [
+        producers: []
+      ]
+
+      assert Options.validate(opts, spec) ==
+               {:error, "expected :producers to be a non-empty keyword list, got: []"}
+    end
   end
 end

@@ -131,7 +131,7 @@ defmodule BroadwayTest do
           default: [module: ManualProducer, arg: []]
         ],
         processors: [],
-        publishers: []
+        publishers: [default: []]
       )
 
       assert get_n_producers(broadway) == 1
@@ -146,7 +146,7 @@ defmodule BroadwayTest do
           default: [module: ManualProducer, arg: [], stages: 3]
         ],
         processors: [],
-        publishers: []
+        publishers: [default: []]
       )
 
       assert get_n_producers(broadway) == 3
@@ -161,7 +161,7 @@ defmodule BroadwayTest do
           default: [module: ManualProducer, arg: []]
         ],
         processors: [],
-        publishers: []
+        publishers: [default: []]
       )
 
       schedulers_online = :erlang.system_info(:schedulers_online)
@@ -178,7 +178,7 @@ defmodule BroadwayTest do
           default: [module: ManualProducer, arg: []]
         ],
         processors: [stages: 13],
-        publishers: []
+        publishers: [default: []]
       )
 
       assert get_n_processors(broadway) == 13
@@ -527,7 +527,7 @@ defmodule BroadwayTest do
             default: [module: ManualProducer, arg: []]
           ],
           processors: [],
-          publishers: []
+          publishers: [default: []]
         )
 
       %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
@@ -549,7 +549,7 @@ defmodule BroadwayTest do
             default: [module: ManualProducer, arg: []]
           ],
           processors: [],
-          publishers: []
+          publishers: [default: []]
         )
 
       %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
