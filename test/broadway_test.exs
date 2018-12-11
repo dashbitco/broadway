@@ -164,9 +164,7 @@ defmodule BroadwayTest do
         publishers: [default: []]
       )
 
-      schedulers_online = :erlang.system_info(:schedulers_online)
-
-      assert get_n_processors(broadway) == schedulers_online * 2
+      assert get_n_processors(broadway) == System.schedulers_online() * 2
     end
 
     test "set number of processors" do

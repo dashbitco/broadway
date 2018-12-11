@@ -137,7 +137,7 @@ defmodule Broadway do
   `:processors` - Required. Defines a list of options that apply to all processors. The options are:
 
     * `:stages` - Optional. The number of stages that will be created by Broadway. Use this option to control the concurrency level
-    of the processors. The default value is `:erlang.system_info(:schedulers_online) * 2`.
+    of the processors. The default value is `System.schedulers_online() * 2`.
     * `:min_demand` - Optional. Set the minimum demand of all processors stages. Default value is `2`.
     * `:max_demand` - Optional. Set the maximum demand of all processors stages. Default value is `4`.
 
@@ -593,7 +593,7 @@ defmodule Broadway do
         required: true,
         type: :keyword_list,
         keys: [
-          stages: [type: :pos_integer, default: :erlang.system_info(:schedulers_online) * 2],
+          stages: [type: :pos_integer, default: System.schedulers_online() * 2],
           min_demand: [type: :non_neg_integer, default: 2],
           max_demand: [type: :non_neg_integer, default: 4]
         ]
