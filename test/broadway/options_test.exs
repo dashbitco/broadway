@@ -94,10 +94,9 @@ defmodule Broadway.OptionsTest do
     end
 
     test "valid non negative integer" do
-      spec = [stages: [type: :non_neg_integer]]
+      spec = [min_demand: [type: :non_neg_integer]]
 
-      assert Options.validate([stages: :an_atom], spec) ==
-               {:error, "expected :stages to be a non negative integer, got: :an_atom"}
+      assert Options.validate([min_demand: 0], spec) == [min_demand: 0]
     end
 
     test "invalid non negative integer" do
