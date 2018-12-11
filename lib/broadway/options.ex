@@ -59,9 +59,8 @@ defmodule Broadway.Options do
   defp validate_required(opts, key, spec) do
     if Keyword.get(spec, :required) && !Keyword.has_key?(opts, key) do
       {:error,
-       "required option #{inspect(key)} not found, received options: #{
-         inspect(Keyword.keys(opts))
-       }"}
+       "required option #{inspect(key)} not found, received options: " <>
+         inspect(Keyword.keys(opts))}
     else
       :ok
     end
