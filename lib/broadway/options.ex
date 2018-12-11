@@ -84,7 +84,7 @@ defmodule Broadway.Options do
   end
 
   defp validate_type(:atom, key, value) when not is_atom(value) do
-    {:error, "expected #{inspect(key)} to be a atom, got: #{inspect(value)}"}
+    {:error, "expected #{inspect(key)} to be an atom, got: #{inspect(value)}"}
   end
 
   defp validate_type(:keyword_list, key, value) do

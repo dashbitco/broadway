@@ -118,7 +118,7 @@ defmodule Broadway.OptionsTest do
     test "invalid atom" do
       spec = [name: [type: :atom]]
 
-      assert Options.validate([name: 1], spec) == {:error, "expected :name to be a atom, got: 1"}
+      assert Options.validate([name: 1], spec) == {:error, "expected :name to be an atom, got: 1"}
     end
 
     test "nested options with predefined keys" do
