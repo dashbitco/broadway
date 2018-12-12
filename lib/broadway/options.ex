@@ -35,7 +35,7 @@ defmodule Broadway.Options do
         {:halt, result}
 
       {:ok, value} ->
-        {:cont, Keyword.put(parent_opts, key, value)}
+        {:cont, Keyword.update(parent_opts, key, value, fn _ -> value end)}
 
       :no_value ->
         {:cont, parent_opts}
