@@ -31,8 +31,7 @@ defmodule Broadway.Batcher do
 
     subscribe_to_options = [
       partition: publisher_key,
-      min_demand: args[:min_demand],
-      max_demand: args[:max_demand],
+      max_demand: args[:batch_size],
       cancel: :temporary
     ]
 

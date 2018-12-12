@@ -150,8 +150,6 @@ defmodule Broadway do
     * `:batch_timeout` - Optional. The time, in milliseconds, that the batcher waits before flushing the list of messages.
     When this timeout is reached, a new batch is generated and sent downstream, no matter if the `:batch_size` has
     been reached or not. Default value is `1000` (1 second).
-    * `:min_demand` - Optional. Set the minimum demand for the producer. Default value is `2`.
-    * `:max_demand` - Optional. Set the maximum demand for the producer. Default value is `4`.
 
   ## Batching
 
@@ -605,9 +603,7 @@ defmodule Broadway do
           *: [
             stages: [type: :pos_integer, default: 1],
             batch_size: [type: :pos_integer, default: 100],
-            batch_timeout: [type: :pos_integer, default: 1000],
-            min_demand: [type: :non_neg_integer, default: 2],
-            max_demand: [type: :non_neg_integer, default: 4]
+            batch_timeout: [type: :pos_integer, default: 1000]
           ]
         ]
       ]

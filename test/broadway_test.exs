@@ -468,7 +468,7 @@ defmodule BroadwayTest do
             default: [module: ManualProducer, arg: []]
           ],
           processors: [stages: 1, min_demand: 1, max_demand: 2],
-          publishers: [default: [batch_size: 2, min_demand: 0, max_demand: 2]]
+          publishers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
