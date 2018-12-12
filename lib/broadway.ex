@@ -138,8 +138,8 @@ defmodule Broadway do
 
     * `:stages` - Optional. The number of stages that will be created by Broadway. Use this option to control the concurrency level
     of the processors. The default value is `System.schedulers_online() * 2`.
-    * `:min_demand` - Optional. Set the minimum demand of all processors stages. Default value is `2`.
-    * `:max_demand` - Optional. Set the maximum demand of all processors stages. Default value is `4`.
+    * `:min_demand` - Optional. Set the minimum demand of all processors stages. Default value is `5`.
+    * `:max_demand` - Optional. Set the maximum demand of all processors stages. Default value is `10`.
 
   `:publishers` - Required. Defines a list of publishers. Each publisher can define the following options:
 
@@ -595,7 +595,7 @@ defmodule Broadway do
         keys: [
           stages: [type: :pos_integer, default: System.schedulers_online() * 2],
           min_demand: [type: :non_neg_integer],
-          max_demand: [type: :non_neg_integer, default: 4]
+          max_demand: [type: :non_neg_integer, default: 10]
         ]
       ],
       publishers: [
