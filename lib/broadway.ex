@@ -343,22 +343,23 @@ defmodule Broadway do
 
   """
   def start_link(module, context, opts) do
-    GenServer.start_link(__MODULE__, {module, context, opts}, opts)
+    case Options.validate(opts, configuration_spec()) do
+      {:error, message} ->
+        raise ArgumentError, "invalid configuration given to Broadway.start_link/3, " <> message
+
+      {:ok, opts} ->
+        GenServer.start_link(__MODULE__, {module, context, opts}, opts)
+    end
   end
 
   @doc false
   def init({module, context, opts}) do
     Process.flag(:trap_exit, true)
 
-    case Options.validate(opts, configuration_spec()) do
-      {:error, message} ->
-        {:stop, {:bad_opts, message}}
+    state = init_state(module, context, opts)
+    {:ok, supervisor_pid} = start_supervisor(state)
 
-      {:ok, opts} ->
-        state = init_state(module, context, opts)
-        {:ok, supervisor_pid} = start_supervisor(state)
-        {:ok, %State{state | supervisor_pid: supervisor_pid}}
-    end
+    {:ok, %State{state | supervisor_pid: supervisor_pid}}
   end
 
   def handle_info({:EXIT, _, reason}, state) do
