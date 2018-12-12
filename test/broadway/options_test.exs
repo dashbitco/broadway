@@ -8,7 +8,7 @@ defmodule Broadway.OptionsTest do
       spec = [name: [required: true, type: :atom]]
       opts = [name: MyProducer]
 
-      assert Options.validate(opts, spec) == [name: MyProducer]
+      assert Options.validate(opts, spec) == {:ok, [name: MyProducer]}
     end
 
     test "valid options with default values" do
@@ -26,13 +26,15 @@ defmodule Broadway.OptionsTest do
 
       opts = [processors: []]
 
-      assert Options.validate(opts, spec) == [
-               processors: [
-                 max_demand: 40,
-                 min_demand: 20,
-                 stages: 10
-               ]
-             ]
+      assert Options.validate(opts, spec) ==
+               {:ok,
+                [
+                  processors: [
+                    max_demand: 40,
+                    min_demand: 20,
+                    stages: 10
+                  ]
+                ]}
     end
 
     test "unknown option" do
@@ -80,7 +82,7 @@ defmodule Broadway.OptionsTest do
       spec = [stages: [type: :pos_integer]]
       opts = [stages: 1]
 
-      assert Options.validate(opts, spec) == [stages: 1]
+      assert Options.validate(opts, spec) == {:ok, [stages: 1]}
     end
 
     test "invalid positive integer" do
@@ -96,7 +98,7 @@ defmodule Broadway.OptionsTest do
     test "valid non negative integer" do
       spec = [min_demand: [type: :non_neg_integer]]
 
-      assert Options.validate([min_demand: 0], spec) == [min_demand: 0]
+      assert Options.validate([min_demand: 0], spec) == {:ok, [min_demand: 0]}
     end
 
     test "invalid non negative integer" do
@@ -112,7 +114,7 @@ defmodule Broadway.OptionsTest do
     test "valid atom" do
       spec = [name: [type: :atom]]
 
-      assert Options.validate([name: :an_atom], spec) == [name: :an_atom]
+      assert Options.validate([name: :an_atom], spec) == {:ok, [name: :an_atom]}
     end
 
     test "invalid atom" do

@@ -22,13 +22,14 @@ defmodule Broadway.Processor do
     processors_config = args[:processors_config]
     context = args[:context]
     keys = Keyword.keys(publishers_config)
-    min_demand = processors_config[:min_demand]
-    max_demand = processors_config[:max_demand]
     state = %State{module: args[:module], context: context}
+
+    subscribe_options =
+      Keyword.take(processors_config, [:min_demand, :max_demand]) ++ [cancel: :temporary]
 
     subscribe_to =
       args[:producers]
-      |> Enum.map(&{&1, max_demand: max_demand, min_demand: min_demand, cancel: :temporary})
+      |> Enum.map(&{&1, subscribe_options})
 
     {:producer_consumer, state,
      subscribe_to: subscribe_to,

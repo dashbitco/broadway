@@ -356,7 +356,7 @@ defmodule Broadway do
       {:error, message} ->
         {:stop, {:bad_opts, message}}
 
-      opts ->
+      {:ok, opts} ->
         state = init_state(module, context, opts)
         {:ok, supervisor_pid} = start_supervisor(state)
         {:ok, %State{state | supervisor_pid: supervisor_pid}}
@@ -594,7 +594,7 @@ defmodule Broadway do
         type: :keyword_list,
         keys: [
           stages: [type: :pos_integer, default: System.schedulers_online() * 2],
-          min_demand: [type: :non_neg_integer, default: 2],
+          min_demand: [type: :non_neg_integer],
           max_demand: [type: :non_neg_integer, default: 4]
         ]
       ],

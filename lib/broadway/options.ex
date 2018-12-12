@@ -23,46 +23,57 @@ defmodule Broadway.Options do
   end
 
   defp validate_options(spec, opts) do
-    Enum.reduce_while(spec, opts, fn {key, spec_opts}, parent_opts ->
-      case validate_option(parent_opts, key, spec_opts) do
-        {:error, _} = result ->
-          {:halt, result}
+    case Enum.reduce_while(spec, opts, &reduce_options/2) do
+      {:error, _} = result -> result
+      result -> {:ok, result}
+    end
+  end
 
-        new_value ->
-          {:cont, Keyword.put(parent_opts, key, new_value)}
-      end
-    end)
+  defp reduce_options({key, spec_opts}, parent_opts) do
+    case validate_option(parent_opts, key, spec_opts) do
+      {:error, _} = result ->
+        {:halt, result}
+
+      {:ok, value} ->
+        {:cont, Keyword.put(parent_opts, key, value)}
+
+      :no_value ->
+        {:cont, parent_opts}
+    end
   end
 
   defp validate_option(opts, key, spec) do
-    with value <- get_value_or_default(opts, key, spec),
-         :ok <- validate_required(opts, key, spec),
+    with {:ok, value} <- get_value(opts, key, spec),
          :ok <- validate_type(spec[:type], key, value),
          :ok <- validate_keys(spec[:keys], key, value) do
       if spec[:keys] do
         keys = normalize_keys(spec[:keys], value)
         validate(opts[key], keys)
       else
-        value
+        {:ok, value}
       end
     end
   end
 
-  defp get_value_or_default(opts, key, spec) do
-    if opts[key] == nil && spec[:default] do
-      spec[:default]
-    else
-      opts[key]
-    end
-  end
+  defp get_value(opts, key, spec) do
+    required? = Keyword.get(spec, :required, false)
+    has_key? = Keyword.has_key?(opts, key)
+    has_default? = Keyword.has_key?(spec, :default)
 
-  defp validate_required(opts, key, spec) do
-    if Keyword.get(spec, :required) && !Keyword.has_key?(opts, key) do
-      {:error,
-       "required option #{inspect(key)} not found, received options: " <>
-         inspect(Keyword.keys(opts))}
-    else
-      :ok
+    case {required?, has_key?, has_default?} do
+      {_, true, _} ->
+        {:ok, opts[key]}
+
+      {true, false, _} ->
+        {:error,
+         "required option #{inspect(key)} not found, received options: " <>
+           inspect(Keyword.keys(opts))}
+
+      {_, false, true} ->
+        {:ok, spec[:default]}
+
+      {_, false, false} ->
+        :no_value
     end
   end
 
