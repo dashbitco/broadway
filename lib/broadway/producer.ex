@@ -16,9 +16,8 @@ defmodule Broadway.Producer do
   end
 
   def init(args) do
-    module = Keyword.fetch!(args, :module)
-    module_args = Keyword.fetch!(args, :args)
-    {:producer, state} = module.init(module_args)
+    module = args[:module]
+    {:producer, state} = module.init(args[:args])
     {:producer, %State{module: module, state: state}}
   end
 

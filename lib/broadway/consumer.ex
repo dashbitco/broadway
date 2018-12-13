@@ -18,16 +18,14 @@ defmodule Broadway.Consumer do
   end
 
   def init(args) do
-    module = Keyword.fetch!(args, :module)
-    context = Keyword.fetch!(args, :context)
-    batcher = Keyword.fetch!(args, :batcher)
+    batcher = args[:batcher]
     subscribe_to_options = [max_demand: 1, min_demand: 0, cancel: :temporary]
 
     ref = Subscription.subscribe(batcher, subscribe_to_options)
 
     state = %State{
-      module: module,
-      context: context,
+      module: args[:module],
+      context: args[:context],
       batcher: batcher,
       batcher_ref: ref,
       subscribe_to_options: subscribe_to_options

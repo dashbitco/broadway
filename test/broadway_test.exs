@@ -121,13 +121,27 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "broadway config" do
+  describe "broadway configuration" do
+    test "invalid configuration options" do
+      assert_raise(
+        ArgumentError,
+        "invalid configuration given to Broadway.start_link/3, expected :name to be an atom, got: 1",
+        fn ->
+          Broadway.start_link(Forwarder, %{}, name: 1)
+        end
+      )
+    end
+
     test "default number of producers is 1" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [[module: ManualProducer, arg: []]]
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [],
+        publishers: [default: []]
       )
 
       assert get_n_producers(broadway) == 1
@@ -138,7 +152,11 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [[module: ManualProducer, arg: [], stages: 3]]
+        producers: [
+          default: [module: ManualProducer, arg: [], stages: 3]
+        ],
+        processors: [],
+        publishers: [default: []]
       )
 
       assert get_n_producers(broadway) == 3
@@ -149,12 +167,14 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{},
         name: broadway,
-        producers: [[module: ManualProducer, arg: []]]
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [],
+        publishers: [default: []]
       )
 
-      schedulers_online = :erlang.system_info(:schedulers_online)
-
-      assert get_n_processors(broadway) == schedulers_online * 2
+      assert get_n_processors(broadway) == System.schedulers_online() * 2
     end
 
     test "set number of processors" do
@@ -162,8 +182,11 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{},
         name: broadway,
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
         processors: [stages: 13],
-        producers: [[module: ManualProducer, arg: []]]
+        publishers: [default: []]
       )
 
       assert get_n_processors(broadway) == 13
@@ -174,8 +197,11 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [[module: ManualProducer, arg: []]],
-        publishers: [:p1, :p2]
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [],
+        publishers: [p1: [], p2: []]
       )
 
       assert get_n_consumers(broadway, :p1) == 1
@@ -187,7 +213,10 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [[module: ManualProducer, arg: []]],
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [],
         publishers: [
           p1: [stages: 2],
           p2: [stages: 3]
@@ -197,18 +226,6 @@ defmodule BroadwayTest do
       assert get_n_consumers(broadway, :p1) == 2
       assert get_n_consumers(broadway, :p2) == 3
     end
-
-    test "define a default publisher when none is defined" do
-      broadway = new_unique_name()
-
-      Broadway.start_link(ForwarderWithNoPublisherDefined, %{},
-        name: broadway,
-        producers: [[module: ManualProducer, arg: []]]
-      )
-
-      batcher = get_batcher(broadway, :default)
-      assert Process.whereis(batcher) != nil
-    end
   end
 
   describe "producer" do
@@ -217,8 +234,14 @@ defmodule BroadwayTest do
 
       Broadway.start_link(Forwarder, %{test_pid: self()},
         name: broadway,
-        producers: [[module: ManualProducer, arg: []]],
-        publishers: [:even, :odd]
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [],
+        publishers: [
+          even: [],
+          odd: []
+        ]
       )
 
       producer = get_producer(broadway)
@@ -240,8 +263,14 @@ defmodule BroadwayTest do
       {:ok, _pid} =
         Broadway.start_link(Forwarder, %{test_pid: self()},
           name: broadway,
-          producers: [[module: ManualProducer, arg: []]],
-          publishers: [:even, :odd]
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
+          processors: [],
+          publishers: [
+            even: [],
+            odd: []
+          ]
         )
 
       %{producer: get_producer(broadway)}
@@ -277,7 +306,10 @@ defmodule BroadwayTest do
       {:ok, _pid} =
         Broadway.start_link(Forwarder, %{test_pid: self()},
           name: broadway,
-          producers: [[module: ManualProducer, arg: []]],
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
+          processors: [],
           publishers: [
             odd: [batch_size: 10, batch_timeout: 20],
             even: [batch_size: 5, batch_timeout: 20]
@@ -353,8 +385,10 @@ defmodule BroadwayTest do
       {:ok, _pid} =
         Broadway.start_link(ForwarderWithCustomHandlers, context,
           name: broadway_name,
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
           processors: [stages: 1, min_demand: 1, max_demand: 2],
-          producers: [[module: ManualProducer, arg: []]],
           publishers: [default: [batch_size: 2]]
         )
 
@@ -440,9 +474,11 @@ defmodule BroadwayTest do
       {:ok, _pid} =
         Broadway.start_link(ForwarderWithCustomHandlers, context,
           name: broadway_name,
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
           processors: [stages: 1, min_demand: 1, max_demand: 2],
-          producers: [[module: ManualProducer, arg: []]],
-          publishers: [default: [batch_size: 2, min_demand: 0, max_demand: 2]]
+          publishers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
@@ -495,7 +531,11 @@ defmodule BroadwayTest do
       {:ok, pid} =
         Broadway.start_link(ForwarderWithNoPublisherDefined, %{test_pid: self()},
           name: new_unique_name(),
-          producers: [[module: ManualProducer, arg: []]]
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
+          processors: [],
+          publishers: [default: []]
         )
 
       %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
@@ -513,7 +553,11 @@ defmodule BroadwayTest do
       {:ok, pid} =
         Broadway.start_link(ForwarderWithNoPublisherDefined, %{test_pid: self()},
           name: new_unique_name(),
-          producers: [[module: ManualProducer, arg: []]]
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
+          processors: [],
+          publishers: [default: []]
         )
 
       %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
