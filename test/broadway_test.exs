@@ -60,19 +60,6 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule ForwarderWithNoPublisherDefined do
-    use Broadway
-
-    def handle_message(message, _context) do
-      {:ok, message}
-    end
-
-    def handle_batch(publisher, messages, _, %{test_pid: test_pid}) do
-      send(test_pid, {:batch_handled, publisher, messages})
-      {:ack, successful: messages, failed: []}
-    end
-  end
-
   defmodule ForwarderWithCustomHandlers do
     use Broadway
 
@@ -529,7 +516,7 @@ defmodule BroadwayTest do
       Process.flag(:trap_exit, true)
 
       {:ok, pid} =
-        Broadway.start_link(ForwarderWithNoPublisherDefined, %{test_pid: self()},
+        Broadway.start_link(Forwarder, %{test_pid: self()},
           name: new_unique_name(),
           producers: [
             default: [module: ManualProducer, arg: []]
@@ -551,7 +538,7 @@ defmodule BroadwayTest do
       Process.flag(:trap_exit, true)
 
       {:ok, pid} =
-        Broadway.start_link(ForwarderWithNoPublisherDefined, %{test_pid: self()},
+        Broadway.start_link(Forwarder, %{test_pid: self()},
           name: new_unique_name(),
           producers: [
             default: [module: ManualProducer, arg: []]
