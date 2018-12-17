@@ -33,7 +33,7 @@ defmodule BroadwayTest do
   defmodule Forwarder do
     use Broadway
 
-    import Message.Actions
+    import Message
 
     def handle_message(%Message{data: data} = message, %{test_pid: test_pid})
         when is_odd(data) do
