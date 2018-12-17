@@ -21,10 +21,6 @@ defmodule Broadway.Batcher do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
-  def child_spec(args) do
-    %{start: {__MODULE__, :start_link, args}}
-  end
-
   def init(args) do
     publisher_key = args[:publisher_key]
     batch_timeout = args[:batch_timeout]

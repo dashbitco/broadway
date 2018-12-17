@@ -13,10 +13,6 @@ defmodule Broadway.Processor do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
-  def child_spec(args) do
-    %{start: {__MODULE__, :start_link, args}}
-  end
-
   def init(args) do
     publishers_config = args[:publishers_config]
     processors_config = args[:processors_config]

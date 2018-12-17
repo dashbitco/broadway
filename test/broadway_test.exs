@@ -524,7 +524,7 @@ defmodule BroadwayTest do
           publishers: [default: []]
         )
 
-      %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
+      %{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
 
       Process.exit(pid, :shutdown)
 
@@ -546,7 +546,7 @@ defmodule BroadwayTest do
           publishers: [default: []]
         )
 
-      %Broadway.State{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
+      %{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
 
       Process.exit(supervisor_pid, :kill)
       assert_receive {:EXIT, ^pid, :killed}

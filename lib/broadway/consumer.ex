@@ -13,10 +13,6 @@ defmodule Broadway.Consumer do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
-  def child_spec(args) do
-    %{start: {__MODULE__, :start_link, args}}
-  end
-
   def init(args) do
     batcher = args[:batcher]
     subscribe_to_options = [max_demand: 1, min_demand: 0, cancel: :temporary]
