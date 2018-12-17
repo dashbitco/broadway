@@ -152,7 +152,7 @@ defmodule Broadway.Server do
 
       children = [
         batcher_spec,
-        build_consumer_supervisor_spec(consumers_specs, broadway_name, key, batcher)
+        build_consumer_supervisor_spec(consumers_specs, broadway_name, key)
       ]
 
       build_batcher_consumer_supervisor_spec(children, broadway_name, key)
@@ -201,7 +201,7 @@ defmodule Broadway.Server do
 
   defp process_name(prefix, type, index, max) do
     index
-    |> to_string()
+    |> Integer.to_string()
     |> String.pad_leading(String.length("#{max}"), "0")
     |> (&:"#{prefix}.#{type}_#{&1}").()
   end
@@ -222,16 +222,16 @@ defmodule Broadway.Server do
     build_supervisor_spec(children, :"#{prefix}.BatcherConsumerSupervisor_#{key}")
   end
 
-  defp build_consumer_supervisor_spec(children, prefix, key, batcher) do
-    build_supervisor_spec(children, :"#{prefix}.ConsumerSupervisor_#{key}", batcher: batcher)
+  defp build_consumer_supervisor_spec(children, prefix, key) do
+    build_supervisor_spec(children, :"#{prefix}.ConsumerSupervisor_#{key}")
   end
 
-  defp build_supervisor_spec(children, name, extra_opts \\ []) do
+  defp build_supervisor_spec(children, name) do
     opts = [name: name, strategy: :one_for_one]
 
     %{
       id: make_ref(),
-      start: {Supervisor, :start_link, [children, opts ++ extra_opts]},
+      start: {Supervisor, :start_link, [children, opts]},
       type: :supervisor
     }
   end
