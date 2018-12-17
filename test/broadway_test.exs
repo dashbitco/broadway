@@ -82,7 +82,7 @@ defmodule BroadwayTest do
 
       assert MyBroadway.child_spec(:arg) == %{
                id: BroadwayTest.MyBroadway,
-               start: {Broadway, :start_link, [BroadwayTest.MyBroadway, %{}, :arg]},
+               start: {BroadwayTest.MyBroadway, :start_link, [:arg]},
                type: :supervisor
              }
     end

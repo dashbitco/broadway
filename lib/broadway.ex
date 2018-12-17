@@ -318,7 +318,7 @@ defmodule Broadway do
       def child_spec(arg) do
         default = %{
           id: unquote(module),
-          start: {Broadway, :start_link, [__MODULE__, %{}, arg]},
+          start: {__MODULE__, :start_link, [arg]},
           type: :supervisor
         }
 
