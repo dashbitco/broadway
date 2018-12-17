@@ -82,7 +82,8 @@ defmodule BroadwayTest do
 
       assert MyBroadway.child_spec(:arg) == %{
                id: BroadwayTest.MyBroadway,
-               start: {Broadway, :start_link, [BroadwayTest.MyBroadway, %{}, :arg]}
+               start: {Broadway, :start_link, [BroadwayTest.MyBroadway, %{}, :arg]},
+               type: :supervisor
              }
     end
 
@@ -308,9 +309,8 @@ defmodule BroadwayTest do
       refute_receive {:batch_handled, _, _}
     end
 
-    test "generate batches with the remaining messages after :batch_timeout is reached", %{
-      producer: producer
-    } do
+    test "generate batches with the remaining messages after :batch_timeout is reached",
+         %{producer: producer} do
       push_messages(producer, 1..5)
 
       assert_receive {:batch_handled, :odd, messages} when length(messages) == 3

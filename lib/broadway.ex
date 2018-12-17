@@ -318,7 +318,8 @@ defmodule Broadway do
       def child_spec(arg) do
         default = %{
           id: unquote(module),
-          start: {Broadway, :start_link, [__MODULE__, %{}, arg]}
+          start: {Broadway, :start_link, [__MODULE__, %{}, arg]},
+          type: :supervisor
         }
 
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
