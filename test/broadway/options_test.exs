@@ -15,7 +15,7 @@ defmodule Broadway.OptionsTest do
     opts = [an_option: 1, not_an_option1: 1, not_an_option2: 1]
 
     assert Options.validate(opts, spec) ==
-              {:error,
+             {:error,
               "unknown options [:not_an_option1, :not_an_option2], valid options are: [:an_option, :other_option]"}
   end
 
@@ -37,12 +37,11 @@ defmodule Broadway.OptionsTest do
     opts = [an_option: 1, other_option: 2]
 
     assert Options.validate(opts, spec) ==
-              {:error,
+             {:error,
               "required option :name not found, received options: [:an_option, :other_option]"}
   end
 
   describe "type validation" do
-
     test "valid positive integer" do
       spec = [stages: [type: :pos_integer]]
       opts = [stages: 1]
@@ -91,14 +90,13 @@ defmodule Broadway.OptionsTest do
   end
 
   describe "nested options with predefined keys" do
-
     test "known options" do
       spec = [
         processors: [
           type: :keyword_list,
           keys: [
             stages: [],
-            max_demand: [],
+            max_demand: []
           ]
         ]
       ]
@@ -137,7 +135,7 @@ defmodule Broadway.OptionsTest do
         processors: [
           type: :keyword_list,
           keys: [
-            stages: [default: 10],
+            stages: [default: 10]
           ]
         ]
       ]
@@ -177,8 +175,7 @@ defmodule Broadway.OptionsTest do
       opts = [processors: [max_demand: 1]]
 
       assert Options.validate(opts, spec) ==
-        {:error,
-        "required option :stages not found, received options: [:max_demand]"}
+               {:error, "required option :stages not found, received options: [:max_demand]"}
     end
 
     test "nested options types" do
@@ -187,7 +184,7 @@ defmodule Broadway.OptionsTest do
           type: :keyword_list,
           keys: [
             name: [type: :atom],
-            stages: [type: :pos_integer],
+            stages: [type: :pos_integer]
           ]
         ]
       ]
@@ -195,12 +192,11 @@ defmodule Broadway.OptionsTest do
       opts = [processors: [name: MyModule, stages: :an_atom]]
 
       assert Options.validate(opts, spec) ==
-        {:error, "expected :stages to be a positive integer, got: :an_atom"}
+               {:error, "expected :stages to be a positive integer, got: :an_atom"}
     end
   end
 
   describe "nested options with custom keys" do
-
     test "known options" do
       spec = [
         producers: [
@@ -208,7 +204,7 @@ defmodule Broadway.OptionsTest do
           keys: [
             *: [
               module: [],
-              arg: [],
+              arg: []
             ]
           ]
         ]
@@ -226,7 +222,7 @@ defmodule Broadway.OptionsTest do
           keys: [
             *: [
               module: [],
-              arg: [],
+              arg: []
             ]
           ]
         ]
@@ -235,8 +231,7 @@ defmodule Broadway.OptionsTest do
       opts = [producers: [producer1: [module: MyModule, arg: :ok, unknown_option: 1]]]
 
       assert Options.validate(opts, spec) ==
-               {:error,
-                "unknown options [:unknown_option], valid options are: [:module, :arg]"}
+               {:error, "unknown options [:unknown_option], valid options are: [:module, :arg]"}
     end
 
     test "options with default values" do
@@ -245,7 +240,7 @@ defmodule Broadway.OptionsTest do
           type: :keyword_list,
           keys: [
             *: [
-              arg: [default: :ok],
+              arg: [default: :ok]
             ]
           ]
         ]
@@ -263,7 +258,7 @@ defmodule Broadway.OptionsTest do
           keys: [
             *: [
               module: [required: true],
-              arg: [required: true],
+              arg: [required: true]
             ]
           ]
         ]
@@ -281,7 +276,7 @@ defmodule Broadway.OptionsTest do
           keys: [
             *: [
               module: [required: true],
-              arg: [required: true],
+              arg: [required: true]
             ]
           ]
         ]
@@ -290,8 +285,7 @@ defmodule Broadway.OptionsTest do
       opts = [producers: [default: [module: MyModule]]]
 
       assert Options.validate(opts, spec) ==
-        {:error,
-        "required option :arg not found, received options: [:module]"}
+               {:error, "required option :arg not found, received options: [:module]"}
     end
 
     test "nested options types" do
@@ -340,7 +334,5 @@ defmodule Broadway.OptionsTest do
       assert Options.validate(opts, spec) ==
                {:error, "expected :producers to be a non-empty keyword list, got: []"}
     end
-
   end
-
 end

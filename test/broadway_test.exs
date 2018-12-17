@@ -67,18 +67,8 @@ defmodule BroadwayTest do
       handler.(message, context)
     end
 
-    def handle_message(message, %{test_pid: test_pid}) do
-      send(test_pid, {:message_handled, message})
-      {:ok, message}
-    end
-
     def handle_batch(publisher, messages, batch_info, %{handle_batch: handler} = context) do
       handler.(publisher, messages, batch_info, context)
-    end
-
-    def handle_batch(publisher, messages, batch_info, %{test_pid: test_pid}) do
-      send(test_pid, {:batch_handled, publisher, messages, batch_info})
-      {:ack, successful: messages, failed: []}
     end
   end
 
@@ -353,7 +343,9 @@ defmodule BroadwayTest do
 
   describe "handle processor crash" do
     setup do
-      handle_message = fn message, %{test_pid: test_pid} ->
+      test_pid = self()
+
+      handle_message = fn message, _ ->
         if message.data == :kill_processor do
           Process.exit(message.processor_pid, :kill)
         end
@@ -362,9 +354,14 @@ defmodule BroadwayTest do
         {:ok, message}
       end
 
+      handle_batch = fn _, batch, _, _ ->
+        send(test_pid, {:batch_handled, batch})
+        {:ack, successful: batch, failed: []}
+      end
+
       context = %{
-        test_pid: self(),
-        handle_message: handle_message
+        handle_message: handle_message,
+        handle_batch: handle_batch
       }
 
       broadway_name = new_unique_name()
@@ -430,11 +427,11 @@ defmodule BroadwayTest do
     test "batches are created normally (without the lost messages)", %{producer: producer} do
       push_messages(producer, [1, 2, :kill_processor, 3, 4, 5])
 
-      assert_receive {:batch_handled, _, messages, _}
+      assert_receive {:batch_handled, messages}
       values = messages |> Enum.map(& &1.data)
       assert values == [1, 2]
 
-      assert_receive {:batch_handled, _, messages, _}
+      assert_receive {:batch_handled, messages}
       values = messages |> Enum.map(& &1.data)
       assert values == [4, 5]
     end
@@ -442,7 +439,9 @@ defmodule BroadwayTest do
 
   describe "handle batcher crash" do
     setup do
-      handle_batch = fn _publisher, messages, batch_info, %{test_pid: test_pid} ->
+      test_pid = self()
+
+      handle_batch = fn _publisher, messages, batch_info, _ ->
         if Enum.any?(messages, fn msg -> msg.data == :kill_batcher end) do
           Process.exit(batch_info.batcher, :kill)
         end
@@ -452,8 +451,8 @@ defmodule BroadwayTest do
       end
 
       context = %{
-        test_pid: self(),
-        handle_batch: handle_batch
+        handle_batch: handle_batch,
+        handle_message: fn message, _ -> {:ok, message} end
       }
 
       broadway_name = new_unique_name()
