@@ -4,21 +4,16 @@ defmodule Broadway.Processor do
 
   alias Broadway.Message
 
-  defmodule State do
-    @moduledoc false
-    defstruct [:module, :context]
-  end
-
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
+  @impl true
   def init(args) do
-    publishers_config = args[:publishers_config]
     processors_config = args[:processors_config]
     context = args[:context]
-    keys = Keyword.keys(publishers_config)
-    state = %State{module: args[:module], context: context}
+    partitions = args[:partitions]
+    state = %{module: args[:module], context: context}
 
     subscribe_options =
       Keyword.take(processors_config, [:min_demand, :max_demand]) ++ [cancel: :temporary]
@@ -29,12 +24,16 @@ defmodule Broadway.Processor do
 
     {:producer_consumer, state,
      subscribe_to: subscribe_to,
-     dispatcher: {GenStage.PartitionDispatcher, partitions: keys, hash: & &1}}
+     dispatcher: {GenStage.PartitionDispatcher, partitions: partitions, hash: & &1}}
   end
 
+  @impl true
   def handle_events(messages, _from, state) do
-    %State{module: module, context: context} = state
+    %{module: module, context: context} = state
 
+    # TODO: Raise a proper error message if handle_message
+    # does not return {:ok, %Message{}} or if the publisher
+    # in the message is not known (within the upcoming try/catch block).
     events =
       Enum.map(messages, fn message ->
         new_message = %Message{message | processor_pid: self()}

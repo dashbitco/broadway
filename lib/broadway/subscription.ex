@@ -22,6 +22,9 @@ defmodule Broadway.Subscription do
   end
 
   def schedule_resubscribe do
+    # TODO: We should revisit the resubscribe time once we make
+    # this logic exclusive to processors only. Maybe through a
+    # configuration option so we can keep it low for tests.
     Process.send_after(self(), :resubscribe, 10)
   end
 

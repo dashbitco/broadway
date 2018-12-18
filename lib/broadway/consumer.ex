@@ -3,38 +3,35 @@ defmodule Broadway.Consumer do
   use GenStage
 
   alias Broadway.Subscription
-
-  defmodule State do
-    @moduledoc false
-    defstruct [:module, :context, :batcher, :batcher_ref, :subscribe_to_options]
-  end
+  @subscribe_to_options [max_demand: 1, min_demand: 0, cancel: :temporary]
 
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
+  @impl true
   def init(args) do
     batcher = args[:batcher]
-    subscribe_to_options = [max_demand: 1, min_demand: 0, cancel: :temporary]
+    ref = Subscription.subscribe(batcher, @subscribe_to_options)
 
-    ref = Subscription.subscribe(batcher, subscribe_to_options)
-
-    state = %State{
+    state = %{
       module: args[:module],
       context: args[:context],
       batcher: batcher,
-      batcher_ref: ref,
-      subscribe_to_options: subscribe_to_options
+      batcher_ref: ref
     }
 
     {:consumer, state}
   end
 
+  @impl true
   def handle_events(events, _from, state) do
-    %State{module: module, context: context} = state
+    %{module: module, context: context} = state
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{publisher_key: publisher_key} = batch_info
 
+    # TODO: Raise a proper error message if handle_batch
+    # does not return {:ack, ...} (within the upcoming try/catch).
     {:ack, successful: successful_messages, failed: failed_messages} =
       module.handle_batch(publisher_key, messages, batch_info, context)
 
@@ -43,18 +40,14 @@ defmodule Broadway.Consumer do
     {:noreply, [], state}
   end
 
+  @impl true
   def handle_info(:resubscribe, state) do
-    %{
-      subscribe_to_options: subscribe_to_options,
-      batcher: batcher
-    } = state
-
-    ref = Subscription.subscribe(batcher, subscribe_to_options)
-
+    %{batcher: batcher} = state
+    ref = Subscription.subscribe(batcher, @subscribe_to_options)
     {:noreply, [], %{state | batcher_ref: ref}}
   end
 
-  def handle_info({:DOWN, ref, _, _, _reason}, %State{batcher_ref: ref} = state) do
+  def handle_info({:DOWN, ref, _, _, _reason}, %{batcher_ref: ref} = state) do
     Subscription.schedule_resubscribe()
     {:noreply, [], %{state | batcher_ref: nil}}
   end
@@ -65,25 +58,28 @@ defmodule Broadway.Consumer do
 
   defp ack_messages(successful_messages, failed_messages) do
     %{}
-    |> reduce_messages_grouping_by_acknowledger(successful_messages, :successful)
-    |> reduce_messages_grouping_by_acknowledger(failed_messages, :failed)
-    |> Enum.each(&call_ack(&1))
+    |> group_by_acknowledger(successful_messages, :successful)
+    |> group_by_acknowledger(failed_messages, :failed)
+    |> Enum.each(&call_ack/1)
   end
 
-  defp reduce_messages_grouping_by_acknowledger(grouped_messages, messages, key) do
-    Enum.reduce(messages, grouped_messages, fn msg, acc ->
-      add_message_to_acknowledger(msg, acc, key)
+  defp group_by_acknowledger(grouped_messages, messages, key) do
+    Enum.reduce(messages, grouped_messages, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
+      Map.update(acc, acknowledger, [{key, msg}], &[{key, msg} | &1])
     end)
   end
 
-  defp add_message_to_acknowledger(%{acknowledger: {acknowledger, _}} = msg, acc, key) do
-    acc
-    |> Map.get(acknowledger, %{successful: [], failed: []})
-    |> Map.update!(key, &[msg | &1])
-    |> (&Map.put(acc, acknowledger, &1)).()
+  defp call_ack({acknowledger, messages}) do
+    {successful, failed} = unpack_messages(messages, [], [])
+    acknowledger.ack(successful, failed)
   end
 
-  defp call_ack({acknowledger, %{successful: successful, failed: failed}}) do
-    acknowledger.ack(Enum.reverse(successful), Enum.reverse(failed))
-  end
+  defp unpack_messages([{:successful, message} | messages], successful, failed),
+    do: unpack_messages(messages, [message | successful], failed)
+
+  defp unpack_messages([{:failed, message} | messages], successful, failed),
+    do: unpack_messages(messages, successful, [message | failed])
+
+  defp unpack_messages([], successful, failed),
+    do: {successful, failed}
 end

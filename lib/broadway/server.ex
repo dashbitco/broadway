@@ -119,10 +119,10 @@ defmodule Broadway.Server do
     specs =
       for name <- names do
         args = [
-          publishers_config: publishers_config,
-          processors_config: processors_config,
           module: module,
           context: context,
+          partitions: Keyword.keys(publishers_config),
+          processors_config: processors_config,
           producers: producers
         ]
 
@@ -163,7 +163,7 @@ defmodule Broadway.Server do
     {key, options} = publisher_config
     name = process_name(broadway_name, "Batcher", key)
 
-    args = [publisher_key: key, processors: processors] ++ options    
+    args = [publisher_key: key, processors: processors] ++ options
     opts = [name: name]
 
     spec = %{
