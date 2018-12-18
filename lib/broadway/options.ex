@@ -126,9 +126,7 @@ defmodule Broadway.Options do
         keys
 
       spec_opts ->
-        opts
-        |> Keyword.keys()
-        |> Enum.map(fn k -> {k, [type: :keyword_list, keys: spec_opts]} end)
+        Enum.map(opts, fn {k, _} -> {k, [type: :keyword_list, keys: spec_opts]} end)
     end
   end
 end
