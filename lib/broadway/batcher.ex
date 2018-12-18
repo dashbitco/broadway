@@ -112,14 +112,8 @@ defmodule Broadway.Batcher do
     {current, pending_count, timer} = init_or_get_batch(@default_batch, state)
     {current, pending_count, events} = split_counting(events, pending_count, current)
 
-    if pending_count == 0 do
-      delete_batch(@default_batch)
-      cancel_batch_timeout(timer)
-      handle_events_for_default_batch(events, [wrap_for_delivery(current, state) | acc], state)
-    else
-      put_batch(@default_batch, {current, pending_count, timer})
-      handle_events_for_default_batch(events, acc, state)
-    end
+    acc = deliver_or_update_batch(@default_batch, current, pending_count, timer, acc, state)
+    handle_events_for_default_batch(events, acc, state)
   end
 
   defp split_counting([event | events], count, acc) when count > 0 do
@@ -127,6 +121,17 @@ defmodule Broadway.Batcher do
   end
 
   defp split_counting(events, count, acc), do: {acc, count, events}
+
+  defp deliver_or_update_batch(batch_name, current, 0, timer, acc, state) do
+    delete_batch(batch_name)
+    cancel_batch_timeout(timer)
+    [wrap_for_delivery(current, state) | acc]
+  end
+
+  defp deliver_or_update_batch(batch_name, current, pending_count, timer, acc, _state) do
+    put_batch(batch_name, {current, pending_count, timer})
+    acc
+  end
 
   ## General batch handling
 
