@@ -1,7 +1,9 @@
 defmodule Broadway.Batcher do
   @moduledoc false
   use GenStage
-  alias Broadway.Subscription
+  alias Broadway.{BatchInfo, Subscription}
+
+  @default_batch __MODULE__
 
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
@@ -21,15 +23,10 @@ defmodule Broadway.Batcher do
     {refs, failed_subscriptions} =
       Subscription.subscribe_all(args[:processors], subscribe_to_options)
 
-    # TODO: We should probably do this when we add the first element
-    # to the batch.
-    schedule_flush_pending(batch_timeout)
-
     state = %{
       publisher_key: publisher_key,
       batch_size: args[:batch_size],
       batch_timeout: batch_timeout,
-      pending_events: [],
       processors_refs: refs,
       failed_subscriptions: failed_subscriptions,
       subscribe_to_options: subscribe_to_options
@@ -40,21 +37,20 @@ defmodule Broadway.Batcher do
 
   @impl true
   def handle_events(events, _from, state) do
-    # TODO: This could be made more efficient. We should store
-    # in the state how many elements we already have in the current
-    # batch (or how many is left to fullfil the batch). Then when
-    # new events come, we just need to take whatever is left to
-    # compute the batch, without computing the whole batch again.
-    # Another suggestion, use the process dictionary for efficiency.
-    %{pending_events: pending_events, batch_size: batch_size} = state
-    do_handle_events(pending_events ++ events, state, batch_size)
+    batches = handle_events_for_default_batch(events, [], state)
+    {:noreply, batches, state}
   end
 
   @impl true
-  def handle_info(:flush_pending, state) do
-    %{pending_events: pending_events, batch_timeout: batch_timeout} = state
-    schedule_flush_pending(batch_timeout)
-    do_handle_events(pending_events, state, 1)
+  def handle_info({:timeout, timer, batch_name}, state) do
+    case get_timed_out_batch(batch_name, timer) do
+      {current, _, _} ->
+        delete_batch(batch_name)
+        {:noreply, [wrap_for_delivery(current, state)], state}
+
+      :error ->
+        {:noreply, [], state}
+    end
   end
 
   def handle_info(:resubscribe, state) do
@@ -106,25 +102,85 @@ defmodule Broadway.Batcher do
     {:noreply, [], state}
   end
 
-  defp do_handle_events(events, state, min_size) do
-    %{batch_size: batch_size, publisher_key: publisher_key} = state
-    {batch_events, new_pending_events} = split_events(events, publisher_key, batch_size, min_size)
+  ## Default batch handling
 
-    {:noreply, batch_events, %{state | pending_events: new_pending_events}}
+  defp handle_events_for_default_batch([], acc, _state) do
+    Enum.reverse(acc)
   end
 
-  defp split_events(events, publisher_key, batch_size, min_size) do
-    {batch_events, pending_events} = Enum.split(events, batch_size)
+  defp handle_events_for_default_batch(events, acc, state) do
+    {current, pending_count, timer} = init_or_get_batch(@default_batch, state)
+    {current, pending_count, events} = split_counting(events, pending_count, current)
 
-    if length(batch_events) >= min_size do
-      {[{batch_events, %Broadway.BatchInfo{publisher_key: publisher_key, batcher: self()}}],
-       pending_events}
+    acc = deliver_or_update_batch(@default_batch, current, pending_count, timer, acc, state)
+    handle_events_for_default_batch(events, acc, state)
+  end
+
+  defp split_counting([event | events], count, acc) when count > 0 do
+    split_counting(events, count - 1, [event | acc])
+  end
+
+  defp split_counting(events, count, acc), do: {acc, count, events}
+
+  defp deliver_or_update_batch(batch_name, current, 0, timer, acc, state) do
+    delete_batch(batch_name)
+    cancel_batch_timeout(timer)
+    [wrap_for_delivery(current, state) | acc]
+  end
+
+  defp deliver_or_update_batch(batch_name, current, pending_count, timer, acc, _state) do
+    put_batch(batch_name, {current, pending_count, timer})
+    acc
+  end
+
+  ## General batch handling
+
+  defp init_or_get_batch(batch_name, state) do
+    if batch = Process.get(batch_name) do
+      batch
     else
-      {[], events}
+      %{batch_size: batch_size, batch_timeout: batch_timeout} = state
+      timer = schedule_batch_timeout(batch_name, batch_timeout)
+      {[], batch_size, timer}
     end
   end
 
-  defp schedule_flush_pending(delay) do
-    Process.send_after(self(), :flush_pending, delay)
+  defp get_timed_out_batch(batch_name, timer) do
+    case Process.get(batch_name) do
+      {_, _, ^timer} = batch -> batch
+      _ -> :error
+    end
+  end
+
+  defp put_batch(batch_name, {_, _, _} = batch) do
+    Process.put(batch_name, batch)
+  end
+
+  defp delete_batch(batch_name) do
+    Process.delete(batch_name)
+  end
+
+  defp schedule_batch_timeout(batch_name, batch_timeout) do
+    :erlang.start_timer(batch_timeout, self(), batch_name)
+  end
+
+  defp cancel_batch_timeout(timer) do
+    case :erlang.cancel_timer(timer) do
+      false ->
+        receive do
+          {:timeout, ^timer, _} -> :ok
+        after
+          0 -> raise "unknown timer #{inspect(timer)}"
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp wrap_for_delivery(reversed_events, state) do
+    %{publisher_key: publisher_key} = state
+    batch_info = %BatchInfo{publisher_key: publisher_key, batcher: self()}
+    {Enum.reverse(reversed_events), batch_info}
   end
 end
