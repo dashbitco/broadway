@@ -65,7 +65,7 @@ defmodule Broadway do
                           /   \
                          /     \
                         /       \
-               [processor_1] [processor_2]   <- ideal for CPU bounded tasks
+               [processor_1] [processor_2]   <- process each message
                         /\     /\
                        /  \   /  \
                       /    \ /    \
@@ -78,14 +78,13 @@ defmodule Broadway do
                  /  \                  \
                 /    \                  \
                /      \                  \
-   [consumer_sqs_1] [consumer_sqs_2]  [consumer_s3_1]   <- publish results (usually IO bounded tasks)
+   [consumer_sqs_1] [consumer_sqs_2]  [consumer_s3_1] <- process in batches
   ```
 
   When using Broadway, you need to implement two callbacks:
-  `c:handle_message/2`, invoked by the processor for CPU
-  bounded tasks, and `c:handle_batch/4`, invoked by consumers
-  for IO bounded work. Here is how those callbacks would be
-  implemented:
+  `c:handle_message/2`, invoked by the processor for each message,
+  and `c:handle_batch/4`, invoked by consumers with each batch.
+  Here is how those callbacks would be implemented:
 
       defmodule MyBroadway do
         use Broadway
@@ -133,16 +132,20 @@ defmodule Broadway do
         end
       end
 
-  Note you don't need to take care of acknowledging the messages
-  back to their producers, as it is automatically taken care by
-  Broadway once you return `{:ack, successful: ..., failed: ...}`.
+  The publishers usually do the job of publishing the processing
+  results elsewhere, although that's not strictly required. For
+  example, results could be processed and published per message
+  on the `c:handle_message/2` callback too. Publishers are also
+  responsible to acknowledge the messages back to their producers,
+  once you return `{:ack, successful: ..., failed: ...}` in
+  `c:handle_batch/4`.
 
   ## General Architecture
 
   Broadway's architecture is built on top GenStage. That means we structure
   our processing units as independent stages that are responsible for one
-  individual task in the pipeline. By implementing the Broadway behaviour
-  we define a GenServer process that wraps a Supervisor to manage and
+  individual task in the pipeline. By implementing the `Broadway` behaviour
+  we define a `GenServer` process that wraps a `Supervisor` to manage and
   own our pipeline.
 
   ### The Pipeline Model
