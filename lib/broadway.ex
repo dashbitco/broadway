@@ -91,6 +91,7 @@ defmodule Broadway do
 
         ...start_link...
 
+        @impl true
         def handle_message(%Message{data: data} = message, _) when is_odd(data) do
           new_message =
             message
@@ -109,6 +110,7 @@ defmodule Broadway do
           {:ok, new_message}
         end
 
+        @impl true
         def handle_batch(:sqs, messages, _batch_info, _context) do
           {successful, failed} = send_messages_to_sqs(messages)
           {:ack, successful: successful, failed: failed}
@@ -155,7 +157,7 @@ defmodule Broadway do
                                           |
                                           |   (demand dispatcher)
                                           |
-     handle_message/3 runs here ->   [processors]
+     handle_message/2 runs here ->   [processors]
                                          / \
                                         /   \   (partition dispatcher)
                                        /     \
@@ -163,7 +165,7 @@ defmodule Broadway do
                                      |           |
                                      |           |   (demand dispatcher)
                                      |           |
-  handle_batch/3 runs here ->   [consumers]  [consumers]
+  handle_batch/4 runs here ->   [consumers]  [consumers]
   ```
 
   ### Internal Stages
@@ -172,10 +174,10 @@ defmodule Broadway do
       the user. It serves as the source of the pipeline.
     * `Broadway.Processor` - This is where messages are processed, e.g. do
       calculations, convert data into a custom json format etc. Here is where
-      the code from `handle_message/3` runs.
+      the code from `handle_message/2` runs.
     * `Broadway.Batcher` - Creates batches of messages based on the
       publisher's key. One Batcher for each key will be created.
-    * `Broadway.Consumer` - This is where the code from `handle_batch/3` runs.
+    * `Broadway.Consumer` - This is where the code from `handle_batch/4` runs.
 
   ### Fault-tolerance
 
@@ -237,6 +239,7 @@ defmodule Broadway do
   In order to update the data after processing, use the `update_data/2` function.
   This way the new message can be properly forwared and handled by the publisher:
 
+      @impl true
       def handle_message(%Message{data: data} = message, _) do
         new_message =
           update_data(message, fn data ->
@@ -251,12 +254,12 @@ defmodule Broadway do
   to. You can do this by calling `put_publisher/2` and returning the new
   updated message:
 
+      @impl true
       def handle_message(%Message{data: data} = message, _) do
         # Do whatever you need with the data
         ...
 
         new_message = put_publisher(new_message, :s3)
-
         {:ok, new_message}
       end
 
