@@ -32,7 +32,23 @@ defmodule Broadway.Producer do
   end
 
   @impl true
+  def handle_info(message, %{module: module, module_state: module_state} = state) do
+    case module.handle_info(message, module_state) do
+      {tag, events_or_reason, new_module_state} ->
+        {tag, events_or_reason, %{state | module_state: new_module_state}}
+
+      {:noreply, events, new_module_state, :hibernate} ->
+        {:noreply, events, %{state | module_state: new_module_state}, :hibernate}
+    end
+  end
+
+  @impl true
   def handle_call({:push_messages, messages}, _from, state) do
     {:reply, :ok, messages, state}
+  end
+
+  @impl true
+  def terminate(reason, %{module: module, module_state: module_state}) do
+    module.terminate(reason, module_state)
   end
 end
