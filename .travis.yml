@@ -1,12 +1,12 @@
 language: elixir
 sudo: false
 script:
-  - if [ -z "$SKIP_FORMAT_CHECK" ]; then mix format --check-formatted; fi
+  - if [ "$CHECK_FORMATTED" = true ]; then mix format --check-formatted; fi
   - mix test
 matrix:
   include:
     - elixir: 1.5.3
       otp_release: 18.3
-      env: SKIP_FORMAT_CHECK=true
     - elixir: 1.7.4
       otp_release: 21.2
+      env: CHECK_FORMATTED=true
