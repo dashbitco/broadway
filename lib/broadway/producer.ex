@@ -49,6 +49,10 @@ defmodule Broadway.Producer do
 
   @impl true
   def terminate(reason, %{module: module, module_state: module_state}) do
-    module.terminate(reason, module_state)
+    if function_exported?(module, :terminate, 2) do
+      module.terminate(reason, module_state)
+    else
+      :ok
+    end
   end
 end

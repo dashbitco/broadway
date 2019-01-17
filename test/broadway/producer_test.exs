@@ -37,6 +37,12 @@ defmodule Broadway.ProducerTest do
     end
   end
 
+  defmodule ProducerWithOutTerminate do
+    use GenStage
+
+    def init(_), do: {:producer, nil}
+  end
+
   describe "wrap handle_demand" do
     test "returning {:noreply, [event], new_state}" do
       state = %{module: FakeProducer, module_state: :return_no_reply}
@@ -84,12 +90,20 @@ defmodule Broadway.ProducerTest do
     end
   end
 
-  test "wrap terminate" do
-    state = %{module: FakeProducer, module_state: :module_state}
+  describe "wrap terminate" do
+    test "forward call to wrapped module" do
+      state = %{module: FakeProducer, module_state: :module_state}
 
-    assert Producer.terminate(:normal, state) == {:normal, :module_state}
+      assert Producer.terminate(:normal, state) == {:normal, :module_state}
 
-    assert Producer.terminate({:shutdown, :a_term}, state) ==
-             {{:shutdown, :a_term}, :module_state}
+      assert Producer.terminate({:shutdown, :a_term}, state) ==
+               {{:shutdown, :a_term}, :module_state}
+    end
+
+    test "returns :ok when the wrapped module doesn't define a terminate/2 callback" do
+      state = %{module: ProducerWithOutTerminate, module_state: :module_state}
+
+      assert Producer.terminate(:normal, state) == :ok
+    end
   end
 end
