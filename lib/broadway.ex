@@ -88,6 +88,7 @@ defmodule Broadway do
 
       defmodule MyBroadway do
         use Broadway
+        alias Broadway.Message
 
         ...start_link...
 
@@ -95,8 +96,8 @@ defmodule Broadway do
         def handle_message(%Message{data: data} = message, _) when is_odd(data) do
           new_message =
             message
-            |> update_data(&process_data/1)
-            |> put_publisher(:sqs)
+            |> Message.update_data(&process_data/1)
+            |> Message.put_publisher(:sqs)
 
           {:ok, new_message}
         end
@@ -104,8 +105,8 @@ defmodule Broadway do
         def handle_message(%Message{data: data} = message, _context) do
           new_message =
             message
-            |> update_data(&process_data/1)
-            |> put_publisher(:s3)
+            |> Message.update_data(&process_data/1)
+            |> Message.put_publisher(:s3)
 
           {:ok, new_message}
         end
