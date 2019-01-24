@@ -44,19 +44,17 @@ defmodule BroadwayTest do
         when is_odd(data) do
       send(test_pid, {:message_handled, message.data})
 
-      {:ok,
-       message
-       |> update_data(fn data -> data + 1000 end)
-       |> put_publisher(:odd)}
+      message
+      |> update_data(fn data -> data + 1000 end)
+      |> put_publisher(:odd)
     end
 
     def handle_message(message, %{test_pid: test_pid}) do
       send(test_pid, {:message_handled, message.data})
 
-      {:ok,
-       message
-       |> update_data(fn data -> data + 1000 end)
-       |> put_publisher(:even)}
+      message
+      |> update_data(fn data -> data + 1000 end)
+      |> put_publisher(:even)
     end
 
     def handle_batch(publisher, messages, _, %{test_pid: test_pid}) do
@@ -287,12 +285,11 @@ defmodule BroadwayTest do
       test_pid = self()
 
       handle_message = fn message, _ ->
-        {:ok,
-         case message.data do
-           :fail -> Message.failed(message, "Failed message")
-           :raise -> raise "Error raised"
-           _ -> message
-         end}
+        case message.data do
+          :fail -> Message.failed(message, "Failed message")
+          :raise -> raise "Error raised"
+          _ -> message
+        end
       end
 
       handle_batch = fn _, batch, _, _ ->
@@ -430,7 +427,7 @@ defmodule BroadwayTest do
         end
 
         send(test_pid, {:message_handled, message})
-        {:ok, message}
+        message
       end
 
       handle_batch = fn _, batch, _, _ ->
@@ -531,7 +528,7 @@ defmodule BroadwayTest do
 
       context = %{
         handle_batch: handle_batch,
-        handle_message: fn message, _ -> {:ok, message} end
+        handle_message: fn message, _ -> message end
       }
 
       broadway_name = new_unique_name()

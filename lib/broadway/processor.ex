@@ -46,23 +46,15 @@ defmodule Broadway.Processor do
     try do
       module.handle_message(message, context)
     rescue
-      e -> {:ok, Message.failed(message, e)}
+      e -> Message.failed(message, e)
     end
   end
 
-  defp classify_returned_message(
-         {:ok, %Message{status: {:failed, _}} = message},
-         successful,
-         failed
-       ) do
+  defp classify_returned_message(%Message{status: {:failed, _}} = message, successful, failed) do
     {successful, [message | failed]}
   end
 
-  defp classify_returned_message(
-         {:ok, %Message{publisher: publisher} = message},
-         successful,
-         failed
-       ) do
+  defp classify_returned_message(%Message{publisher: publisher} = message, successful, failed) do
     event = {%Message{message | status: :processed}, publisher}
     {[event | successful], failed}
   end
