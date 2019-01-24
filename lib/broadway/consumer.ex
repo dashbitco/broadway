@@ -2,7 +2,7 @@ defmodule Broadway.Consumer do
   @moduledoc false
   use GenStage
 
-  alias Broadway.Subscription
+  alias Broadway.{Subscription, Acknowledger}
   @subscribe_to_options [max_demand: 1, min_demand: 0, cancel: :temporary]
 
   def start_link(args, opts) do
@@ -35,7 +35,7 @@ defmodule Broadway.Consumer do
     {:ack, successful: successful_messages, failed: failed_messages} =
       module.handle_batch(publisher_key, messages, batch_info, context)
 
-    ack_messages(successful_messages, failed_messages)
+    Acknowledger.ack_messages(successful_messages, failed_messages)
 
     {:noreply, [], state}
   end
@@ -55,31 +55,4 @@ defmodule Broadway.Consumer do
   def handle_info(_, state) do
     {:noreply, [], state}
   end
-
-  defp ack_messages(successful_messages, failed_messages) do
-    %{}
-    |> group_by_acknowledger(successful_messages, :successful)
-    |> group_by_acknowledger(failed_messages, :failed)
-    |> Enum.each(&call_ack/1)
-  end
-
-  defp group_by_acknowledger(grouped_messages, messages, key) do
-    Enum.reduce(messages, grouped_messages, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
-      Map.update(acc, acknowledger, [{key, msg}], &[{key, msg} | &1])
-    end)
-  end
-
-  defp call_ack({acknowledger, messages}) do
-    {successful, failed} = unpack_messages(messages, [], [])
-    acknowledger.ack(successful, failed)
-  end
-
-  defp unpack_messages([{:successful, message} | messages], successful, failed),
-    do: unpack_messages(messages, [message | successful], failed)
-
-  defp unpack_messages([{:failed, message} | messages], successful, failed),
-    do: unpack_messages(messages, successful, [message | failed])
-
-  defp unpack_messages([], successful, failed),
-    do: {successful, failed}
 end

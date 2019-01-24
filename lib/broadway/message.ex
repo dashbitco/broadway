@@ -18,13 +18,15 @@ defmodule Broadway.Message do
           data: any,
           acknowledger: {module, data :: any},
           publisher: atom,
-          processor_pid: pid
+          processor_pid: pid,
+          status: :pending | :processed | {:failed, reason :: any}
         }
 
   defstruct data: nil,
             acknowledger: nil,
             publisher: :default,
-            processor_pid: nil
+            processor_pid: nil,
+            status: :pending
 
   @doc """
   Updates the data from a message.
@@ -42,6 +44,17 @@ defmodule Broadway.Message do
   """
   @spec put_publisher(message :: Message.t(), publisher :: atom) :: Message.t()
   def put_publisher(%Message{} = message, publisher) when is_atom(publisher) do
-    %{message | publisher: publisher}
+    %Message{message | publisher: publisher}
+  end
+
+  @doc """
+  Mark a message as failed.
+
+  Failed messages are sent directly to the related acknowledger so they're not
+  forwarded to the next step in the pipeline.
+  """
+  @spec failed(message :: Message.t(), reason :: any) :: Message.t()
+  def failed(%Message{} = message, reason) do
+    %Message{message | status: {:failed, reason}}
   end
 end

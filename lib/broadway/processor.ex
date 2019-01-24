@@ -2,7 +2,7 @@ defmodule Broadway.Processor do
   @moduledoc false
   use GenStage
 
-  alias Broadway.Message
+  alias Broadway.{Message, Acknowledger}
 
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
@@ -29,19 +29,41 @@ defmodule Broadway.Processor do
 
   @impl true
   def handle_events(messages, _from, state) do
-    %{module: module, context: context} = state
-
-    # TODO: Raise a proper error message if handle_message
-    # does not return {:ok, %Message{}} or if the publisher
-    # in the message is not known (within the upcoming try/catch block).
-    events =
-      Enum.map(messages, fn message ->
-        new_message = %Message{message | processor_pid: self()}
-        {:ok, new_message} = module.handle_message(new_message, context)
-        %Message{publisher: publisher} = new_message
-        {new_message, publisher}
+    {successful_events, failed_messages} =
+      Enum.reduce(messages, {[], []}, fn message, {successful, failed} ->
+        %Message{message | processor_pid: self()}
+        |> handle_message(state)
+        |> classify_returned_message(successful, failed)
       end)
 
-    {:noreply, events, state}
+    Acknowledger.ack_messages([], Enum.reverse(failed_messages))
+    {:noreply, Enum.reverse(successful_events), state}
+  end
+
+  defp handle_message(message, state) do
+    %{module: module, context: context} = state
+
+    try do
+      module.handle_message(message, context)
+    rescue
+      e -> {:ok, Message.failed(message, e)}
+    end
+  end
+
+  defp classify_returned_message(
+         {:ok, %Message{status: {:failed, _}} = message},
+         successful,
+         failed
+       ) do
+    {successful, [message | failed]}
+  end
+
+  defp classify_returned_message(
+         {:ok, %Message{publisher: publisher} = message},
+         successful,
+         failed
+       ) do
+    event = {%Message{message | status: :processed}, publisher}
+    {[event | successful], failed}
   end
 end

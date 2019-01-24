@@ -7,11 +7,16 @@ defmodule BroadwayTest do
   @behaviour Broadway.Acknowledger
 
   def ack(successful, failed) do
-    [%Message{acknowledger: {_, %{test_pid: test_pid}}} | _] = successful
+    test_pid =
+      case {successful, failed} do
+        {[%Message{acknowledger: {_, %{test_pid: pid}}} | _], _failed} ->
+          pid
 
-    if test_pid do
-      send(test_pid, {:ack, successful, failed})
-    end
+        {_successful, [%Message{acknowledger: {_, %{test_pid: pid}}} | _]} ->
+          pid
+      end
+
+    send(test_pid, {:ack, successful, failed})
   end
 
   defmodule ManualProducer do
@@ -274,6 +279,80 @@ defmodule BroadwayTest do
       assert Enum.all?(messages, fn msg -> is_even(msg.data) end)
 
       refute_receive {:batch_handled, _, _}
+    end
+  end
+
+  describe "processor with failed messages" do
+    setup do
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        {:ok,
+         case message.data do
+           :fail -> Message.failed(message, "Failed message")
+           :raise -> raise "Error raised"
+           _ -> message
+         end}
+      end
+
+      handle_batch = fn _, batch, _, _ ->
+        send(test_pid, {:batch_handled, batch})
+        {:ack, successful: batch, failed: []}
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: handle_batch
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers, context,
+          name: broadway_name,
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
+          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          publishers: [default: [batch_size: 2]]
+        )
+
+      producer = get_producer(broadway_name, :default)
+
+      %{producer: producer}
+    end
+
+    test "successful messages are marked as :processed", %{producer: producer} do
+      push_messages(producer, [1, 2])
+      assert_receive {:batch_handled, [%{status: :processed}, %{status: :processed}]}
+    end
+
+    test "failed messages are marked as {:failed, reason}", %{producer: producer} do
+      push_messages(producer, [:fail])
+      assert_receive {:ack, _, [%{status: {:failed, "Failed message"}}]}
+    end
+
+    test "messages are marked as {:failed, reason} when an error is raised while processing", %{
+      producer: producer
+    } do
+      push_messages(producer, [:raise])
+      assert_receive {:ack, _, [%{status: {:failed, %RuntimeError{message: "Error raised"}}}]}
+    end
+
+    test "failed messages are not forwarded to the batcher", %{producer: producer} do
+      push_messages(producer, [1, :fail, :fail, 4])
+
+      assert_receive {:batch_handled, batch}
+      assert Enum.map(batch, & &1.data) == [1, 4]
+    end
+
+    test "messages are grouped as successful and failed before sent for acknowledgement", %{
+      producer: producer
+    } do
+      push_messages(producer, [1, :fail, 4])
+
+      assert_receive {:ack, [], [%{data: :fail}]}
+      assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
     end
   end
 
