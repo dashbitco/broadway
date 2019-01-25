@@ -94,44 +94,28 @@ defmodule Broadway do
 
         @impl true
         def handle_message(%Message{data: data} = message, _) when is_odd(data) do
-          new_message =
-            message
-            |> Message.update_data(&process_data/1)
-            |> Message.put_publisher(:sqs)
-
-          {:ok, new_message}
+          message
+          |> Message.update_data(&process_data/1)
+          |> Message.put_publisher(:sqs)
         end
 
         def handle_message(%Message{data: data} = message, _context) do
-          new_message =
-            message
-            |> Message.update_data(&process_data/1)
-            |> Message.put_publisher(:s3)
-
-          {:ok, new_message}
+          message
+          |> Message.update_data(&process_data/1)
+          |> Message.put_publisher(:s3)
         end
 
         @impl true
         def handle_batch(:sqs, messages, _batch_info, _context) do
-          {successful, failed} = send_messages_to_sqs(messages)
-          {:ack, successful: successful, failed: failed}
+          # Send batch of messages to SQS
         end
 
         def handle_batch(:s3, messages, _batch_info, _context) do
-          {successful, failed} = send_messages_to_s3(messages)
-          {:ack, successful: successful, failed: failed}
+          # Send batch of messages to S3
         end
 
         defp process_data(data) do
           # Do some calculations, generate a JSON representation, etc.
-        end
-
-        defp send_messages_to_sqs() do
-          ...
-        end
-
-        defp send_messages_to_s3() do
-          ...
         end
       end
 
@@ -139,9 +123,11 @@ defmodule Broadway do
   results elsewhere, although that's not strictly required. For
   example, results could be processed and published per message
   on the `c:handle_message/2` callback too. Publishers are also
-  responsible to acknowledge the messages back to their producers,
-  once you return `{:ack, successful: ..., failed: ...}` in
-  `c:handle_batch/4`.
+  responsible to inform when a message has not been successfully
+  published. You can mark a message as :failed using
+  `Broadway.Message.failed/2` in either `c:handle_message/2`
+  or `c:handle_batch/4`. This information will be sent back to
+  the producer which will correctly acknowledge the message.
 
   ## General Architecture
 
@@ -241,13 +227,9 @@ defmodule Broadway do
   This way the new message can be properly forwared and handled by the publisher:
 
       @impl true
-      def handle_message(%Message{data: data} = message, _) do
-        new_message =
-          update_data(message, fn data ->
-            do_calculation_and_returns_the_new_data(data)
-          end)
-
-        {:ok, new_message}
+      def handle_message(message, _) do
+        message
+        |> update_data(&do_calculation_and_returns_the_new_data/1)
       end
 
   In case more than one publisher have been defined in the configuration,
@@ -256,12 +238,12 @@ defmodule Broadway do
   updated message:
 
       @impl true
-      def handle_message(%Message{data: data} = message, _) do
+      def handle_message(message, _) do
         # Do whatever you need with the data
         ...
 
-        new_message = put_publisher(new_message, :s3)
-        {:ok, new_message}
+        message
+        |> put_publisher(:s3)
       end
 
   """
@@ -284,7 +266,7 @@ defmodule Broadway do
               messages :: [Message.t()],
               batch_info :: BatchInfo.t(),
               context :: any
-            ) :: {:ack, successful: [Message.t()], failed: [Message.t()]}
+            ) :: [Message.t()]
 
   @doc false
   defmacro __using__(opts) do

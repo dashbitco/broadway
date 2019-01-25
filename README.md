@@ -7,14 +7,14 @@ Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/b
 
 ## Built-in features
 
-    * Back-pressure
-    * Batching
-    * Fault tolerance through restarts
-    * Clean shutdown (TODO)
-    * Rate-limiting (TODO)
-    * Partitioning (TODO)
-    * Statistics/Metrics (TODO)
-    * Back-off (TODO)
+  * Back-pressure
+  * Batching
+  * Fault tolerance through restarts
+  * Clean shutdown (TODO)
+  * Rate-limiting (TODO)
+  * Partitioning (TODO)
+  * Statistics/Metrics (TODO)
+  * Back-off (TODO)
 
 ## Installation
 
@@ -58,24 +58,17 @@ end
     end
 
     def handle_message(message, _) do
-      {:ok,
-        message
-        |> Message.update_data(&process_data/1)
-        |> Message.put_publisher(:s3)
-      }
+      message
+      |> Message.update_data(&process_data/1)
+      |> Message.put_publisher(:s3)
     end
 
     def handle_batch(:s3, messages, _, _) do
-      {successful, failed} = send_messages_to_s3(messages)
-      {:ack, successful: successful, failed: failed}
+      # Send batch of messages to S3
     end
 
     defp process_data(data) do
       # Do some calculations, generate a JSON representation, etc.
-    end
-
-    defp send_messages_to_s3(messages) do
-      # Send batch of messages to S3
     end
   end
 ```
