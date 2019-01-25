@@ -2,7 +2,7 @@ defmodule Broadway.Consumer do
   @moduledoc false
   use GenStage
 
-  alias Broadway.{Subscription, Acknowledger}
+  alias Broadway.{Subscription, Acknowledger, Message}
   @subscribe_to_options [max_demand: 1, min_demand: 0, cancel: :temporary]
 
   def start_link(args, opts) do
@@ -26,14 +26,12 @@ defmodule Broadway.Consumer do
 
   @impl true
   def handle_events(events, _from, state) do
-    %{module: module, context: context} = state
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{publisher_key: publisher_key} = batch_info
 
-    # TODO: Raise a proper error message if handle_batch
-    # does not return {:ack, ...} (within the upcoming try/catch).
-    {:ack, successful: successful_messages, failed: failed_messages} =
-      module.handle_batch(publisher_key, messages, batch_info, context)
+    {successful_messages, failed_messages} =
+      handle_batch(publisher_key, messages, batch_info, state)
+      |> Enum.split_with(&(&1.status == :processed))
 
     Acknowledger.ack_messages(successful_messages, failed_messages)
 
@@ -54,5 +52,15 @@ defmodule Broadway.Consumer do
 
   def handle_info(_, state) do
     {:noreply, [], state}
+  end
+
+  defp handle_batch(publisher_key, messages, batch_info, state) do
+    %{module: module, context: context} = state
+
+    try do
+      module.handle_batch(publisher_key, messages, batch_info, context)
+    rescue
+      e -> Enum.map(messages, &Message.failed(&1, e))
+    end
   end
 end

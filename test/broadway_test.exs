@@ -59,7 +59,7 @@ defmodule BroadwayTest do
 
     def handle_batch(publisher, messages, _, %{test_pid: test_pid}) do
       send(test_pid, {:batch_handled, publisher, messages})
-      {:ack, successful: messages, failed: []}
+      messages
     end
   end
 
@@ -280,7 +280,7 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "processor with failed messages" do
+  describe "processor - failed messages handling" do
     setup do
       test_pid = self()
 
@@ -294,7 +294,7 @@ defmodule BroadwayTest do
 
       handle_batch = fn _, batch, _, _ ->
         send(test_pid, {:batch_handled, batch})
-        {:ack, successful: batch, failed: []}
+        batch
       end
 
       context = %{
@@ -432,7 +432,7 @@ defmodule BroadwayTest do
 
       handle_batch = fn _, batch, _, _ ->
         send(test_pid, {:batch_handled, batch})
-        {:ack, successful: batch, failed: []}
+        batch
       end
 
       context = %{
@@ -523,7 +523,7 @@ defmodule BroadwayTest do
         end
 
         send(test_pid, {:batch_handled, messages, batch_info})
-        {:ack, successful: messages, failed: []}
+        messages
       end
 
       context = %{
@@ -583,6 +583,69 @@ defmodule BroadwayTest do
       assert values == [6, 7]
 
       refute_receive {:ack, _successful, _failed}
+    end
+  end
+
+  describe "batcher - failed messages handling" do
+    setup do
+      test_pid = self()
+
+      handle_batch = fn _, batch, _, _ ->
+        send(test_pid, {:batch_handled, batch})
+
+        Enum.map(batch, fn message ->
+          case message.data do
+            :fail -> Message.failed(message, "Failed message")
+            :raise -> raise "Error raised"
+            _ -> message
+          end
+        end)
+      end
+
+      context = %{
+        handle_batch: handle_batch,
+        handle_message: fn message, _ -> message end
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers, context,
+          name: broadway_name,
+          producers: [
+            default: [module: ManualProducer, arg: []]
+          ],
+          processors: [stages: 1, min_demand: 1, max_demand: 4],
+          publishers: [default: [batch_size: 4]]
+        )
+
+      producer = get_producer(broadway_name, :default)
+
+      %{producer: producer}
+    end
+
+    test "all messages in the batch are marked as {:failed, reason} when an error is raised", %{
+      producer: producer
+    } do
+      push_messages(producer, [1, 2, 3, :raise])
+
+      error = %RuntimeError{message: "Error raised"}
+
+      assert_receive {:ack, _,
+                      [
+                        %{data: 1, status: {:failed, ^error}},
+                        %{data: 2, status: {:failed, ^error}},
+                        %{data: 3, status: {:failed, ^error}},
+                        %{data: :raise, status: {:failed, ^error}}
+                      ]}
+    end
+
+    test "messages are grouped as successful and failed before sent for acknowledgement", %{
+      producer: producer
+    } do
+      push_messages(producer, [1, :fail, :fail, 4])
+
+      assert_receive {:ack, [%{data: 1}, %{data: 4}], [%{data: :fail}, %{data: :fail}]}
     end
   end
 
