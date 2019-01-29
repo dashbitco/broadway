@@ -31,7 +31,7 @@ defmodule Broadway.Consumer do
 
     {successful_messages, failed_messages} =
       handle_batch(publisher_key, messages, batch_info, state)
-      |> Enum.split_with(&(&1.status == :processed))
+      |> Enum.split_with(&(&1.status == :ok))
 
     Acknowledger.ack_messages(successful_messages, failed_messages)
 

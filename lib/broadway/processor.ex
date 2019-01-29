@@ -57,7 +57,7 @@ defmodule Broadway.Processor do
   end
 
   defp classify_returned_message(%Message{publisher: publisher} = message, successful, failed) do
-    event = {%Message{message | status: :processed}, publisher}
+    event = {%Message{message | status: :ok}, publisher}
     {[event | successful], failed}
   end
 end

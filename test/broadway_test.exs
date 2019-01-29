@@ -319,9 +319,9 @@ defmodule BroadwayTest do
       %{producer: producer}
     end
 
-    test "successful messages are marked as :processed", %{producer: producer} do
+    test "successful messages are marked as :ok", %{producer: producer} do
       push_messages(producer, [1, 2])
-      assert_receive {:batch_handled, [%{status: :processed}, %{status: :processed}]}
+      assert_receive {:batch_handled, [%{status: :ok}, %{status: :ok}]}
     end
 
     test "failed messages are marked as {:failed, reason}", %{producer: producer} do
