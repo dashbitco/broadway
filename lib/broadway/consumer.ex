@@ -60,7 +60,9 @@ defmodule Broadway.Consumer do
     try do
       module.handle_batch(publisher_key, messages, batch_info, context)
     rescue
-      e -> Enum.map(messages, &Message.failed(&1, e))
+      e ->
+        error_message = Exception.message(e)
+        Enum.map(messages, &Message.failed(&1, error_message))
     end
   end
 end

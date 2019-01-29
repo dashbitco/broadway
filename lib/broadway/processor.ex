@@ -46,7 +46,9 @@ defmodule Broadway.Processor do
     try do
       module.handle_message(message, context)
     rescue
-      e -> Message.failed(message, e)
+      e ->
+        error_message = Exception.message(e)
+        Message.failed(message, error_message)
     end
   end
 

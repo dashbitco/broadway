@@ -19,7 +19,7 @@ defmodule Broadway.Message do
           acknowledger: {module, data :: any},
           publisher: atom,
           processor_pid: pid,
-          status: :pending | :processed | {:failed, reason :: any}
+          status: :pending | :processed | {:failed, reason :: binary}
         }
 
   defstruct data: nil,

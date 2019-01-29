@@ -333,7 +333,7 @@ defmodule BroadwayTest do
       producer: producer
     } do
       push_messages(producer, [:raise])
-      assert_receive {:ack, _, [%{status: {:failed, %RuntimeError{message: "Error raised"}}}]}
+      assert_receive {:ack, _, [%{status: {:failed, "Error raised"}}]}
     end
 
     test "failed messages are not forwarded to the batcher", %{producer: producer} do
@@ -629,14 +629,12 @@ defmodule BroadwayTest do
     } do
       push_messages(producer, [1, 2, 3, :raise])
 
-      error = %RuntimeError{message: "Error raised"}
-
       assert_receive {:ack, _,
                       [
-                        %{data: 1, status: {:failed, ^error}},
-                        %{data: 2, status: {:failed, ^error}},
-                        %{data: 3, status: {:failed, ^error}},
-                        %{data: :raise, status: {:failed, ^error}}
+                        %{data: 1, status: {:failed, "Error raised"}},
+                        %{data: 2, status: {:failed, "Error raised"}},
+                        %{data: 3, status: {:failed, "Error raised"}},
+                        %{data: :raise, status: {:failed, "Error raised"}}
                       ]}
     end
 
