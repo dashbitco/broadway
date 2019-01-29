@@ -28,4 +28,35 @@ defmodule Broadway.Acknowledger do
 
   """
   @callback ack(successful :: [Message.t()], failed :: [Message.t()]) :: no_return
+
+  @doc """
+  Acknowledges successful and failed messages grouped by acknowledger.
+  """
+  @spec ack_messages([Message.t()], [Message.t()]) :: no_return
+  def ack_messages(successful, failed) do
+    %{}
+    |> group_by_acknowledger(successful, :successful)
+    |> group_by_acknowledger(failed, :failed)
+    |> Enum.each(&call_ack/1)
+  end
+
+  defp group_by_acknowledger(grouped_messages, messages, key) do
+    Enum.reduce(messages, grouped_messages, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
+      Map.update(acc, acknowledger, [{key, msg}], &[{key, msg} | &1])
+    end)
+  end
+
+  defp call_ack({acknowledger, messages}) do
+    {successful, failed} = unpack_messages(messages, [], [])
+    acknowledger.ack(successful, failed)
+  end
+
+  defp unpack_messages([{:successful, message} | messages], successful, failed),
+    do: unpack_messages(messages, [message | successful], failed)
+
+  defp unpack_messages([{:failed, message} | messages], successful, failed),
+    do: unpack_messages(messages, successful, [message | failed])
+
+  defp unpack_messages([], successful, failed),
+    do: {successful, failed}
 end

@@ -2,7 +2,7 @@ defmodule Broadway.Consumer do
   @moduledoc false
   use GenStage
 
-  alias Broadway.Subscription
+  alias Broadway.{Subscription, Acknowledger, Message}
   @subscribe_to_options [max_demand: 1, min_demand: 0, cancel: :temporary]
 
   def start_link(args, opts) do
@@ -26,16 +26,14 @@ defmodule Broadway.Consumer do
 
   @impl true
   def handle_events(events, _from, state) do
-    %{module: module, context: context} = state
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{publisher_key: publisher_key} = batch_info
 
-    # TODO: Raise a proper error message if handle_batch
-    # does not return {:ack, ...} (within the upcoming try/catch).
-    {:ack, successful: successful_messages, failed: failed_messages} =
-      module.handle_batch(publisher_key, messages, batch_info, context)
+    {successful_messages, failed_messages} =
+      handle_batch(publisher_key, messages, batch_info, state)
+      |> Enum.split_with(&(&1.status == :ok))
 
-    ack_messages(successful_messages, failed_messages)
+    Acknowledger.ack_messages(successful_messages, failed_messages)
 
     {:noreply, [], state}
   end
@@ -56,30 +54,15 @@ defmodule Broadway.Consumer do
     {:noreply, [], state}
   end
 
-  defp ack_messages(successful_messages, failed_messages) do
-    %{}
-    |> group_by_acknowledger(successful_messages, :successful)
-    |> group_by_acknowledger(failed_messages, :failed)
-    |> Enum.each(&call_ack/1)
+  defp handle_batch(publisher_key, messages, batch_info, state) do
+    %{module: module, context: context} = state
+
+    try do
+      module.handle_batch(publisher_key, messages, batch_info, context)
+    rescue
+      e ->
+        error_message = Exception.message(e)
+        Enum.map(messages, &Message.failed(&1, error_message))
+    end
   end
-
-  defp group_by_acknowledger(grouped_messages, messages, key) do
-    Enum.reduce(messages, grouped_messages, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
-      Map.update(acc, acknowledger, [{key, msg}], &[{key, msg} | &1])
-    end)
-  end
-
-  defp call_ack({acknowledger, messages}) do
-    {successful, failed} = unpack_messages(messages, [], [])
-    acknowledger.ack(successful, failed)
-  end
-
-  defp unpack_messages([{:successful, message} | messages], successful, failed),
-    do: unpack_messages(messages, [message | successful], failed)
-
-  defp unpack_messages([{:failed, message} | messages], successful, failed),
-    do: unpack_messages(messages, successful, [message | failed])
-
-  defp unpack_messages([], successful, failed),
-    do: {successful, failed}
 end
