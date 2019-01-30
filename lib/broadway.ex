@@ -34,7 +34,7 @@ defmodule Broadway do
         use Broadway
 
         def start_link(_opts) do
-          Broadway.start_link(MyBroadway, %{},
+          Broadway.start_link(MyBroadway,
             name: MyBroadwayExample,
             producers: [
               default: [module: Counter, stages: 1]
@@ -292,8 +292,6 @@ defmodule Broadway do
   Starts a `Broadway` process linked to the current process.
 
     * `module` is the module implementing the `Broadway` behaviour.
-    * `context` is an immutable user defined data structure that will
-      be passed to `handle_message/2` and `handle_batch/4`.
 
   ## Options
 
@@ -317,6 +315,9 @@ defmodule Broadway do
     * `:publishers` - Required. Defines a keyword list of named publishers
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Consumers options" section below.
+
+    * `context` is an immutable user defined data structure that will
+      be passed to `handle_message/2` and `handle_batch/4`.
 
   ### Producers options
 
@@ -362,19 +363,20 @@ defmodule Broadway do
       (1 second).
 
   """
-  def start_link(module, context, opts) do
+  def start_link(module, opts) do
     case Options.validate(opts, configuration_spec()) do
       {:error, message} ->
         raise ArgumentError, "invalid configuration given to Broadway.start_link/3, " <> message
 
       {:ok, opts} ->
-        Server.start_link(module, context, opts)
+        Server.start_link(module, opts)
     end
   end
 
   defp configuration_spec() do
     [
       name: [required: true, type: :atom],
+      context: [type: :any, default: nil],
       producers: [
         required: true,
         type: :keyword_list,
