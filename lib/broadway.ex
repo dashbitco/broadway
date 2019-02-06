@@ -376,7 +376,7 @@ defmodule Broadway do
   defp configuration_spec() do
     [
       name: [required: true, type: :atom],
-      context: [type: :any, default: nil],
+      context: [type: :any, default: :context_not_set],
       producers: [
         required: true,
         type: :keyword_list,

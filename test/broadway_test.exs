@@ -211,6 +211,22 @@ defmodule BroadwayTest do
       assert get_n_consumers(broadway, :p1) == 2
       assert get_n_consumers(broadway, :p2) == 3
     end
+
+    test "default context is :context_not_set" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [],
+        publishers: [default: []]
+      )
+
+      pid = get_processor(broadway, 1)
+      assert :sys.get_state(pid).state.context == :context_not_set
+    end
   end
 
   describe "producer" do
