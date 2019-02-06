@@ -17,7 +17,7 @@ defmodule Broadway.Batcher do
     state = %{
       publisher_key: publisher_key,
       batch_size: args[:batch_size],
-      batch_timeout: args[:batch_timeout],
+      batch_timeout: args[:batch_timeout]
     }
 
     Broadway.Subscriber.init(

@@ -14,7 +14,7 @@ defmodule Broadway.Consumer do
   def init(args) do
     state = %{
       module: args[:module],
-      context: args[:context],
+      context: args[:context]
     }
 
     Broadway.Subscriber.init(
