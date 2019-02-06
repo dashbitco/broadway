@@ -108,7 +108,7 @@ defmodule BroadwayTest do
         ArgumentError,
         "invalid configuration given to Broadway.start_link/3, expected :name to be an atom, got: 1",
         fn ->
-          Broadway.start_link(Forwarder, %{}, name: 1)
+          Broadway.start_link(Forwarder, name: 1)
         end
       )
     end
@@ -116,8 +116,9 @@ defmodule BroadwayTest do
     test "default number of producers is 1" do
       broadway = new_unique_name()
 
-      Broadway.start_link(Forwarder, %{test_pid: self()},
+      Broadway.start_link(Forwarder,
         name: broadway,
+        context: %{test_pid: self()},
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
@@ -131,8 +132,9 @@ defmodule BroadwayTest do
     test "set number of producers" do
       broadway = new_unique_name()
 
-      Broadway.start_link(Forwarder, %{test_pid: self()},
+      Broadway.start_link(Forwarder,
         name: broadway,
+        context: %{test_pid: self()},
         producers: [
           default: [module: ManualProducer, arg: [], stages: 3]
         ],
@@ -146,7 +148,7 @@ defmodule BroadwayTest do
     test "default number of processors is schedulers_online * 2" do
       broadway = new_unique_name()
 
-      Broadway.start_link(Forwarder, %{},
+      Broadway.start_link(Forwarder,
         name: broadway,
         producers: [
           default: [module: ManualProducer, arg: []]
@@ -161,7 +163,7 @@ defmodule BroadwayTest do
     test "set number of processors" do
       broadway = new_unique_name()
 
-      Broadway.start_link(Forwarder, %{},
+      Broadway.start_link(Forwarder,
         name: broadway,
         producers: [
           default: [module: ManualProducer, arg: []]
@@ -176,8 +178,9 @@ defmodule BroadwayTest do
     test "default number of consumers is 1 per publisher" do
       broadway = new_unique_name()
 
-      Broadway.start_link(Forwarder, %{test_pid: self()},
+      Broadway.start_link(Forwarder,
         name: broadway,
+        context: %{test_pid: self()},
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
@@ -192,8 +195,9 @@ defmodule BroadwayTest do
     test "set number of consumers" do
       broadway = new_unique_name()
 
-      Broadway.start_link(Forwarder, %{test_pid: self()},
+      Broadway.start_link(Forwarder,
         name: broadway,
+        context: %{test_pid: self()},
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
@@ -207,14 +211,31 @@ defmodule BroadwayTest do
       assert get_n_consumers(broadway, :p1) == 2
       assert get_n_consumers(broadway, :p2) == 3
     end
+
+    test "default context is :context_not_set" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [],
+        publishers: [default: []]
+      )
+
+      pid = get_processor(broadway, 1)
+      assert :sys.get_state(pid).state.context == :context_not_set
+    end
   end
 
   describe "producer" do
     test "push_messages/2" do
       broadway = new_unique_name()
 
-      Broadway.start_link(Forwarder, %{test_pid: self()},
+      Broadway.start_link(Forwarder,
         name: broadway,
+        context: %{test_pid: self()},
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
@@ -242,8 +263,9 @@ defmodule BroadwayTest do
       broadway = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
+        Broadway.start_link(Forwarder,
           name: broadway,
+          context: %{test_pid: self()},
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -305,8 +327,9 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers, context,
+        Broadway.start_link(ForwarderWithCustomHandlers,
           name: broadway_name,
+          context: context,
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -358,8 +381,9 @@ defmodule BroadwayTest do
       broadway = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
+        Broadway.start_link(Forwarder,
           name: broadway,
+          context: %{test_pid: self()},
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -443,8 +467,9 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers, context,
+        Broadway.start_link(ForwarderWithCustomHandlers,
           name: broadway_name,
+          context: context,
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -534,8 +559,9 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers, context,
+        Broadway.start_link(ForwarderWithCustomHandlers,
           name: broadway_name,
+          context: context,
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -610,8 +636,9 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers, context,
+        Broadway.start_link(ForwarderWithCustomHandlers,
           name: broadway_name,
+          context: context,
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -652,8 +679,9 @@ defmodule BroadwayTest do
       Process.flag(:trap_exit, true)
 
       {:ok, pid} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
+        Broadway.start_link(Forwarder,
           name: new_unique_name(),
+          context: %{test_pid: self()},
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -674,8 +702,9 @@ defmodule BroadwayTest do
       Process.flag(:trap_exit, true)
 
       {:ok, pid} =
-        Broadway.start_link(Forwarder, %{test_pid: self()},
+        Broadway.start_link(Forwarder,
           name: new_unique_name(),
+          context: %{test_pid: self()},
           producers: [
             default: [module: ManualProducer, arg: []]
           ],

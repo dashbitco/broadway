@@ -38,7 +38,7 @@ end
     alias BroadwaySQS.{SQSProducer, ExAwsClient}
 
     def start_link(_opts) do
-      Broadway.start_link(__MODULE__, %{},
+      Broadway.start_link(__MODULE__,
         name: __MODULE__,
         producers: [
           sqs: [

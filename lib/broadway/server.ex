@@ -4,14 +4,14 @@ defmodule Broadway.Server do
 
   alias Broadway.{Producer, Processor, Batcher, Consumer}
 
-  def start_link(module, context, opts) do
-    GenServer.start_link(__MODULE__, {module, context, opts}, opts)
+  def start_link(module, opts) do
+    GenServer.start_link(__MODULE__, {module, opts}, opts)
   end
 
   @impl true
-  def init({module, context, opts}) do
+  def init({module, opts}) do
     Process.flag(:trap_exit, true)
-    {:ok, supervisor_pid} = start_supervisor(module, context, opts)
+    {:ok, supervisor_pid} = start_supervisor(module, opts)
     {:ok, %{supervisor_pid: supervisor_pid}}
   end
 
@@ -35,8 +35,8 @@ defmodule Broadway.Server do
     end
   end
 
-  defp start_supervisor(module, context, opts) do
-    %{name: broadway_name} = config = init_config(module, context, opts)
+  defp start_supervisor(module, opts) do
+    %{name: broadway_name} = config = init_config(module, opts)
 
     supervisor_name = Module.concat(broadway_name, "Supervisor")
     {producers_names, producers_specs} = build_producers_specs(config)
@@ -54,14 +54,14 @@ defmodule Broadway.Server do
     Supervisor.start_link(children, name: supervisor_name, strategy: :one_for_one)
   end
 
-  defp init_config(module, context, opts) do
+  defp init_config(module, opts) do
     %{
       name: opts[:name],
       module: module,
       processors_config: opts[:processors],
       producers_config: opts[:producers],
       publishers_config: opts[:publishers],
-      context: context
+      context: opts[:context]
     }
   end
 
