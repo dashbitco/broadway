@@ -1,22 +1,24 @@
 defmodule BroadwayTest do
   use ExUnit.Case
+  @moduletag :capture_log
 
   import Integer
   alias Broadway.{Producer, Message, BatchInfo}
 
-  @behaviour Broadway.Acknowledger
+  defmodule Acker do
+    @behaviour Broadway.Acknowledger
+    def ack(successful, failed) do
+      test_pid =
+        case {successful, failed} do
+          {[%Message{acknowledger: {_, %{test_pid: pid}}} | _], _failed} ->
+            pid
 
-  def ack(successful, failed) do
-    test_pid =
-      case {successful, failed} do
-        {[%Message{acknowledger: {_, %{test_pid: pid}}} | _], _failed} ->
-          pid
+          {_successful, [%Message{acknowledger: {_, %{test_pid: pid}}} | _]} ->
+            pid
+        end
 
-        {_successful, [%Message{acknowledger: {_, %{test_pid: pid}}} | _]} ->
-          pid
-      end
-
-    send(test_pid, {:ack, successful, failed})
+      send(test_pid, {:ack, successful, failed})
+    end
   end
 
   defmodule ManualProducer do
@@ -480,8 +482,9 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, 1)
       batcher = get_batcher(broadway_name, :default)
+      consumer = get_consumer(broadway_name, 1)
 
-      %{producer: producer, processor: processor, batcher: batcher}
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
     end
 
     test "processor will be restarted in order to handle other messages", %{producer: producer} do
@@ -498,18 +501,20 @@ defmodule BroadwayTest do
       assert processor1 != processor2
     end
 
-    test "batchers and producers should not be restarted", context do
-      %{producer: producer, processor: processor, batcher: batcher} = context
+    test "processor crashes cascade down (but not up)", context do
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} = context
 
       ref_batcher = Process.monitor(batcher)
       ref_processor = Process.monitor(processor)
       ref_producer = Process.monitor(producer)
+      ref_consumer = Process.monitor(consumer)
 
       push_messages(producer, [:kill_processor])
 
       assert_receive {:DOWN, ^ref_processor, _, _, _}
-      refute_receive {:DOWN, ^ref_batcher, _, _, _}
-      refute_receive {:DOWN, ^ref_producer, _, _, _}
+      assert_receive {:DOWN, ^ref_batcher, _, _, _}
+      assert_receive {:DOWN, ^ref_consumer, _, _, _}
+      refute_received {:DOWN, ^ref_producer, _, _, _}
     end
 
     test "only the messages in the crashing processor are lost", %{producer: producer} do
@@ -572,8 +577,9 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, 1)
       batcher = get_batcher(broadway_name, :default)
+      consumer = get_consumer(broadway_name, 1)
 
-      %{producer: producer, processor: processor, batcher: batcher}
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
     end
 
     test "batcher will be restarted in order to handle other messages", %{producer: producer} do
@@ -591,6 +597,22 @@ defmodule BroadwayTest do
       assert_receive {:batch_handled, _, %BatchInfo{batcher: batcher2}}
 
       assert batcher1 != batcher2
+    end
+
+    test "batcher crashes cascade down (but not up)", context do
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} = context
+
+      ref_batcher = Process.monitor(batcher)
+      ref_processor = Process.monitor(processor)
+      ref_producer = Process.monitor(producer)
+      ref_consumer = Process.monitor(consumer)
+
+      push_messages(producer, [:kill_batcher, 3])
+
+      assert_receive {:DOWN, ^ref_batcher, _, _, _}
+      assert_receive {:DOWN, ^ref_consumer, _, _, _}
+      refute_received {:DOWN, ^ref_producer, _, _, _}
+      refute_received {:DOWN, ^ref_processor, _, _, _}
     end
 
     test "only the messages in the crashing batcher are lost", %{producer: producer} do
@@ -735,6 +757,10 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Batcher_#{key}"
   end
 
+  defp get_consumer(broadway_name, key) do
+    :"#{broadway_name}.Consumer_#{key}"
+  end
+
   defp get_n_producers(broadway_name) do
     Supervisor.count_children(:"#{broadway_name}.ProducerSupervisor").workers
   end
@@ -750,7 +776,7 @@ defmodule BroadwayTest do
   defp push_messages(producer, list) do
     messages =
       Enum.map(list, fn data ->
-        %Message{data: data, acknowledger: {__MODULE__, %{id: data, test_pid: self()}}}
+        %Message{data: data, acknowledger: {Acker, %{id: data, test_pid: self()}}}
       end)
 
     Producer.push_messages(producer, messages)

@@ -51,7 +51,8 @@ defmodule Broadway.Server do
       )
     ]
 
-    Supervisor.start_link(children, name: supervisor_name, strategy: :one_for_one)
+    # TODO: Allow max_restarts and max_seconds as configuration option
+    Supervisor.start_link(children, name: supervisor_name, strategy: :rest_for_one)
   end
 
   defp init_config(module, opts) do
@@ -207,31 +208,52 @@ defmodule Broadway.Server do
   end
 
   defp build_producer_supervisor_spec(children, prefix) do
-    build_supervisor_spec(children, :"#{prefix}.ProducerSupervisor")
+    children_count = length(children)
+
+    # TODO: Allow max_restarts and max_seconds as configuration option
+    build_supervisor_spec(children, :"#{prefix}.ProducerSupervisor",
+      strategy: :one_for_one,
+      max_restarts: 2 * children_count,
+      max_seconds: children_count
+    )
   end
 
   defp build_processor_supervisor_spec(children, prefix) do
-    build_supervisor_spec(children, :"#{prefix}.ProcessorSupervisor")
+    build_supervisor_spec(children, :"#{prefix}.ProcessorSupervisor",
+      strategy: :one_for_all,
+      max_restarts: 0
+    )
   end
 
   defp build_publisher_supervisor_spec(children, prefix) do
-    build_supervisor_spec(children, :"#{prefix}.PublisherSupervisor")
+    children_count = length(children)
+
+    build_supervisor_spec(children, :"#{prefix}.PublisherSupervisor",
+      strategy: :one_for_one,
+      max_restarts: 2 * children_count,
+      max_seconds: children_count
+    )
   end
 
   defp build_batcher_consumer_supervisor_spec(children, prefix, key) do
-    build_supervisor_spec(children, :"#{prefix}.BatcherConsumerSupervisor_#{key}")
+    build_supervisor_spec(children, :"#{prefix}.BatcherConsumerSupervisor_#{key}",
+      strategy: :rest_for_one,
+      max_restarts: 4,
+      max_seconds: 2
+    )
   end
 
   defp build_consumer_supervisor_spec(children, prefix, key) do
-    build_supervisor_spec(children, :"#{prefix}.ConsumerSupervisor_#{key}")
+    build_supervisor_spec(children, :"#{prefix}.ConsumerSupervisor_#{key}",
+      strategy: :one_for_all,
+      max_restarts: 0
+    )
   end
 
-  defp build_supervisor_spec(children, name) do
-    opts = [name: name, strategy: :one_for_one]
-
+  defp build_supervisor_spec(children, name, opts) do
     %{
       id: make_ref(),
-      start: {Supervisor, :start_link, [children, opts]},
+      start: {Supervisor, :start_link, [children, [name: name] ++ opts]},
       type: :supervisor
     }
   end

@@ -178,25 +178,25 @@ defmodule Broadway do
                                   |
                                   |
                     [Broadway Pipeline Supervisor]
-                        /   (:one_for_all)      \
+                        /   (:rest_for_one)     \
                        /           |             \
                       /            |              \
                      /             |               \
                     /              |                \
                    /               |                 \
     [ProducerSupervisor]  [ProcessorSupervisor]    [PublisherSupervisor]
-      (:one_for_one)         (:one_for_one)          (:one_for_one)
+      (:one_for_one)        (:one_for_all)           (:one_for_one)
            / \                    / \                /            \
           /   \                  /   \              /              \
          /     \                /     \            /                \
         /       \              /       \          /                  \
   [Producer_1]  ...    [Processor_1]  ...  [BatcherConsumerSuperv_1]  ...
-                                                (:one_for_one)
+                                              (:rest_for_one)
                                                     /  \
                                                    /    \
                                                   /      \
                                             [Batcher] [Supervisor]
-                                                      (:one_for_one)
+                                                      (:one_for_all)
                                                             |
                                                         [Consumer]
   ```

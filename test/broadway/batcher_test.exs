@@ -2,7 +2,7 @@ defmodule Broadway.BatcherTest do
   use ExUnit.Case
 
   test "max_demand defaults to batch_size" do
-    {_, state} =
+    {_, state, _} =
       Broadway.Batcher.init(
         module: __MODULE__,
         context: %{},
@@ -12,6 +12,6 @@ defmodule Broadway.BatcherTest do
         batch_timeout: 1000
       )
 
-    assert state.subscribe_to_options[:max_demand] == 123
+    assert state.subscription_options[:max_demand] == 123
   end
 end

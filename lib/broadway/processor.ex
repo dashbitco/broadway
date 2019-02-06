@@ -1,6 +1,7 @@
 defmodule Broadway.Processor do
   @moduledoc false
   use GenStage
+  use Broadway.Subscriber
 
   alias Broadway.{Message, Acknowledger}
 
@@ -15,16 +16,15 @@ defmodule Broadway.Processor do
     partitions = args[:partitions]
     state = %{module: args[:module], context: context}
 
-    subscribe_options =
-      Keyword.take(processors_config, [:min_demand, :max_demand]) ++ [cancel: :temporary]
-
-    subscribe_to =
-      args[:producers]
-      |> Enum.map(&{&1, subscribe_options})
-
-    {:producer_consumer, state,
-     subscribe_to: subscribe_to,
-     dispatcher: {GenStage.PartitionDispatcher, partitions: partitions, hash: & &1}}
+    # TODO: Make the resubscribe value a configuration
+    Broadway.Subscriber.init(
+      :producer_consumer,
+      10,
+      args[:producers],
+      Keyword.take(processors_config, [:min_demand, :max_demand]),
+      state,
+      dispatcher: {GenStage.PartitionDispatcher, partitions: partitions, hash: & &1}
+    )
   end
 
   @impl true
