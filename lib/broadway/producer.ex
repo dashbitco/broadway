@@ -13,7 +13,7 @@ defmodule Broadway.Producer do
   @impl true
   def init(args) do
     module = args[:module]
-    # TODO: Raise a proper error message if we don't {:producer, state} back.
+    # TODO: Raise a proper error message if we don't get  {:producer, state} back.
     {:producer, module_state} = module.init(args[:args])
     {:producer, %{module: module, module_state: module_state}}
   end
@@ -32,6 +32,10 @@ defmodule Broadway.Producer do
   end
 
   @impl true
+  def handle_info(:shutdown, state) do
+    {:stop, :shutdown, state}
+  end
+
   def handle_info(message, %{module: module, module_state: module_state} = state) do
     case module.handle_info(message, module_state) do
       {tag, events_or_reason, new_module_state} ->

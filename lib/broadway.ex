@@ -376,6 +376,9 @@ defmodule Broadway do
   defp configuration_spec() do
     [
       name: [required: true, type: :atom],
+      shutdown: [type: :pos_integer, default: 5000],
+      max_restarts: [type: :non_neg_integer, default: 3],
+      max_seconds: [type: :pos_integer, default: 5],
       context: [type: :any, default: :context_not_set],
       producers: [
         required: true,

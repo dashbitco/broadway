@@ -7,6 +7,7 @@ defmodule BroadwayTest do
 
   defmodule Acker do
     @behaviour Broadway.Acknowledger
+
     def ack(successful, failed) do
       test_pid =
         case {successful, failed} do
@@ -354,9 +355,8 @@ defmodule BroadwayTest do
       assert_receive {:ack, _, [%{status: {:failed, "Failed message"}}]}
     end
 
-    test "messages are marked as {:failed, reason} when an error is raised while processing", %{
-      producer: producer
-    } do
+    test "messages are marked as {:failed, reason} when an error is raised while processing",
+         %{producer: producer} do
       push_messages(producer, [:raise])
       assert_receive {:ack, _, [%{status: {:failed, "Error raised"}}]}
     end
@@ -368,9 +368,8 @@ defmodule BroadwayTest do
       assert Enum.map(batch, & &1.data) == [1, 4]
     end
 
-    test "messages are grouped as successful and failed before sent for acknowledgement", %{
-      producer: producer
-    } do
+    test "messages are grouped as successful and failed before sent for acknowledgement",
+         %{producer: producer} do
       push_messages(producer, [1, :fail, 4])
 
       assert_receive {:ack, [], [%{data: :fail}]}
@@ -673,9 +672,8 @@ defmodule BroadwayTest do
       %{producer: producer}
     end
 
-    test "all messages in the batch are marked as {:failed, reason} when an error is raised", %{
-      producer: producer
-    } do
+    test "all messages in the batch are marked as {:failed, reason} when an error is raised",
+         %{producer: producer} do
       push_messages(producer, [1, 2, 3, :raise])
 
       assert_receive {:ack, _,
@@ -687,9 +685,8 @@ defmodule BroadwayTest do
                       ]}
     end
 
-    test "messages are grouped as successful and failed before sent for acknowledgement", %{
-      producer: producer
-    } do
+    test "messages are grouped as successful and failed before sent for acknowledgement",
+         %{producer: producer} do
       push_messages(producer, [1, :fail, :fail, 4])
 
       assert_receive {:ack, [%{data: 1}, %{data: 4}], [%{data: :fail}, %{data: :fail}]}
@@ -697,52 +694,63 @@ defmodule BroadwayTest do
   end
 
   describe "shutdown" do
-    test "shutting down broadway waits until the Broadway.Supervisor is down" do
+    setup do
       Process.flag(:trap_exit, true)
+      broadway_name = new_unique_name()
+
+      context = %{
+        handle_message: fn message, _ -> message end,
+        handle_batch: fn _, batch, _, _ -> batch end
+      }
 
       {:ok, pid} =
-        Broadway.start_link(Forwarder,
-          name: new_unique_name(),
-          context: %{test_pid: self()},
+        Broadway.start_link(ForwarderWithCustomHandlers,
+          name: broadway_name,
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [],
-          publishers: [default: []]
+          processors: [stages: 1, min_demand: 1, max_demand: 4],
+          publishers: [default: [batch_size: 4]],
+          context: context
         )
 
-      %{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
-
-      Process.exit(pid, :shutdown)
-
-      assert_receive {:EXIT, ^pid, :shutdown}
-      assert Process.alive?(supervisor_pid) == false
+      producer = get_producer(broadway_name, :default)
+      %{broadway: pid, producer: producer}
     end
 
-    @tag :capture_log
-    test "killing the supervisor brings down the broadway GenServer" do
-      Process.flag(:trap_exit, true)
-
-      {:ok, pid} =
-        Broadway.start_link(Forwarder,
-          name: new_unique_name(),
-          context: %{test_pid: self()},
-          producers: [
-            default: [module: ManualProducer, arg: []]
-          ],
-          processors: [],
-          publishers: [default: []]
-        )
-
-      %{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
-
+    test "killing the supervisor brings down the broadway GenServer",
+         %{broadway: broadway} do
+      %{supervisor_pid: supervisor_pid} = :sys.get_state(broadway)
       Process.exit(supervisor_pid, :kill)
-      assert_receive {:EXIT, ^pid, :killed}
+      assert_receive {:EXIT, ^broadway, :killed}
+    end
+
+    test "shutting down broadway waits until the Broadway.Supervisor is down",
+         %{broadway: broadway} do
+      %{supervisor_pid: supervisor_pid} = :sys.get_state(broadway)
+      Process.exit(broadway, :shutdown)
+
+      assert_receive {:EXIT, ^broadway, :shutdown}
+      refute Process.alive?(supervisor_pid)
+    end
+
+    test "shutting down broadway waits until all events are processed",
+         %{broadway: broadway, producer: producer} do
+      async_push_messages(producer, [1, 2, 3, 4])
+      Process.exit(broadway, :shutdown)
+      assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
+    end
+
+    test "shutting down broadway waits until all events are processed even on incomplete batches",
+         %{broadway: broadway, producer: producer} do
+      async_push_messages(producer, [1, 2])
+      Process.exit(broadway, :shutdown)
+      assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
     end
   end
 
   defp new_unique_name() do
-    :"Broadway#{System.unique_integer([:positive, :monotonic])}"
+    :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
   defp get_producer(broadway_name, key \\ :default, index \\ 1) do
@@ -773,12 +781,17 @@ defmodule BroadwayTest do
     Supervisor.count_children(:"#{broadway_name}.ConsumerSupervisor_#{key}").workers
   end
 
-  defp push_messages(producer, list) do
-    messages =
-      Enum.map(list, fn data ->
-        %Message{data: data, acknowledger: {Acker, %{id: data, test_pid: self()}}}
-      end)
+  defp async_push_messages(producer, list) do
+    send(producer, {:"$gen_call", {self(), make_ref()}, {:push_messages, wrap_messages(list)}})
+  end
 
-    Producer.push_messages(producer, messages)
+  defp push_messages(producer, list) do
+    Producer.push_messages(producer, wrap_messages(list))
+  end
+
+  defp wrap_messages(list) do
+    Enum.map(list, fn data ->
+      %Message{data: data, acknowledger: {Acker, %{id: data, test_pid: self()}}}
+    end)
   end
 end

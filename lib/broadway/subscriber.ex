@@ -44,6 +44,7 @@ defmodule Broadway.Subscriber do
              (is_integer(resubscribe) or resubscribe == :never) do
     state =
       Map.merge(state, %{
+        kind: kind,
         resubscribe: resubscribe,
         producers: %{},
         consumers: [],
@@ -83,6 +84,10 @@ defmodule Broadway.Subscriber do
     {:noreply, [], state}
   end
 
+  def handle_info(:cancel_consumers, %{kind: :consumer} = state) do
+    {:stop, :shutdown, state}
+  end
+
   def handle_info(:cancel_consumers, state) do
     for from <- state.consumers do
       send(self(), {:"$gen_producer", from, {:cancel, :shutdown}})
@@ -120,9 +125,9 @@ defmodule Broadway.Subscriber do
 
   defp maybe_resubscribe(_, _), do: false
 
-  defp maybe_cancel(%{resubscribe: :never, subscriptions: subscriptions})
-       when subscriptions == %{} do
-    GenStage.async_info(self(), :cancel_subscriptions)
+  defp maybe_cancel(%{resubscribe: :never, producers: producers})
+       when producers == %{} do
+    GenStage.async_info(self(), :cancel_consumers)
     true
   end
 
