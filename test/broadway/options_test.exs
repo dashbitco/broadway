@@ -87,6 +87,41 @@ defmodule Broadway.OptionsTest do
 
       assert Options.validate([name: 1], spec) == {:error, "expected :name to be an atom, got: 1"}
     end
+
+    test "valid mfa" do
+      spec = [transformer: [type: :mfa]]
+
+      opts = [transformer: {SomeMod, :func, [1, 2]}]
+      assert Options.validate(opts, spec) == {:ok, opts}
+
+      opts = [transformer: {SomeMod, :func, []}]
+      assert Options.validate(opts, spec) == {:ok, opts}
+    end
+
+    test "invalid mfa" do
+      spec = [transformer: [type: :mfa]]
+
+      opts = [transformer: {"not_a_module", :func, []}]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :transformer to be a tuple {Mod, Fun, Args}, got: {"not_a_module", :func, []})
+             }
+
+      opts = [transformer: {SomeMod, "not_a_func", []}]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :transformer to be a tuple {Mod, Fun, Args}, got: {SomeMod, "not_a_func", []})
+             }
+
+      opts = [transformer: {SomeMod, :func, "not_a_list"}]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :transformer to be a tuple {Mod, Fun, Args}, got: {SomeMod, :func, "not_a_list"})
+             }
+    end
   end
 
   describe "nested options with predefined keys" do

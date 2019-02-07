@@ -91,8 +91,6 @@ defmodule Broadway.Server do
       raise "Only one set of producers is allowed for now"
     end
 
-    mod = producer_config[:module]
-    arg = producer_config[:arg]
     n_producers = producer_config[:stages]
 
     names =
@@ -105,7 +103,7 @@ defmodule Broadway.Server do
         opts = [name: name]
 
         %{
-          start: {Producer, :start_link, [mod, arg, opts]},
+          start: {Producer, :start_link, [producer_config, opts]},
           id: name
         }
       end

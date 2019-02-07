@@ -1,9 +1,10 @@
 defmodule Broadway.Producer do
   @moduledoc false
   use GenStage
+  alias Broadway.Message
 
-  def start_link(module, arg, opts \\ []) do
-    GenStage.start_link(__MODULE__, {module, arg}, opts)
+  def start_link(args, opts \\ []) do
+    GenStage.start_link(__MODULE__, {args, opts}, opts)
   end
 
   def push_messages(producer, messages) do
@@ -11,22 +12,29 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def init({module, arg}) do
+  def init({args, opts}) do
+    module = args[:module]
+    transformer = opts[:transformer]
     # TODO: Raise a proper error message if we don't get  {:producer, state} back.
-    {:producer, module_state} = module.init(arg)
-    {:producer, %{module: module, module_state: module_state}}
+    {:producer, module_state} = module.init(args[:arg])
+    {:producer, %{module: module, module_state: module_state, transformer: transformer}}
   end
 
   @impl true
-  def handle_demand(demand, %{module: module, module_state: module_state} = state) do
-    # TODO: Raise a proper error message if we don't get a list of
-    # messages as events and point people towards the upcoming transform.
+  def handle_demand(demand, state) do
+    %{module: module, transformer: transformer, module_state: module_state} = state
+
     case module.handle_demand(demand, module_state) do
-      {tag, events_or_reason, new_module_state} ->
-        {tag, events_or_reason, %{state | module_state: new_module_state}}
+      {:noreply, events, new_module_state} when is_list(events) ->
+        messages = transform_events(events, transformer)
+        {:noreply, messages, %{state | module_state: new_module_state}}
 
       {:noreply, events, new_module_state, :hibernate} ->
-        {:noreply, events, %{state | module_state: new_module_state}, :hibernate}
+        messages = transform_events(events, transformer)
+        {:noreply, messages, %{state | module_state: new_module_state}, :hibernate}
+
+      {:stop, reason, new_module_state} ->
+        {:stop, reason, %{state | module_state: new_module_state}}
     end
   end
 
@@ -35,13 +43,20 @@ defmodule Broadway.Producer do
     {:stop, :shutdown, state}
   end
 
-  def handle_info(message, %{module: module, module_state: module_state} = state) do
+  def handle_info(message, state) do
+    %{module: module, transformer: transformer, module_state: module_state} = state
+
     case module.handle_info(message, module_state) do
-      {tag, events_or_reason, new_module_state} ->
-        {tag, events_or_reason, %{state | module_state: new_module_state}}
+      {:noreply, events, new_module_state} when is_list(events) ->
+        messages = transform_events(events, transformer)
+        {:noreply, messages, %{state | module_state: new_module_state}}
 
       {:noreply, events, new_module_state, :hibernate} ->
-        {:noreply, events, %{state | module_state: new_module_state}, :hibernate}
+        messages = transform_events(events, transformer)
+        {:noreply, messages, %{state | module_state: new_module_state}, :hibernate}
+
+      {:stop, reason, new_module_state} ->
+        {:stop, reason, %{state | module_state: new_module_state}}
     end
   end
 
@@ -57,5 +72,28 @@ defmodule Broadway.Producer do
     else
       :ok
     end
+  end
+
+  defp transform_events(events, transformer) do
+    Enum.map(events, &transform(&1, transformer))
+  end
+
+  defp transform(event, nil) do
+    validate_message(event)
+  end
+
+  defp transform(event, {m, f, opts}) do
+    message = apply(m, f, [event, opts])
+    validate_message(message)
+  end
+
+  defp validate_message(%Message{} = message) do
+    message
+  end
+
+  defp validate_message(_message) do
+    raise "the produced message is invalid. All messages must be a %Broadway.Message{} " <>
+            "struct. In case you're using a standard GenStage producer, please set the " <>
+            ":transformer option to transform produced events into message structs"
   end
 end
