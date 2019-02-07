@@ -50,13 +50,7 @@ defmodule Broadway.Server do
       build_producer_supervisor_spec(config, producers_specs),
       build_processor_supervisor_spec(config, processors_specs),
       build_batcher_partition_supervisor_spec(config, batchers_consumers_specs),
-      build_terminator_spec(
-        config,
-        producers_names,
-        processors_names,
-        consumers_names,
-        config.shutdown
-      )
+      build_terminator_spec(config, producers_names, processors_names, consumers_names)
     ]
 
     supervisor_opts = [
@@ -246,8 +240,11 @@ defmodule Broadway.Server do
     {names, specs}
   end
 
-  defp build_terminator_spec(config, producers, first, last, shutdown) do
-    %{terminator: name} = config
+  defp build_terminator_spec(config, producers, first, last) do
+    %{
+      terminator: name,
+      shutdown: shutdown
+    } = config
 
     args = [
       producers: producers,

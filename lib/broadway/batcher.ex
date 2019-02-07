@@ -83,6 +83,7 @@ defmodule Broadway.Batcher do
   defp handle_events_for_default_batch(events, acc, state) do
     {current, pending_count, timer} = init_or_get_batch(@default_batch, state)
     {current, pending_count, events} = split_counting(events, pending_count, current)
+
     acc = deliver_or_update_batch(@default_batch, current, pending_count, timer, acc, state)
     handle_events_for_default_batch(events, acc, state)
   end

@@ -319,8 +319,11 @@ defmodule Broadway do
     * `:context` - Optional. An immutable user defined data structure that will
       be passed to `handle_message/2` and `handle_batch/4`.
 
-    * `:shutdown` - Optional. The amount of time given for Broadway to
-      gracefuly shutdown without losing events. Defaults to 5_000.
+    * `:shutdown` - Optional. The time in miliseconds given for Broadway to
+      gracefuly shutdown without losing events. Defaults to `5_000`(ms).
+
+    * `:resubscribe_interval` - The interval in miliseconds to attempt to
+      subscribe to a producer after it crashes. Defaults to `100`(ms).
 
   ### Producers options
 
