@@ -11,8 +11,8 @@ defmodule Broadway.Subscriber do
   # On shutdown:
   #
   #   1. The terminator notifies the first layer that they should no longer resubscribe
-  #   2. The terminator monitors the last layer
-  #   3. The terminator sends a shutdown to the producer supervisor
+  #   2. The terminator tells producers to accumulate demand, flush and shutdown
+  #   3. The terminator proceeds to monitor and wait for the termination of the last layer
   #   4. Each layer sees all cancellations from upstream, and cancels downstream via async_info
   #   5. The last layer exits
   #

@@ -316,8 +316,11 @@ defmodule Broadway do
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Consumers options" section below.
 
-    * `context` is an immutable user defined data structure that will
+    * `:context` - Optional. An immutable user defined data structure that will
       be passed to `handle_message/2` and `handle_batch/4`.
+
+    * `:shutdown` - Optional. The amount of time given for Broadway to
+      gracefuly shutdown without losing events. Defaults to 5_000.
 
   ### Producers options
 

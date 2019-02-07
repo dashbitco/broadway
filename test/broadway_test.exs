@@ -694,12 +694,17 @@ defmodule BroadwayTest do
   end
 
   describe "shutdown" do
-    setup do
+    setup tags do
       Process.flag(:trap_exit, true)
       broadway_name = new_unique_name()
 
+      handle_message = fn
+        %{data: :sleep}, _ -> Process.sleep(:infinity)
+        message, _ -> message
+      end
+
       context = %{
-        handle_message: fn message, _ -> message end,
+        handle_message: handle_message,
         handle_batch: fn _, batch, _, _ -> batch end
       }
 
@@ -711,7 +716,8 @@ defmodule BroadwayTest do
           ],
           processors: [stages: 1, min_demand: 1, max_demand: 4],
           publishers: [default: [batch_size: 4]],
-          context: context
+          context: context,
+          shutdown: Map.get(tags, :shutdown, 5000)
         )
 
       producer = get_producer(broadway_name, :default)
@@ -736,16 +742,27 @@ defmodule BroadwayTest do
 
     test "shutting down broadway waits until all events are processed",
          %{broadway: broadway, producer: producer} do
+      # We suspend the producer to make sure that it doesn't process the messages early on
+      :sys.suspend(producer)
       async_push_messages(producer, [1, 2, 3, 4])
       Process.exit(broadway, :shutdown)
+      :sys.resume(producer)
       assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
     end
 
     test "shutting down broadway waits until all events are processed even on incomplete batches",
          %{broadway: broadway, producer: producer} do
-      async_push_messages(producer, [1, 2])
+      push_messages(producer, [1, 2])
       Process.exit(broadway, :shutdown)
       assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
+    end
+
+    @tag shutdown: 1
+    test "shutting down broadway respects shutdown value",
+         %{broadway: broadway, producer: producer} do
+      push_messages(producer, [:sleep, 1, 2, 3])
+      Process.exit(broadway, :shutdown)
+      assert_receive {:EXIT, ^broadway, :shutdown}
     end
   end
 
