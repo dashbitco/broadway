@@ -17,7 +17,8 @@ defmodule Broadway.Batcher do
     state = %{
       publisher_key: publisher_key,
       batch_size: args[:batch_size],
-      batch_timeout: args[:batch_timeout]
+      batch_timeout: args[:batch_timeout],
+      batches: %{}
     }
 
     Broadway.Subscriber.init(
@@ -31,7 +32,7 @@ defmodule Broadway.Batcher do
 
   @impl true
   def handle_events(events, _from, state) do
-    batches = handle_events_for_default_batch(events, [], state)
+    {batches, state} = handle_events_for_default_batch(events, [], state)
     {:noreply, batches, state}
   end
 
@@ -41,12 +42,25 @@ defmodule Broadway.Batcher do
   def handle_info({:timeout, timer, batch_name}, state) do
     case get_timed_out_batch(batch_name, timer) do
       {current, _, _} ->
-        delete_batch(batch_name)
+        {_, state} = delete_batch(batch_name, state)
         {:noreply, [wrap_for_delivery(current, state)], state}
 
       :error ->
         {:noreply, [], state}
     end
+  end
+
+  # Hijack subscriber events to publish batches
+  def handle_info(:cancel_consumers, %{batches: batches} = state) when batches != %{} do
+    {events, state} =
+      Enum.map_reduce(batches, state, fn {batch_name, _}, acc ->
+        {{current, _, timer}, acc} = delete_batch(batch_name, acc)
+        cancel_batch_timeout(timer)
+        {wrap_for_delivery(current, state), acc}
+      end)
+
+    GenStage.async_info(self(), :cancel_consumers)
+    {:noreply, events, state}
   end
 
   def handle_info(msg, state) do
@@ -55,15 +69,17 @@ defmodule Broadway.Batcher do
 
   ## Default batch handling
 
-  defp handle_events_for_default_batch([], acc, _state) do
-    Enum.reverse(acc)
+  defp handle_events_for_default_batch([], acc, state) do
+    {Enum.reverse(acc), state}
   end
 
   defp handle_events_for_default_batch(events, acc, state) do
-    {current, pending_count, timer} = init_or_get_batch(@default_batch, state)
+    {{current, pending_count, timer}, state} = init_or_get_batch(@default_batch, state)
     {current, pending_count, events} = split_counting(events, pending_count, current)
 
-    acc = deliver_or_update_batch(@default_batch, current, pending_count, timer, acc, state)
+    {acc, state} =
+      deliver_or_update_batch(@default_batch, current, pending_count, timer, acc, state)
+
     handle_events_for_default_batch(events, acc, state)
   end
 
@@ -74,30 +90,35 @@ defmodule Broadway.Batcher do
   defp split_counting(events, count, acc), do: {acc, count, events}
 
   defp deliver_or_update_batch(batch_name, current, 0, timer, acc, state) do
-    delete_batch(batch_name)
+    {_, state} = delete_batch(batch_name, state)
     cancel_batch_timeout(timer)
-    [wrap_for_delivery(current, state) | acc]
+    {[wrap_for_delivery(current, state) | acc], state}
   end
 
-  defp deliver_or_update_batch(batch_name, current, pending_count, timer, acc, _state) do
+  defp deliver_or_update_batch(batch_name, current, pending_count, timer, acc, state) do
     put_batch(batch_name, {current, pending_count, timer})
-    acc
+    {acc, state}
   end
 
   ## General batch handling
 
   defp init_or_get_batch(batch_name, state) do
-    if batch = Process.get(batch_name) do
-      batch
+    if batch = get_batch(batch_name) do
+      {batch, state}
     else
-      %{batch_size: batch_size, batch_timeout: batch_timeout} = state
+      %{batch_size: batch_size, batch_timeout: batch_timeout, batches: batches} = state
       timer = schedule_batch_timeout(batch_name, batch_timeout)
-      {[], batch_size, timer}
+      state = %{state | batches: Map.put(batches, batch_name, true)}
+      {{[], batch_size, timer}, state}
     end
   end
 
+  defp get_batch(batch_name) do
+    Process.get(batch_name)
+  end
+
   defp get_timed_out_batch(batch_name, timer) do
-    case Process.get(batch_name) do
+    case get_batch(batch_name) do
       {_, _, ^timer} = batch -> batch
       _ -> :error
     end
@@ -107,8 +128,8 @@ defmodule Broadway.Batcher do
     Process.put(batch_name, batch)
   end
 
-  defp delete_batch(batch_name) do
-    Process.delete(batch_name)
+  defp delete_batch(batch_name, state) do
+    {Process.delete(batch_name), update_in(state.batches, &Map.delete(&1, batch_name))}
   end
 
   defp schedule_batch_timeout(batch_name, batch_timeout) do

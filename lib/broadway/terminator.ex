@@ -1,4 +1,5 @@
 defmodule Broadway.Terminator do
+  @moduledoc false
   use GenServer
 
   def start_link(args, opts) do

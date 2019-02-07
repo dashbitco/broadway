@@ -754,7 +754,7 @@ defmodule BroadwayTest do
          %{broadway: broadway, producer: producer} do
       push_messages(producer, [1, 2])
       Process.exit(broadway, :shutdown)
-      assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
+      assert_receive {:ack, [%{data: 1}, %{data: 2}], []}
     end
 
     @tag shutdown: 1

@@ -125,8 +125,7 @@ defmodule Broadway.Subscriber do
 
   defp maybe_resubscribe(_, _), do: false
 
-  defp maybe_cancel(%{resubscribe: :never, producers: producers})
-       when producers == %{} do
+  defp maybe_cancel(%{resubscribe: :never, producers: producers}) when producers == %{} do
     GenStage.async_info(self(), :cancel_consumers)
     true
   end
