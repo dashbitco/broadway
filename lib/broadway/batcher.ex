@@ -57,17 +57,16 @@ defmodule Broadway.Batcher do
     if batches == %{} do
       super(:cancel_consumers, state)
     else
+      events =
+        for {batch_name, _} <- batches do
+          {current, _, timer} = delete_batch(batch_name)
+          cancel_batch_timeout(timer)
+          wrap_for_delivery(current, state)
+        end
 
-    events =
-      for {batch_name, _} <- batches do
-        {current, _, timer} = delete_batch(batch_name)
-        cancel_batch_timeout(timer)
-        wrap_for_delivery(current, state)
-      end
-
-    GenStage.async_info(self(), :cancel_consumers)
-    {:noreply, events, state}
-  end
+      GenStage.async_info(self(), :cancel_consumers)
+      {:noreply, events, state}
+    end
   end
 
   def handle_info(msg, state) do
