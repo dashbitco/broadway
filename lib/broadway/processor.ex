@@ -31,7 +31,7 @@ defmodule Broadway.Processor do
   def handle_events(messages, _from, state) do
     {successful_events, failed_messages} =
       Enum.reduce(messages, {[], []}, fn message, {successful, failed} ->
-        %Message{message | processor_pid: self()}
+        message
         |> handle_message(state)
         |> classify_returned_message(successful, failed)
       end)

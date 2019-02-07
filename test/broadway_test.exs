@@ -447,7 +447,7 @@ defmodule BroadwayTest do
 
       handle_message = fn message, _ ->
         if message.data == :kill_processor do
-          Process.exit(message.processor_pid, :kill)
+          Process.exit(self(), :kill)
         end
 
         send(test_pid, {:message_handled, message})
@@ -484,18 +484,19 @@ defmodule BroadwayTest do
       %{producer: producer, processor: processor, batcher: batcher}
     end
 
-    test "processor will be restarted in order to handle other messages", %{producer: producer} do
+    test "processor will be restarted in order to handle other messages",
+         %{producer: producer, processor: processor} do
       push_messages(producer, [1])
-      assert_receive {:message_handled, %{data: 1, processor_pid: processor1}}
+      assert_receive {:message_handled, %{data: 1}}
 
-      ref = Process.monitor(processor1)
+      pid = Process.whereis(processor)
+      ref = Process.monitor(processor)
       push_messages(producer, [:kill_processor])
       assert_receive {:DOWN, ^ref, _, _, _}
 
       push_messages(producer, [2])
-
-      assert_receive {:message_handled, %{data: 2, processor_pid: processor2}}
-      assert processor1 != processor2
+      assert_receive {:message_handled, %{data: 2}}
+      assert Process.whereis(processor) != pid
     end
 
     test "batchers and producers should not be restarted", context do
