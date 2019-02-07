@@ -18,14 +18,12 @@ defmodule Broadway.Message do
           data: any,
           acknowledger: {module, data :: any},
           publisher: atom,
-          processor_pid: pid,
           status: :ok | {:failed, reason :: binary}
         }
 
   defstruct data: nil,
             acknowledger: nil,
             publisher: :default,
-            processor_pid: nil,
             status: :ok
 
   @doc """
