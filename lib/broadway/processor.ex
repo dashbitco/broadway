@@ -13,17 +13,13 @@ defmodule Broadway.Processor do
   def init(args) do
     processors_config = args[:processors_config]
     context = args[:context]
-    partitions = args[:partitions]
     state = %{module: args[:module], context: context}
 
-    # TODO: Make the resubscribe value a configuration
     Broadway.Subscriber.init(
-      :producer_consumer,
-      10,
       args[:producers],
       Keyword.take(processors_config, [:min_demand, :max_demand]),
       state,
-      dispatcher: {GenStage.PartitionDispatcher, partitions: partitions, hash: & &1}
+      args
     )
   end
 
@@ -56,8 +52,7 @@ defmodule Broadway.Processor do
     {successful, [message | failed]}
   end
 
-  defp classify_returned_message(%Message{publisher: publisher} = message, successful, failed) do
-    event = {%Message{message | status: :ok}, publisher}
-    {[event | successful], failed}
+  defp classify_returned_message(%Message{} = message, successful, failed) do
+    {[message | successful], failed}
   end
 end

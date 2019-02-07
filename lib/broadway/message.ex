@@ -19,14 +19,14 @@ defmodule Broadway.Message do
           acknowledger: {module, data :: any},
           publisher: atom,
           processor_pid: pid,
-          status: :pending | :ok | {:failed, reason :: binary}
+          status: :ok | {:failed, reason :: binary}
         }
 
   defstruct data: nil,
             acknowledger: nil,
             publisher: :default,
             processor_pid: nil,
-            status: :pending
+            status: :ok
 
   @doc """
   Updates the data from a message.

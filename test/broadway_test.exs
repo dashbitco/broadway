@@ -1,6 +1,5 @@
 defmodule BroadwayTest do
   use ExUnit.Case
-  @moduletag :capture_log
 
   import Integer
   alias Broadway.{Producer, Message, BatchInfo}

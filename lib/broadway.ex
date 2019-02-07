@@ -174,9 +174,9 @@ defmodule Broadway do
 
   ```asciidoc
                           [Broadway GenServer]
-                                  |
-                                  |
-                                  |
+                                   |
+                                   |
+                                   |
                     [Broadway Pipeline Supervisor]
                         /   (:rest_for_one)     \
                        /           |             \
@@ -184,7 +184,7 @@ defmodule Broadway do
                      /             |               \
                     /              |                \
                    /               |                 \
-    [ProducerSupervisor]  [ProcessorSupervisor]    [PublisherSupervisor]
+    [ProducerSupervisor]  [ProcessorSupervisor] [BatcherPartitionSupervisor] [Terminator]
       (:one_for_one)        (:one_for_all)           (:one_for_one)
            / \                    / \                /            \
           /   \                  /   \              /              \
@@ -198,7 +198,7 @@ defmodule Broadway do
                                             [Batcher] [Supervisor]
                                                       (:one_for_all)
                                                             |
-                                                        [Consumer]
+                                                      [Consumer_1]
   ```
 
   Another part of Broadway fault-tolerance comes from the fact the
@@ -382,6 +382,7 @@ defmodule Broadway do
       shutdown: [type: :pos_integer, default: 5000],
       max_restarts: [type: :non_neg_integer, default: 3],
       max_seconds: [type: :pos_integer, default: 5],
+      resubscribe_interval: [type: :non_neg_integer, default: 100],
       context: [type: :any, default: :context_not_set],
       producers: [
         required: true,

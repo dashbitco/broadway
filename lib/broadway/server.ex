@@ -41,7 +41,6 @@ defmodule Broadway.Server do
 
   defp start_supervisor(config) do
     {producers_names, producers_specs} = build_producers_specs(config)
-
     {processors_names, processors_specs} = build_processors_specs(config, producers_names)
 
     {consumers_names, batchers_consumers_specs} =
@@ -81,7 +80,8 @@ defmodule Broadway.Server do
       terminator: :"#{opts[:name]}.Terminator",
       max_restarts: opts[:max_restarts],
       max_seconds: opts[:max_seconds],
-      shutdown: opts[:shutdown]
+      shutdown: opts[:shutdown],
+      resubscribe_interval: opts[:resubscribe_interval]
     }
   end
 
@@ -98,7 +98,7 @@ defmodule Broadway.Server do
     end
 
     mod = producer_config[:module]
-    args = producer_config[:arg]
+    arg = producer_config[:arg]
     n_producers = producer_config[:stages]
 
     names =
@@ -108,11 +108,10 @@ defmodule Broadway.Server do
 
     specs =
       for name <- names do
-        args = [module: mod, args: args]
         opts = [name: name]
 
         %{
-          start: {Producer, :start_link, [args, opts]},
+          start: {Producer, :start_link, [mod, arg, opts]},
           id: name
         }
       end
@@ -126,7 +125,9 @@ defmodule Broadway.Server do
       module: module,
       processors_config: processors_config,
       context: context,
-      publishers_config: publishers_config
+      publishers_config: publishers_config,
+      resubscribe_interval: resubscribe_interval,
+      terminator: terminator
     } = config
 
     n_processors = processors_config[:stages]
@@ -136,16 +137,22 @@ defmodule Broadway.Server do
         process_name(broadway_name, "Processor", index)
       end
 
+    partitions = Keyword.keys(publishers_config)
+    dispatcher = {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.publisher}}
+
+    args = [
+      type: :producer_consumer,
+      resubscribe: resubscribe_interval,
+      terminator: terminator,
+      module: module,
+      context: context,
+      dispatcher: dispatcher,
+      processors_config: processors_config,
+      producers: producers
+    ]
+
     specs =
       for name <- names do
-        args = [
-          module: module,
-          context: context,
-          partitions: Keyword.keys(publishers_config),
-          processors_config: processors_config,
-          producers: producers
-        ]
-
         opts = [name: name]
 
         %{
@@ -178,10 +185,19 @@ defmodule Broadway.Server do
   end
 
   defp build_batcher_spec(config, publisher_config, processors) do
+    %{terminator: terminator} = config
     {key, options} = publisher_config
     name = process_name(config.name, "Batcher", key)
 
-    args = [publisher_key: key, processors: processors] ++ options
+    args =
+      [
+        type: :producer_consumer,
+        resubscribe: :never,
+        terminator: terminator,
+        publisher_key: key,
+        processors: processors
+      ] ++ options
+
     opts = [name: name]
 
     spec = %{
@@ -193,7 +209,13 @@ defmodule Broadway.Server do
   end
 
   defp build_consumers_specs(config, publisher_config, batcher) do
-    %{name: broadway_name, module: module, context: context} = config
+    %{
+      name: broadway_name,
+      module: module,
+      context: context,
+      terminator: terminator
+    } = config
+
     {key, options} = publisher_config
     n_consumers = options[:stages]
 
@@ -202,14 +224,17 @@ defmodule Broadway.Server do
         process_name(broadway_name, "Consumer_#{key}", index)
       end
 
+    args = [
+      type: :consumer,
+      resubscribe: :never,
+      terminator: terminator,
+      module: module,
+      context: context,
+      batcher: batcher
+    ]
+
     specs =
       for name <- names do
-        args = [
-          module: module,
-          context: context,
-          batcher: batcher
-        ]
-
         opts = [name: name]
 
         %{
@@ -221,13 +246,13 @@ defmodule Broadway.Server do
     {names, specs}
   end
 
-  defp build_terminator_spec(config, producers, processors, consumers, shutdown) do
+  defp build_terminator_spec(config, producers, first, last, shutdown) do
     %{terminator: name} = config
 
     args = [
       producers: producers,
-      first: processors,
-      last: consumers
+      first: first,
+      last: last
     ]
 
     opts = [name: name]

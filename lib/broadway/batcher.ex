@@ -4,7 +4,8 @@ defmodule Broadway.Batcher do
   use Broadway.Subscriber
   alias Broadway.BatchInfo
 
-  @default_batch __MODULE__
+  @all_batches __MODULE__.All
+  @default_batch __MODULE__.Default
 
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
@@ -12,27 +13,26 @@ defmodule Broadway.Batcher do
 
   @impl true
   def init(args) do
+    Process.put(@all_batches, %{})
     publisher_key = args[:publisher_key]
 
     state = %{
       publisher_key: publisher_key,
       batch_size: args[:batch_size],
-      batch_timeout: args[:batch_timeout],
-      batches: %{}
+      batch_timeout: args[:batch_timeout]
     }
 
     Broadway.Subscriber.init(
-      :producer_consumer,
-      :never,
       args[:processors],
       [partition: publisher_key, max_demand: args[:batch_size]],
-      state
+      state,
+      args
     )
   end
 
   @impl true
   def handle_events(events, _from, state) do
-    {batches, state} = handle_events_for_default_batch(events, [], state)
+    batches = handle_events_for_default_batch(events, [], state)
     {:noreply, batches, state}
   end
 
@@ -42,7 +42,7 @@ defmodule Broadway.Batcher do
   def handle_info({:timeout, timer, batch_name}, state) do
     case get_timed_out_batch(batch_name, timer) do
       {current, _, _} ->
-        {_, state} = delete_batch(batch_name, state)
+        delete_batch(batch_name)
         {:noreply, [wrap_for_delivery(current, state)], state}
 
       :error ->
@@ -51,16 +51,23 @@ defmodule Broadway.Batcher do
   end
 
   # Hijack subscriber events to publish batches
-  def handle_info(:cancel_consumers, %{batches: batches} = state) when batches != %{} do
-    {events, state} =
-      Enum.map_reduce(batches, state, fn {batch_name, _}, acc ->
-        {{current, _, timer}, acc} = delete_batch(batch_name, acc)
+  def handle_info(:cancel_consumers, state) do
+    batches = all_batches()
+
+    if batches == %{} do
+      super(:cancel_consumers, state)
+    else
+
+    events =
+      for {batch_name, _} <- batches do
+        {current, _, timer} = delete_batch(batch_name)
         cancel_batch_timeout(timer)
-        {wrap_for_delivery(current, state), acc}
-      end)
+        wrap_for_delivery(current, state)
+      end
 
     GenStage.async_info(self(), :cancel_consumers)
     {:noreply, events, state}
+  end
   end
 
   def handle_info(msg, state) do
@@ -69,17 +76,14 @@ defmodule Broadway.Batcher do
 
   ## Default batch handling
 
-  defp handle_events_for_default_batch([], acc, state) do
-    {Enum.reverse(acc), state}
+  defp handle_events_for_default_batch([], acc, _state) do
+    Enum.reverse(acc)
   end
 
   defp handle_events_for_default_batch(events, acc, state) do
-    {{current, pending_count, timer}, state} = init_or_get_batch(@default_batch, state)
+    {current, pending_count, timer} = init_or_get_batch(@default_batch, state)
     {current, pending_count, events} = split_counting(events, pending_count, current)
-
-    {acc, state} =
-      deliver_or_update_batch(@default_batch, current, pending_count, timer, acc, state)
-
+    acc = deliver_or_update_batch(@default_batch, current, pending_count, timer, acc, state)
     handle_events_for_default_batch(events, acc, state)
   end
 
@@ -90,35 +94,31 @@ defmodule Broadway.Batcher do
   defp split_counting(events, count, acc), do: {acc, count, events}
 
   defp deliver_or_update_batch(batch_name, current, 0, timer, acc, state) do
-    {_, state} = delete_batch(batch_name, state)
+    delete_batch(batch_name)
     cancel_batch_timeout(timer)
-    {[wrap_for_delivery(current, state) | acc], state}
+    [wrap_for_delivery(current, state) | acc]
   end
 
-  defp deliver_or_update_batch(batch_name, current, pending_count, timer, acc, state) do
+  defp deliver_or_update_batch(batch_name, current, pending_count, timer, acc, _state) do
     put_batch(batch_name, {current, pending_count, timer})
-    {acc, state}
+    acc
   end
 
   ## General batch handling
 
   defp init_or_get_batch(batch_name, state) do
-    if batch = get_batch(batch_name) do
-      {batch, state}
+    if batch = Process.get(batch_name) do
+      batch
     else
-      %{batch_size: batch_size, batch_timeout: batch_timeout, batches: batches} = state
+      %{batch_size: batch_size, batch_timeout: batch_timeout} = state
       timer = schedule_batch_timeout(batch_name, batch_timeout)
-      state = %{state | batches: Map.put(batches, batch_name, true)}
-      {{[], batch_size, timer}, state}
+      update_all_batches(&Map.put(&1, batch_name, true))
+      {[], batch_size, timer}
     end
   end
 
-  defp get_batch(batch_name) do
-    Process.get(batch_name)
-  end
-
   defp get_timed_out_batch(batch_name, timer) do
-    case get_batch(batch_name) do
+    case Process.get(batch_name) do
       {_, _, ^timer} = batch -> batch
       _ -> :error
     end
@@ -128,8 +128,17 @@ defmodule Broadway.Batcher do
     Process.put(batch_name, batch)
   end
 
-  defp delete_batch(batch_name, state) do
-    {Process.delete(batch_name), update_in(state.batches, &Map.delete(&1, batch_name))}
+  defp delete_batch(batch_name) do
+    update_all_batches(&Map.delete(&1, batch_name))
+    Process.delete(batch_name)
+  end
+
+  defp all_batches do
+    Process.get(@all_batches)
+  end
+
+  defp update_all_batches(fun) do
+    Process.put(@all_batches, fun.(Process.get(@all_batches)))
   end
 
   defp schedule_batch_timeout(batch_name, batch_timeout) do

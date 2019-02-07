@@ -6,6 +6,9 @@ defmodule Broadway.BatcherTest do
       Broadway.Batcher.init(
         module: __MODULE__,
         context: %{},
+        type: :producer_consumer,
+        terminator: __MODULE__,
+        resubscribe: :never,
         publisher_key: :default,
         processors: [:some_processor],
         batch_size: 123,

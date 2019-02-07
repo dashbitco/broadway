@@ -39,12 +39,15 @@ defmodule Broadway.Subscriber do
   @doc """
   Function to be invoked directly on init by users of this module.
   """
-  def init(kind, resubscribe, names, subscription_options, state, options \\ [])
-      when kind in [:producer_consumer, :consumer] and
-             (is_integer(resubscribe) or resubscribe == :never) do
+  def init(names, subscription_options, state, options \\ []) do
+    type = Keyword.fetch!(options, :type)
+    terminator = Keyword.fetch!(options, :terminator)
+    resubscribe = Keyword.fetch!(options, :resubscribe)
+
     state =
       Map.merge(state, %{
-        kind: kind,
+        type: type,
+        terminator: terminator,
         resubscribe: resubscribe,
         producers: %{},
         consumers: [],
@@ -52,7 +55,7 @@ defmodule Broadway.Subscriber do
       })
 
     Enum.each(names, &subscribe(&1, state))
-    {kind, state, options}
+    {type, state, Keyword.take(options, [:dispatcher])}
   end
 
   ## Callbacks
@@ -84,8 +87,12 @@ defmodule Broadway.Subscriber do
     {:noreply, [], state}
   end
 
-  def handle_info(:cancel_consumers, %{kind: :consumer} = state) do
-    {:stop, :shutdown, state}
+  def handle_info(:cancel_consumers, %{type: :consumer, terminator: terminator} = state) do
+    if pid = Process.whereis(terminator) do
+      send(pid, {:done, self()})
+    end
+
+    {:noreply, [], state}
   end
 
   def handle_info(:cancel_consumers, state) do

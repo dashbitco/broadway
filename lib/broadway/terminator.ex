@@ -25,6 +25,10 @@ defmodule Broadway.Terminator do
     {:noreply, state}
   end
 
+  def handle_info(_, state) do
+    {:noreply, state}
+  end
+
   def terminate(_, state) do
     for name <- state.first, pid = Process.whereis(name) do
       send(pid, :never_resubscribe)
@@ -35,10 +39,11 @@ defmodule Broadway.Terminator do
       GenStage.async_info(pid, :shutdown)
     end
 
-    for name <- state.last do
-      ref = Process.monitor(name)
+    for name <- state.last, pid = Process.whereis(name) do
+      ref = Process.monitor(pid)
 
       receive do
+        {:done, ^pid} -> :ok
         {:DOWN, ^ref, _, _, _} -> :ok
       end
     end

@@ -18,11 +18,10 @@ defmodule Broadway.Consumer do
     }
 
     Broadway.Subscriber.init(
-      :consumer,
-      :never,
       [args[:batcher]],
       @subscription_options,
-      state
+      state,
+      args
     )
   end
 
@@ -36,7 +35,6 @@ defmodule Broadway.Consumer do
       |> Enum.split_with(&(&1.status == :ok))
 
     Acknowledger.ack_messages(successful_messages, failed_messages)
-
     {:noreply, [], state}
   end
 

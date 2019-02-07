@@ -2,8 +2,8 @@ defmodule Broadway.Producer do
   @moduledoc false
   use GenStage
 
-  def start_link(args, opts \\ []) do
-    GenStage.start_link(__MODULE__, args, opts)
+  def start_link(module, arg, opts \\ []) do
+    GenStage.start_link(__MODULE__, {module, arg}, opts)
   end
 
   def push_messages(producer, messages) do
@@ -11,10 +11,9 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def init(args) do
-    module = args[:module]
+  def init({module, arg}) do
     # TODO: Raise a proper error message if we don't get  {:producer, state} back.
-    {:producer, module_state} = module.init(args[:args])
+    {:producer, module_state} = module.init(arg)
     {:producer, %{module: module, module_state: module_state}}
   end
 
