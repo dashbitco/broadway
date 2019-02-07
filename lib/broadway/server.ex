@@ -51,7 +51,12 @@ defmodule Broadway.Server do
       build_producer_supervisor_spec(config, producers_specs),
       build_processor_supervisor_spec(config, processors_specs),
       build_batcher_partition_supervisor_spec(config, batchers_consumers_specs),
-      build_terminator_spec(config, producers_names, processors_names, consumers_names, config.shutdown
+      build_terminator_spec(
+        config,
+        producers_names,
+        processors_names,
+        consumers_names,
+        config.shutdown
       )
     ]
 
@@ -244,11 +249,11 @@ defmodule Broadway.Server do
 
     # TODO: Allow max_restarts and max_seconds as configuration
     # options as well as shutdown and restart for each child.
-      build_supervisor_spec(children, name,
-        strategy: :one_for_one,
-        max_restarts: 2 * children_count,
-        max_seconds: children_count
-      )
+    build_supervisor_spec(children, name,
+      strategy: :one_for_one,
+      max_restarts: 2 * children_count,
+      max_seconds: children_count
+    )
   end
 
   defp build_processor_supervisor_spec(config, children) do
