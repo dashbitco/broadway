@@ -18,13 +18,13 @@ defmodule Broadway.Message do
           data: any,
           acknowledger: {module, data :: any},
           publisher: atom,
-          status: :pending | :ok | {:failed, reason :: binary}
+          status: :ok | {:failed, reason :: binary}
         }
 
   defstruct data: nil,
             acknowledger: nil,
             publisher: :default,
-            status: :pending
+            status: :ok
 
   @doc """
   Updates the data from a message.

@@ -1,11 +1,10 @@
 defmodule Broadway.Producer do
   @moduledoc false
   use GenStage
-
   alias Broadway.Message
 
   def start_link(args, opts \\ []) do
-    GenStage.start_link(__MODULE__, args, opts)
+    GenStage.start_link(__MODULE__, {args, opts}, opts)
   end
 
   def push_messages(producer, messages) do
@@ -13,11 +12,11 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def init(args) do
+  def init({args, opts}) do
     module = args[:module]
-    transformer = args[:transformer]
-    # TODO: Raise a proper error message if we don't {:producer, state} back.
-    {:producer, module_state} = module.init(args[:args])
+    transformer = opts[:transformer]
+    # TODO: Raise a proper error message if we don't get  {:producer, state} back.
+    {:producer, module_state} = module.init(args[:arg])
     {:producer, %{module: module, module_state: module_state, transformer: transformer}}
   end
 
@@ -40,6 +39,10 @@ defmodule Broadway.Producer do
   end
 
   @impl true
+  def handle_info(:shutdown, state) do
+    {:stop, :shutdown, state}
+  end
+
   def handle_info(message, state) do
     %{module: module, transformer: transformer, module_state: module_state} = state
 
@@ -89,8 +92,8 @@ defmodule Broadway.Producer do
   end
 
   defp validate_message(_message) do
-    raise "The produced message is invalid. All messages must be a %Broadway.Message{} " <>
+    raise "the produced message is invalid. All messages must be a %Broadway.Message{} " <>
             "struct. In case you're using a standard GenStage producer, please set the " <>
-            ":transformer option to transform produced events into message structs."
+            ":transformer option to transform produced events into message structs"
   end
 end

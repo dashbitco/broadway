@@ -1,9 +1,11 @@
 defmodule Broadway.Batcher do
   @moduledoc false
   use GenStage
-  alias Broadway.{BatchInfo, Subscription}
+  use Broadway.Subscriber
+  alias Broadway.BatchInfo
 
-  @default_batch __MODULE__
+  @all_batches __MODULE__.All
+  @default_batch __MODULE__.Default
 
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
@@ -11,28 +13,21 @@ defmodule Broadway.Batcher do
 
   @impl true
   def init(args) do
+    Process.put(@all_batches, %{})
     publisher_key = args[:publisher_key]
-    batch_timeout = args[:batch_timeout]
-
-    subscribe_to_options = [
-      partition: publisher_key,
-      max_demand: args[:batch_size],
-      cancel: :temporary
-    ]
-
-    {refs, failed_subscriptions} =
-      Subscription.subscribe_all(args[:processors], subscribe_to_options)
 
     state = %{
       publisher_key: publisher_key,
       batch_size: args[:batch_size],
-      batch_timeout: batch_timeout,
-      processors_refs: refs,
-      failed_subscriptions: failed_subscriptions,
-      subscribe_to_options: subscribe_to_options
+      batch_timeout: args[:batch_timeout]
     }
 
-    {:producer_consumer, state}
+    Broadway.Subscriber.init(
+      args[:processors],
+      [partition: publisher_key, max_demand: args[:batch_size]],
+      state,
+      args
+    )
   end
 
   @impl true
@@ -40,6 +35,8 @@ defmodule Broadway.Batcher do
     batches = handle_events_for_default_batch(events, [], state)
     {:noreply, batches, state}
   end
+
+  defoverridable handle_info: 2
 
   @impl true
   def handle_info({:timeout, timer, batch_name}, state) do
@@ -53,53 +50,27 @@ defmodule Broadway.Batcher do
     end
   end
 
-  def handle_info(:resubscribe, state) do
-    %{
-      processors_refs: processors_refs,
-      subscribe_to_options: subscribe_to_options,
-      failed_subscriptions: failed_subscriptions
-    } = state
+  # Hijack subscriber events to publish batches
+  def handle_info(:cancel_consumers, state) do
+    batches = all_batches()
 
-    {refs, failed_subscriptions} =
-      Subscription.subscribe_all(failed_subscriptions, subscribe_to_options)
+    if batches == %{} do
+      super(:cancel_consumers, state)
+    else
+      events =
+        for {batch_name, _} <- batches do
+          {current, _, timer} = delete_batch(batch_name)
+          cancel_batch_timeout(timer)
+          wrap_for_delivery(current, state)
+        end
 
-    new_state = %{
-      state
-      | processors_refs: Map.merge(processors_refs, refs),
-        failed_subscriptions: failed_subscriptions
-    }
-
-    {:noreply, [], new_state}
+      GenStage.async_info(self(), :cancel_consumers)
+      {:noreply, events, state}
+    end
   end
 
-  def handle_info({:DOWN, ref, _, _, _reason}, state) do
-    %{
-      processors_refs: refs,
-      failed_subscriptions: failed_subscriptions
-    } = state
-
-    new_state =
-      case refs do
-        %{^ref => processor} ->
-          if Enum.empty?(failed_subscriptions) do
-            Subscription.schedule_resubscribe()
-          end
-
-          %{
-            state
-            | processors_refs: Map.delete(refs, ref),
-              failed_subscriptions: [processor | failed_subscriptions]
-          }
-
-        _ ->
-          state
-      end
-
-    {:noreply, [], new_state}
-  end
-
-  def handle_info(_, state) do
-    {:noreply, [], state}
+  def handle_info(msg, state) do
+    super(msg, state)
   end
 
   ## Default batch handling
@@ -141,6 +112,7 @@ defmodule Broadway.Batcher do
     else
       %{batch_size: batch_size, batch_timeout: batch_timeout} = state
       timer = schedule_batch_timeout(batch_name, batch_timeout)
+      update_all_batches(&Map.put(&1, batch_name, true))
       {[], batch_size, timer}
     end
   end
@@ -157,7 +129,16 @@ defmodule Broadway.Batcher do
   end
 
   defp delete_batch(batch_name) do
+    update_all_batches(&Map.delete(&1, batch_name))
     Process.delete(batch_name)
+  end
+
+  defp all_batches do
+    Process.get(@all_batches)
+  end
+
+  defp update_all_batches(fun) do
+    Process.put(@all_batches, fun.(Process.get(@all_batches)))
   end
 
   defp schedule_batch_timeout(batch_name, batch_timeout) do

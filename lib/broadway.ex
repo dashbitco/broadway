@@ -256,31 +256,31 @@ defmodule Broadway do
 
   ```asciidoc
                           [Broadway GenServer]
-                                  |
-                                  |
-                                  |
+                                   |
+                                   |
+                                   |
                     [Broadway Pipeline Supervisor]
-                        /   (:one_for_all)      \
+                        /   (:rest_for_one)     \
                        /           |             \
                       /            |              \
                      /             |               \
                     /              |                \
                    /               |                 \
-    [ProducerSupervisor]  [ProcessorSupervisor]    [PublisherSupervisor]
-      (:one_for_one)         (:one_for_one)          (:one_for_one)
+    [ProducerSupervisor]  [ProcessorSupervisor] [BatcherPartitionSupervisor] [Terminator]
+      (:one_for_one)        (:one_for_all)           (:one_for_one)
            / \                    / \                /            \
           /   \                  /   \              /              \
          /     \                /     \            /                \
         /       \              /       \          /                  \
   [Producer_1]  ...    [Processor_1]  ...  [BatcherConsumerSuperv_1]  ...
-                                                (:one_for_one)
+                                              (:rest_for_one)
                                                     /  \
                                                    /    \
                                                   /      \
                                             [Batcher] [Supervisor]
-                                                      (:one_for_one)
+                                                      (:one_for_all)
                                                             |
-                                                        [Consumer]
+                                                      [Consumer_1]
   ```
 
   Another part of Broadway fault-tolerance comes from the fact the
@@ -398,8 +398,14 @@ defmodule Broadway do
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Consumers options" section below.
 
-    * `context` is an immutable user defined data structure that will
+    * `:context` - Optional. An immutable user defined data structure that will
       be passed to `handle_message/2` and `handle_batch/4`.
+
+    * `:shutdown` - Optional. The time in miliseconds given for Broadway to
+      gracefuly shutdown without losing events. Defaults to `5_000`(ms).
+
+    * `:resubscribe_interval` - The interval in miliseconds to attempt to
+      subscribe to a producer after it crashes. Defaults to `100`(ms).
 
   ### Producers options
 
@@ -462,6 +468,10 @@ defmodule Broadway do
   defp configuration_spec() do
     [
       name: [required: true, type: :atom],
+      shutdown: [type: :pos_integer, default: 5000],
+      max_restarts: [type: :non_neg_integer, default: 3],
+      max_seconds: [type: :pos_integer, default: 5],
+      resubscribe_interval: [type: :non_neg_integer, default: 100],
       context: [type: :any, default: :context_not_set],
       producers: [
         required: true,

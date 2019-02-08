@@ -1,6 +1,7 @@
 defmodule Broadway.Processor do
   @moduledoc false
   use GenStage
+  use Broadway.Subscriber
 
   alias Broadway.{Message, Acknowledger}
 
@@ -12,19 +13,14 @@ defmodule Broadway.Processor do
   def init(args) do
     processors_config = args[:processors_config]
     context = args[:context]
-    partitions = args[:partitions]
     state = %{module: args[:module], context: context}
 
-    subscribe_options =
-      Keyword.take(processors_config, [:min_demand, :max_demand]) ++ [cancel: :temporary]
-
-    subscribe_to =
-      args[:producers]
-      |> Enum.map(&{&1, subscribe_options})
-
-    {:producer_consumer, state,
-     subscribe_to: subscribe_to,
-     dispatcher: {GenStage.PartitionDispatcher, partitions: partitions, hash: & &1}}
+    Broadway.Subscriber.init(
+      args[:producers],
+      Keyword.take(processors_config, [:min_demand, :max_demand]),
+      state,
+      args
+    )
   end
 
   @impl true
@@ -56,8 +52,7 @@ defmodule Broadway.Processor do
     {successful, [message | failed]}
   end
 
-  defp classify_returned_message(%Message{publisher: publisher} = message, successful, failed) do
-    event = {%Message{message | status: :ok}, publisher}
-    {[event | successful], failed}
+  defp classify_returned_message(%Message{} = message, successful, failed) do
+    {[message | successful], failed}
   end
 end

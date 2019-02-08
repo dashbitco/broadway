@@ -89,13 +89,9 @@ defmodule Broadway.ProducerTest do
     test "raise an error if a message is not a %Message{}", %{state: state} do
       state = %{state | module_state: :do_not_wrap_messages}
 
-      assert_raise(
-        RuntimeError,
-        ~r/The produced message is invalid/,
-        fn ->
-          Producer.handle_demand(10, state)
-        end
-      )
+      assert_raise RuntimeError,
+                   ~r/the produced message is invalid/,
+                   fn -> Producer.handle_demand(10, state) end
     end
 
     test "transform events into %Message{} structs using a transformer", %{state: state} do
@@ -134,13 +130,9 @@ defmodule Broadway.ProducerTest do
     test "raise an error if a message is not a %Message{}", %{state: state} do
       state = %{state | module_state: :do_not_wrap_messages}
 
-      assert_raise(
-        RuntimeError,
-        ~r/The produced message is invalid/,
-        fn ->
-          Producer.handle_info(:not_a_message, state)
-        end
-      )
+      assert_raise RuntimeError,
+                   ~r/the produced message is invalid/,
+                   fn -> Producer.handle_info(:not_a_message, state) end
     end
 
     test "transform events into %Message{} structs using a transformer", %{state: state} do

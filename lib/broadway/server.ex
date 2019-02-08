@@ -2,7 +2,7 @@ defmodule Broadway.Server do
   @moduledoc false
   use GenServer, shutdown: :infinity
 
-  alias Broadway.{Producer, Processor, Batcher, Consumer}
+  alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator}
 
   def start_link(module, opts) do
     GenServer.start_link(__MODULE__, {module, opts}, opts)
@@ -11,12 +11,13 @@ defmodule Broadway.Server do
   @impl true
   def init({module, opts}) do
     Process.flag(:trap_exit, true)
-    {:ok, supervisor_pid} = start_supervisor(module, opts)
-    {:ok, %{supervisor_pid: supervisor_pid}}
+    config = init_config(module, opts)
+    {:ok, supervisor_pid} = start_supervisor(config)
+    {:ok, %{supervisor_pid: supervisor_pid, terminator: config.terminator}}
   end
 
   @impl true
-  def handle_info({:EXIT, _, reason}, state) do
+  def handle_info({:EXIT, supervisor_pid, reason}, %{supervisor_pid: supervisor_pid} = state) do
     {:stop, reason, state}
   end
 
@@ -25,33 +26,41 @@ defmodule Broadway.Server do
   end
 
   @impl true
-  def terminate(_reason, %{supervisor_pid: supervisor_pid}) do
+  def terminate(reason, %{supervisor_pid: supervisor_pid, terminator: terminator}) do
+    Broadway.Terminator.trap_exit(terminator)
     ref = Process.monitor(supervisor_pid)
-    Process.exit(supervisor_pid, :shutdown)
+    Process.exit(supervisor_pid, reason_to_signal(reason))
 
     receive do
-      {:DOWN, ^ref, _, _, _} ->
-        :ok
+      {:DOWN, ^ref, _, _, _} -> :ok
     end
   end
 
-  defp start_supervisor(module, opts) do
-    %{name: broadway_name} = config = init_config(module, opts)
+  defp reason_to_signal(:killed), do: :kill
+  defp reason_to_signal(other), do: other
 
-    supervisor_name = Module.concat(broadway_name, "Supervisor")
+  defp start_supervisor(config) do
     {producers_names, producers_specs} = build_producers_specs(config)
     {processors_names, processors_specs} = build_processors_specs(config, producers_names)
 
+    {consumers_names, batchers_consumers_specs} =
+      build_batchers_consumers_supervisors_specs(config, processors_names)
+
     children = [
-      build_producer_supervisor_spec(producers_specs, broadway_name),
-      build_processor_supervisor_spec(processors_specs, broadway_name),
-      build_publisher_supervisor_spec(
-        build_batchers_consumers_supervisors_specs(config, processors_names),
-        broadway_name
-      )
+      build_producer_supervisor_spec(config, producers_specs),
+      build_processor_supervisor_spec(config, processors_specs),
+      build_batcher_partition_supervisor_spec(config, batchers_consumers_specs),
+      build_terminator_spec(config, producers_names, processors_names, consumers_names)
     ]
 
-    Supervisor.start_link(children, name: supervisor_name, strategy: :one_for_one)
+    supervisor_opts = [
+      name: :"#{config.name}.Supervisor",
+      max_restarts: config.max_restarts,
+      max_seconds: config.max_seconds,
+      strategy: :rest_for_one
+    ]
+
+    Supervisor.start_link(children, supervisor_opts)
   end
 
   defp init_config(module, opts) do
@@ -61,7 +70,12 @@ defmodule Broadway.Server do
       processors_config: opts[:processors],
       producers_config: opts[:producers],
       publishers_config: opts[:publishers],
-      context: opts[:context]
+      context: opts[:context],
+      terminator: :"#{opts[:name]}.Terminator",
+      max_restarts: opts[:max_restarts],
+      max_seconds: opts[:max_seconds],
+      shutdown: opts[:shutdown],
+      resubscribe_interval: opts[:resubscribe_interval]
     }
   end
 
@@ -77,22 +91,19 @@ defmodule Broadway.Server do
       raise "Only one set of producers is allowed for now"
     end
 
-    mod = producer_config[:module]
-    args = producer_config[:arg]
     n_producers = producer_config[:stages]
 
     names =
       for index <- 1..n_producers do
-        process_name(broadway_name, "Producer_#{key}", index, n_producers)
+        process_name(broadway_name, "Producer_#{key}", index)
       end
 
     specs =
       for name <- names do
-        args = [module: mod, args: args]
         opts = [name: name]
 
         %{
-          start: {Producer, :start_link, [args, opts]},
+          start: {Producer, :start_link, [producer_config, opts]},
           id: name
         }
       end
@@ -106,26 +117,34 @@ defmodule Broadway.Server do
       module: module,
       processors_config: processors_config,
       context: context,
-      publishers_config: publishers_config
+      publishers_config: publishers_config,
+      resubscribe_interval: resubscribe_interval,
+      terminator: terminator
     } = config
 
     n_processors = processors_config[:stages]
 
     names =
       for index <- 1..n_processors do
-        process_name(broadway_name, "Processor", index, n_processors)
+        process_name(broadway_name, "Processor", index)
       end
+
+    partitions = Keyword.keys(publishers_config)
+    dispatcher = {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.publisher}}
+
+    args = [
+      type: :producer_consumer,
+      resubscribe: resubscribe_interval,
+      terminator: terminator,
+      module: module,
+      context: context,
+      dispatcher: dispatcher,
+      processors_config: processors_config,
+      producers: producers
+    ]
 
     specs =
       for name <- names do
-        args = [
-          module: module,
-          context: context,
-          partitions: Keyword.keys(publishers_config),
-          processors_config: processors_config,
-          producers: producers
-        ]
-
         opts = [name: name]
 
         %{
@@ -138,32 +157,39 @@ defmodule Broadway.Server do
   end
 
   defp build_batchers_consumers_supervisors_specs(config, processors) do
-    %{
-      name: broadway_name,
-      module: module,
-      context: context,
-      publishers_config: publishers_config
-    } = config
+    names_and_specs =
+      for {key, _} = publisher_config <- config.publishers_config do
+        {batcher, batcher_spec} = build_batcher_spec(config, publisher_config, processors)
 
-    for {key, _} = config <- publishers_config do
-      {batcher, batcher_spec} = build_batcher_spec(broadway_name, config, processors)
+        {consumers_names, consumers_specs} =
+          build_consumers_specs(config, publisher_config, batcher)
 
-      consumers_specs = build_consumers_specs(broadway_name, module, context, config, batcher)
+        children = [
+          batcher_spec,
+          build_consumer_supervisor_spec(config, consumers_specs, key)
+        ]
 
-      children = [
-        batcher_spec,
-        build_consumer_supervisor_spec(consumers_specs, broadway_name, key)
-      ]
+        {consumers_names, build_batcher_consumer_supervisor_spec(config, children, key)}
+      end
 
-      build_batcher_consumer_supervisor_spec(children, broadway_name, key)
-    end
+    {names, specs} = Enum.unzip(names_and_specs)
+    {Enum.concat(names), specs}
   end
 
-  defp build_batcher_spec(broadway_name, publisher_config, processors) do
+  defp build_batcher_spec(config, publisher_config, processors) do
+    %{terminator: terminator} = config
     {key, options} = publisher_config
-    name = process_name(broadway_name, "Batcher", key)
+    name = process_name(config.name, "Batcher", key)
 
-    args = [publisher_key: key, processors: processors] ++ options
+    args =
+      [
+        type: :producer_consumer,
+        resubscribe: :never,
+        terminator: terminator,
+        publisher_key: key,
+        processors: processors
+      ] ++ options
+
     opts = [name: name]
 
     spec = %{
@@ -174,64 +200,118 @@ defmodule Broadway.Server do
     {name, spec}
   end
 
-  defp build_consumers_specs(broadway_name, module, context, publisher_config, batcher) do
+  defp build_consumers_specs(config, publisher_config, batcher) do
+    %{
+      name: broadway_name,
+      module: module,
+      context: context,
+      terminator: terminator
+    } = config
+
     {key, options} = publisher_config
     n_consumers = options[:stages]
 
-    for index <- 1..n_consumers do
-      args = [
-        module: module,
-        context: context,
-        batcher: batcher
-      ]
+    names =
+      for index <- 1..n_consumers do
+        process_name(broadway_name, "Consumer_#{key}", index)
+      end
 
-      name = process_name(broadway_name, "Consumer_#{key}", index, n_consumers)
-      opts = [name: name]
+    args = [
+      type: :consumer,
+      resubscribe: :never,
+      terminator: terminator,
+      module: module,
+      context: context,
+      batcher: batcher
+    ]
 
-      %{
-        start: {Consumer, :start_link, [args, opts]},
-        id: name
-      }
-    end
+    specs =
+      for name <- names do
+        opts = [name: name]
+
+        %{
+          start: {Consumer, :start_link, [args, opts]},
+          id: name
+        }
+      end
+
+    {names, specs}
+  end
+
+  defp build_terminator_spec(config, producers, first, last) do
+    %{
+      terminator: name,
+      shutdown: shutdown
+    } = config
+
+    args = [
+      producers: producers,
+      first: first,
+      last: last
+    ]
+
+    opts = [name: name]
+
+    %{
+      start: {Terminator, :start_link, [args, opts]},
+      id: name,
+      shutdown: shutdown
+    }
   end
 
   defp process_name(prefix, type, key) do
     :"#{prefix}.#{type}_#{key}"
   end
 
-  defp process_name(prefix, type, index, max) do
-    index
-    |> Integer.to_string()
-    |> String.pad_leading(String.length("#{max}"), "0")
-    |> (&:"#{prefix}.#{type}_#{&1}").()
+  defp build_producer_supervisor_spec(config, children) do
+    name = :"#{config.name}.ProducerSupervisor"
+    children_count = length(children)
+
+    # TODO: Allow max_restarts and max_seconds as configuration
+    # options as well as shutdown and restart for each child.
+    build_supervisor_spec(children, name,
+      strategy: :one_for_one,
+      max_restarts: 2 * children_count,
+      max_seconds: children_count
+    )
   end
 
-  defp build_producer_supervisor_spec(children, prefix) do
-    build_supervisor_spec(children, :"#{prefix}.ProducerSupervisor")
+  defp build_processor_supervisor_spec(config, children) do
+    build_supervisor_spec(children, :"#{config.name}.ProcessorSupervisor",
+      strategy: :one_for_all,
+      max_restarts: 0
+    )
   end
 
-  defp build_processor_supervisor_spec(children, prefix) do
-    build_supervisor_spec(children, :"#{prefix}.ProcessorSupervisor")
+  defp build_batcher_partition_supervisor_spec(config, children) do
+    children_count = length(children)
+
+    build_supervisor_spec(children, :"#{config.name}.BatcherPartitionSupervisor",
+      strategy: :one_for_one,
+      max_restarts: 2 * children_count,
+      max_seconds: children_count
+    )
   end
 
-  defp build_publisher_supervisor_spec(children, prefix) do
-    build_supervisor_spec(children, :"#{prefix}.PublisherSupervisor")
+  defp build_batcher_consumer_supervisor_spec(config, children, key) do
+    build_supervisor_spec(children, :"#{config.name}.BatcherConsumerSupervisor_#{key}",
+      strategy: :rest_for_one,
+      max_restarts: 4,
+      max_seconds: 2
+    )
   end
 
-  defp build_batcher_consumer_supervisor_spec(children, prefix, key) do
-    build_supervisor_spec(children, :"#{prefix}.BatcherConsumerSupervisor_#{key}")
+  defp build_consumer_supervisor_spec(config, children, key) do
+    build_supervisor_spec(children, :"#{config.name}.ConsumerSupervisor_#{key}",
+      strategy: :one_for_all,
+      max_restarts: 0
+    )
   end
 
-  defp build_consumer_supervisor_spec(children, prefix, key) do
-    build_supervisor_spec(children, :"#{prefix}.ConsumerSupervisor_#{key}")
-  end
-
-  defp build_supervisor_spec(children, name) do
-    opts = [name: name, strategy: :one_for_one]
-
+  defp build_supervisor_spec(children, name, opts) do
     %{
       id: make_ref(),
-      start: {Supervisor, :start_link, [children, opts]},
+      start: {Supervisor, :start_link, [children, [name: name] ++ opts]},
       type: :supervisor
     }
   end
