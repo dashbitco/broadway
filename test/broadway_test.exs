@@ -475,6 +475,7 @@ defmodule BroadwayTest do
       {:ok, _pid} =
         Broadway.start_link(ForwarderWithCustomHandlers,
           name: broadway_name,
+          resubscribe_interval: 0,
           context: context,
           producers: [
             default: [
@@ -486,8 +487,7 @@ defmodule BroadwayTest do
           processors: [stages: 1, min_demand: 1, max_demand: 2],
           publishers: [default: [batch_size: 2]]
         )
-
-      %{broadway_name: broadway_name}
+      :ok
     end
 
     @tag :capture_log
@@ -509,8 +509,6 @@ defmodule BroadwayTest do
 
       async_push_messages(producer, [:kill_producer])
       assert_receive {:producer_initialized, ^producer}
-
-      Process.sleep(1)
 
       push_messages(producer, [2])
       assert_receive {:message_handled, %{data: 2}}
