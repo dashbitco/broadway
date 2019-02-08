@@ -28,6 +28,12 @@ defmodule BroadwayTest do
       GenStage.start_link(__MODULE__, args, opts)
     end
 
+    def init(%{test_pid: test_pid}) do
+      name = Process.info(self())[:registered_name]
+      send(test_pid, {:producer_initialized, name})
+      {:producer, %{test_pid: test_pid}}
+    end
+
     def init(_args) do
       {:producer, %{}}
     end
@@ -74,6 +80,15 @@ defmodule BroadwayTest do
 
     def handle_batch(publisher, messages, batch_info, %{handle_batch: handler} = context) do
       handler.(publisher, messages, batch_info, context)
+    end
+  end
+
+  defmodule Transformer do
+    def transform(event, _opts) do
+      if event.data == :kill_producer do
+        raise "Error raised"
+      end
+      event
     end
   end
 
@@ -438,6 +453,67 @@ defmodule BroadwayTest do
       assert Enum.all?(successful, fn %Message{acknowledger: {_, ack_data}, data: data} ->
                data == ack_data.id + 1000
              end)
+    end
+  end
+
+  describe "handle producer crash" do
+    setup do
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:message_handled, message})
+        message
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn _, batch, _, _ -> batch end
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers,
+          name: broadway_name,
+          context: context,
+          producers: [
+            default: [
+              module: ManualProducer,
+              arg: %{test_pid: self()},
+              transformer: {Transformer, :transform, []}
+            ]
+          ],
+          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          publishers: [default: [batch_size: 2]]
+        )
+
+      %{broadway_name: broadway_name}
+    end
+
+    @tag :capture_log
+    test "producer will be restarted" do
+      assert_receive {:producer_initialized, producer}
+      refute_receive {:producer_initialized, _}
+
+      async_push_messages(producer, [:kill_producer])
+
+      assert_receive {:producer_initialized, ^producer}
+    end
+
+    @tag :capture_log
+    test "processors resubscribe to the restarted producers and keep processing messages" do
+      assert_receive {:producer_initialized, producer}
+
+      push_messages(producer, [1])
+      assert_receive {:message_handled, %{data: 1}}
+
+      async_push_messages(producer, [:kill_producer])
+      assert_receive {:producer_initialized, ^producer}
+
+      Process.sleep(1)
+
+      push_messages(producer, [2])
+      assert_receive {:message_handled, %{data: 2}}
     end
   end
 
