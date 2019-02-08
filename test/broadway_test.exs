@@ -88,6 +88,7 @@ defmodule BroadwayTest do
       if event.data == :kill_producer do
         raise "Error raised"
       end
+
       event
     end
   end
@@ -487,6 +488,7 @@ defmodule BroadwayTest do
           processors: [stages: 1, min_demand: 1, max_demand: 2],
           publishers: [default: [batch_size: 2]]
         )
+
       :ok
     end
 
