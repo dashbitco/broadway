@@ -145,6 +145,7 @@ defmodule Broadway.Server do
       module: module,
       context: context,
       dispatcher: dispatcher,
+      processor_key: key,
       processor_config: processor_config,
       producers: producers
     ]

@@ -329,7 +329,8 @@ defmodule Broadway do
       end
 
   """
-  @callback handle_message(message :: Message.t(), context :: any) :: Message.t()
+  @callback handle_message(processor :: atom, message :: Message.t(), context :: any) ::
+              Message.t()
 
   @doc """
   Invoked to handle generated batches.

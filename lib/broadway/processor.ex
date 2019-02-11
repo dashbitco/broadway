@@ -12,8 +12,9 @@ defmodule Broadway.Processor do
   @impl true
   def init(args) do
     processor_config = args[:processor_config]
+    processor_key = args[:processor_key]
     context = args[:context]
-    state = %{module: args[:module], context: context}
+    state = %{module: args[:module], context: context, processor_key: processor_key}
 
     Broadway.Subscriber.init(
       args[:producers],
@@ -37,10 +38,10 @@ defmodule Broadway.Processor do
   end
 
   defp handle_message(message, state) do
-    %{module: module, context: context} = state
+    %{module: module, context: context, processor_key: processor_key} = state
 
     try do
-      module.handle_message(message, context)
+      module.handle_message(processor_key, message, context)
     rescue
       e ->
         error_message = Exception.message(e)

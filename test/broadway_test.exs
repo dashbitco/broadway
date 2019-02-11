@@ -65,7 +65,7 @@ defmodule BroadwayTest do
 
     import Message
 
-    def handle_message(%Message{data: data} = message, %{test_pid: test_pid})
+    def handle_message(:default, %Message{data: data} = message, %{test_pid: test_pid})
         when is_odd(data) do
       send(test_pid, {:message_handled, message.data})
 
@@ -74,7 +74,7 @@ defmodule BroadwayTest do
       |> put_publisher(:odd)
     end
 
-    def handle_message(message, %{test_pid: test_pid}) do
+    def handle_message(:default, message, %{test_pid: test_pid}) do
       send(test_pid, {:message_handled, message.data})
 
       message
@@ -91,7 +91,7 @@ defmodule BroadwayTest do
   defmodule ForwarderWithCustomHandlers do
     use Broadway
 
-    def handle_message(message, %{handle_message: handler} = context) do
+    def handle_message(_, message, %{handle_message: handler} = context) do
       handler.(message, context)
     end
 
@@ -117,7 +117,7 @@ defmodule BroadwayTest do
     test "generates child_spec/1" do
       defmodule MyBroadway do
         use Broadway
-        def handle_message(_, _), do: nil
+        def handle_message(_, _, _), do: nil
         def handle_batch(_, _, _, _), do: nil
       end
 
@@ -132,7 +132,7 @@ defmodule BroadwayTest do
       defmodule MyBroadwayWithCustomOptions do
         use Broadway, id: :some_id
 
-        def handle_message(_, _), do: nil
+        def handle_message(_, _, _), do: nil
         def handle_batch(_, _, _, _), do: nil
       end
 
