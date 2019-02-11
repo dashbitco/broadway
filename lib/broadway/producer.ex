@@ -62,7 +62,7 @@ defmodule Broadway.Producer do
 
   @impl true
   def handle_call({:push_messages, messages}, _from, state) do
-    {:reply, :ok, transform_events(messages, state.transformer), state}
+    {:reply, :ok, messages, state}
   end
 
   @impl true

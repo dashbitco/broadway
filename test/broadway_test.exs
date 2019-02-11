@@ -43,6 +43,27 @@ defmodule BroadwayTest do
     end
   end
 
+  defmodule Counter do
+    use GenStage
+
+    def start_link(from_to) do
+      GenStage.start_link(__MODULE__, from_to)
+    end
+
+    def init(from..to) do
+      {:producer, %{counter: from, to: to}}
+    end
+
+    def handle_demand(demand, %{counter: counter, to: to} = state) when demand > 0 do
+      if counter <= to do
+        events = Enum.to_list(counter..(counter + demand - 1))
+        {:noreply, events, %{state | counter: counter + demand}}
+      else
+        {:noreply, [], counter}
+      end
+    end
+  end
+
   defmodule Forwarder do
     use Broadway
 
@@ -84,12 +105,15 @@ defmodule BroadwayTest do
   end
 
   defmodule Transformer do
-    def transform(event, _opts) do
-      if event.data == :kill_producer do
+    def transform(event, test_pid: test_pid) do
+      if event == :kill_producer do
         raise "Error raised"
       end
 
-      event
+      %Message{
+        data: "#{event} transformed",
+        acknowledger: {Acker, %{id: event, test_pid: test_pid}}
+      }
     end
   end
 
@@ -457,6 +481,59 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "transformer" do
+    setup do
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:message_handled, message})
+        message
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn _, batch, _, _ -> batch end
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers,
+          name: broadway_name,
+          resubscribe_interval: 0,
+          context: context,
+          producers: [
+            default: [
+              module: Counter,
+              arg: 1..3,
+              transformer: {Transformer, :transform, test_pid: self()}
+            ]
+          ],
+          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          publishers: [default: [batch_size: 2]]
+        )
+
+      producer = get_producer(broadway_name, :default)
+
+      %{producer: producer}
+    end
+
+    test "transform all events" do
+      assert_receive {:message_handled, %{data: "1 transformed"}}
+      assert_receive {:message_handled, %{data: "2 transformed"}}
+      assert_receive {:message_handled, %{data: "3 transformed"}}
+    end
+
+    test "bring down the producer if the transformation raises an error", context do
+      %{producer: producer} = context
+
+      ref_producer = Process.monitor(producer)
+      push_messages(producer, [:kill_producer])
+
+      assert_receive {:DOWN, ^ref_producer, _, _, _}
+    end
+  end
+
   describe "handle producer crash" do
     setup do
       test_pid = self()
@@ -481,8 +558,7 @@ defmodule BroadwayTest do
           producers: [
             default: [
               module: ManualProducer,
-              arg: %{test_pid: self()},
-              transformer: {Transformer, :transform, []}
+              arg: %{test_pid: self()}
             ]
           ],
           processors: [stages: 1, min_demand: 1, max_demand: 2],
@@ -505,7 +581,7 @@ defmodule BroadwayTest do
       ref_processor = Process.monitor(processor)
       ref_consumer = Process.monitor(consumer)
 
-      async_push_messages(producer, [:kill_producer])
+      GenStage.stop(producer)
 
       assert_receive {:DOWN, ^ref_producer, _, _, _}
       refute_receive {:DOWN, ^ref_processor, _, _, _}
@@ -521,7 +597,7 @@ defmodule BroadwayTest do
       push_messages(producer, [1])
       assert_receive {:message_handled, %{data: 1}}
 
-      async_push_messages(producer, [:kill_producer])
+      GenStage.stop(producer)
       assert_receive {:producer_initialized, ^producer}
 
       push_messages(producer, [2])
