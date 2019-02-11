@@ -489,20 +489,32 @@ defmodule BroadwayTest do
           publishers: [default: [batch_size: 2]]
         )
 
-      :ok
+      producer = get_producer(broadway_name, :default)
+      processor = get_processor(broadway_name, 1)
+      batcher = get_batcher(broadway_name, :default)
+      consumer = get_consumer(broadway_name, :default)
+
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
     end
 
-    @tag :capture_log
-    test "producer will be restarted" do
-      assert_receive {:producer_initialized, producer}
-      refute_receive {:producer_initialized, _}
+    test "only the producer will be restarted", context do
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} = context
+
+      ref_producer = Process.monitor(producer)
+      ref_batcher = Process.monitor(batcher)
+      ref_processor = Process.monitor(processor)
+      ref_consumer = Process.monitor(consumer)
 
       async_push_messages(producer, [:kill_producer])
+
+      assert_receive {:DOWN, ^ref_producer, _, _, _}
+      refute_receive {:DOWN, ^ref_processor, _, _, _}
+      refute_receive {:DOWN, ^ref_batcher, _, _, _}
+      refute_receive {:DOWN, ^ref_consumer, _, _, _}
 
       assert_receive {:producer_initialized, ^producer}
     end
 
-    @tag :capture_log
     test "processors resubscribe to the restarted producers and keep processing messages" do
       assert_receive {:producer_initialized, producer}
 
@@ -556,7 +568,7 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, 1)
       batcher = get_batcher(broadway_name, :default)
-      consumer = get_consumer(broadway_name, 1)
+      consumer = get_consumer(broadway_name, :default)
 
       %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
     end
@@ -652,7 +664,7 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, 1)
       batcher = get_batcher(broadway_name, :default)
-      consumer = get_consumer(broadway_name, 1)
+      consumer = get_consumer(broadway_name, :default)
 
       %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
     end
@@ -858,8 +870,8 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Batcher_#{key}"
   end
 
-  defp get_consumer(broadway_name, key) do
-    :"#{broadway_name}.Consumer_#{key}"
+  defp get_consumer(broadway_name, key, index \\ 1) do
+    :"#{broadway_name}.Consumer_#{key}_#{index}"
   end
 
   defp get_n_producers(broadway_name) do
