@@ -69,7 +69,7 @@ defmodule Broadway.Server do
       module: module,
       processors_config: opts[:processors],
       producers_config: opts[:producers],
-      publishers_config: opts[:publishers],
+      batchers_config: opts[:batchers],
       context: opts[:context],
       terminator: :"#{opts[:name]}.Terminator",
       max_restarts: opts[:max_restarts],
@@ -117,7 +117,7 @@ defmodule Broadway.Server do
       module: module,
       processors_config: processors_config,
       context: context,
-      publishers_config: publishers_config,
+      batchers_config: batchers_config,
       resubscribe_interval: resubscribe_interval,
       terminator: terminator
     } = config
@@ -135,8 +135,8 @@ defmodule Broadway.Server do
         process_name(broadway_name, "Processor_#{key}", index)
       end
 
-    partitions = Keyword.keys(publishers_config)
-    dispatcher = {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.publisher}}
+    partitions = Keyword.keys(batchers_config)
+    dispatcher = {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.batcher}}
 
     args = [
       type: :producer_consumer,
@@ -165,11 +165,11 @@ defmodule Broadway.Server do
 
   defp build_batchers_consumers_supervisors_specs(config, processors) do
     names_and_specs =
-      for {key, _} = publisher_config <- config.publishers_config do
-        {batcher, batcher_spec} = build_batcher_spec(config, publisher_config, processors)
+      for {key, _} = batcher_config <- config.batchers_config do
+        {batcher, batcher_spec} = build_batcher_spec(config, batcher_config, processors)
 
         {consumers_names, consumers_specs} =
-          build_consumers_specs(config, publisher_config, batcher)
+          build_consumers_specs(config, batcher_config, batcher)
 
         children = [
           batcher_spec,
@@ -183,9 +183,9 @@ defmodule Broadway.Server do
     {Enum.concat(names), specs}
   end
 
-  defp build_batcher_spec(config, publisher_config, processors) do
+  defp build_batcher_spec(config, batcher_config, processors) do
     %{terminator: terminator} = config
-    {key, options} = publisher_config
+    {key, options} = batcher_config
     name = process_name(config.name, "Batcher", key)
 
     args =
@@ -193,7 +193,7 @@ defmodule Broadway.Server do
         type: :producer_consumer,
         resubscribe: :never,
         terminator: terminator,
-        publisher_key: key,
+        batcher_key: key,
         processors: processors
       ] ++ options
 
@@ -207,7 +207,7 @@ defmodule Broadway.Server do
     {name, spec}
   end
 
-  defp build_consumers_specs(config, publisher_config, batcher) do
+  defp build_consumers_specs(config, batcher_config, batcher) do
     %{
       name: broadway_name,
       module: module,
@@ -215,7 +215,7 @@ defmodule Broadway.Server do
       terminator: terminator
     } = config
 
-    {key, options} = publisher_config
+    {key, options} = batcher_config
     n_consumers = options[:stages]
 
     names =

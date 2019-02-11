@@ -96,13 +96,13 @@ defmodule Broadway do
         def handle_message(%Message{data: data} = message, _) when is_odd(data) do
           message
           |> Message.update_data(&process_data/1)
-          |> Message.put_publisher(:sqs)
+          |> Message.put_batcher(:sqs)
         end
 
         def handle_message(%Message{data: data} = message, _context) do
           message
           |> Message.update_data(&process_data/1)
-          |> Message.put_publisher(:s3)
+          |> Message.put_batcher(:s3)
         end
 
         @impl true
@@ -316,7 +316,7 @@ defmodule Broadway do
 
   In case more than one publisher have been defined in the configuration,
   you need to specify which of them the resulting message will be forwarded
-  to. You can do this by calling `put_publisher/2` and returning the new
+  to. You can do this by calling `put_batcher/2` and returning the new
   updated message:
 
       @impl true
@@ -325,7 +325,7 @@ defmodule Broadway do
         ...
 
         message
-        |> put_publisher(:s3)
+        |> put_batcher(:s3)
       end
 
   """
@@ -338,7 +338,7 @@ defmodule Broadway do
     * `publisher` is the key that defined the publisher. All messages
       will be grouped as batches and then forwarded to this callback
       based on this key. This value can be set in the `handle_message/2`
-      callback using `put_publisher/2`.
+      callback using `put_batcher/2`.
     * `messages` is the list of messages of the incoming batch.
     * `bach_info` is a struct containing extra information about the incoming batch.
     * `context` is the user defined data structure passed to `start_link/3`.
@@ -497,7 +497,7 @@ defmodule Broadway do
           ]
         ]
       ],
-      publishers: [
+      batchers: [
         required: true,
         type: :keyword_list,
         keys: [

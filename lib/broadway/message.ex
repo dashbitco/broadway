@@ -17,14 +17,14 @@ defmodule Broadway.Message do
   @type t :: %Message{
           data: any,
           acknowledger: {module, data :: any},
-          publisher: atom,
+          batcher: atom,
           status: :ok | {:failed, reason :: binary}
         }
 
   @enforce_keys [:data, :acknowledger]
   defstruct data: nil,
             acknowledger: nil,
-            publisher: :default,
+            batcher: :default,
             status: :ok
 
   @doc """
@@ -39,11 +39,11 @@ defmodule Broadway.Message do
   end
 
   @doc """
-  Defines the target publisher which the message should be forwarded to.
+  Defines the target batcher which the message should be forwarded to.
   """
-  @spec put_publisher(message :: Message.t(), publisher :: atom) :: Message.t()
-  def put_publisher(%Message{} = message, publisher) when is_atom(publisher) do
-    %Message{message | publisher: publisher}
+  @spec put_batcher(message :: Message.t(), batcher :: atom) :: Message.t()
+  def put_batcher(%Message{} = message, batcher) when is_atom(batcher) do
+    %Message{message | batcher: batcher}
   end
 
   @doc """

@@ -60,7 +60,7 @@ end
     def handle_message(message, _) do
       message
       |> Message.update_data(&process_data/1)
-      |> Message.put_publisher(:s3)
+      |> Message.put_batcher(:s3)
     end
 
     def handle_batch(:s3, messages, _, _) do
