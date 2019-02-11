@@ -43,24 +43,20 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule Counter do
+  defmodule EventPrducer do
     use GenStage
 
-    def start_link(from_to) do
-      GenStage.start_link(__MODULE__, from_to)
+    def start_link(events) do
+      GenStage.start_link(__MODULE__, events)
     end
 
-    def init(from..to) do
-      {:producer, %{counter: from, to: to}}
+    def init(events) do
+      {:producer, events}
     end
 
-    def handle_demand(demand, %{counter: counter, to: to} = state) when demand > 0 do
-      if counter <= to do
-        events = Enum.to_list(counter..(counter + demand - 1))
-        {:noreply, events, %{state | counter: counter + demand}}
-      else
-        {:noreply, [], counter}
-      end
+    def handle_demand(demand, events) when demand > 0 do
+      {events, rest} = Enum.split(events, demand)
+      {:noreply, events, rest}
     end
   end
 
@@ -482,7 +478,7 @@ defmodule BroadwayTest do
   end
 
   describe "transformer" do
-    setup do
+    setup tags do
       test_pid = self()
 
       handle_message = fn message, _ ->
@@ -504,8 +500,8 @@ defmodule BroadwayTest do
           context: context,
           producers: [
             default: [
-              module: Counter,
-              arg: 1..3,
+              module: EventPrducer,
+              arg: Map.get(tags, :events, [1, 2, 3]),
               transformer: {Transformer, :transform, test_pid: self()}
             ]
           ],
@@ -524,13 +520,16 @@ defmodule BroadwayTest do
       assert_receive {:message_handled, %{data: "3 transformed"}}
     end
 
-    test "bring down the producer if the transformation raises an error", context do
+    @tag events: [1, 2, :kill_producer, 4]
+    test "restart the producer if the transformation raises an error", context do
       %{producer: producer} = context
-
       ref_producer = Process.monitor(producer)
-      push_messages(producer, [:kill_producer])
 
+      assert_receive {:message_handled, %{data: "1 transformed"}}
+      assert_receive {:message_handled, %{data: "2 transformed"}}
       assert_receive {:DOWN, ^ref_producer, _, _, _}
+      assert_receive {:message_handled, %{data: "1 transformed"}}
+      assert_receive {:message_handled, %{data: "2 transformed"}}
     end
   end
 
