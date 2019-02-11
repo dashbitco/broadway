@@ -251,8 +251,8 @@ defmodule BroadwayTest do
       producer = get_producer(broadway)
 
       Producer.push_messages(producer, [
-        %Message{data: 1},
-        %Message{data: 3}
+        %Message{data: 1, acknowledger: {__MODULE__, 1}},
+        %Message{data: 3, acknowledger: {__MODULE__, 3}}
       ])
 
       assert_receive {:message_handled, 1}

@@ -45,11 +45,11 @@ defmodule Broadway.ProducerTest do
     end
 
     def transformer(event, concat: text) do
-      %Message{data: "#{event}#{text}"}
+      %Message{data: "#{event}#{text}", acknowledger: {__MODULE__, event}}
     end
 
     defp wrap_message(data) do
-      %Message{data: data}
+      %Message{data: data, acknowledger: {__MODULE__, data}}
     end
   end
 
