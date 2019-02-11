@@ -11,13 +11,13 @@ defmodule Broadway.Processor do
 
   @impl true
   def init(args) do
-    processors_config = args[:processors_config]
+    processor_config = args[:processor_config]
     context = args[:context]
     state = %{module: args[:module], context: context}
 
     Broadway.Subscriber.init(
       args[:producers],
-      Keyword.take(processors_config, [:min_demand, :max_demand]),
+      Keyword.take(processor_config, [:min_demand, :max_demand]),
       state,
       args
     )

@@ -122,11 +122,17 @@ defmodule Broadway.Server do
       terminator: terminator
     } = config
 
-    n_processors = processors_config[:stages]
+    [{key, processor_config} | other_processors] = processors_config
+
+    if other_processors != [] do
+      raise "Only one set of processors is allowed for now"
+    end
+
+    n_processors = processor_config[:stages]
 
     names =
       for index <- 1..n_processors do
-        process_name(broadway_name, "Processor", index)
+        process_name(broadway_name, "Processor_#{key}", index)
       end
 
     partitions = Keyword.keys(publishers_config)
@@ -139,7 +145,7 @@ defmodule Broadway.Server do
       module: module,
       context: context,
       dispatcher: dispatcher,
-      processors_config: processors_config,
+      processor_config: processor_config,
       producers: producers
     ]
 

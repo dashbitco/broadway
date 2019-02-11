@@ -489,9 +489,11 @@ defmodule Broadway do
         required: true,
         type: :keyword_list,
         keys: [
-          stages: [type: :pos_integer, default: System.schedulers_online() * 2],
-          min_demand: [type: :non_neg_integer],
-          max_demand: [type: :non_neg_integer, default: 10]
+          *: [
+            stages: [type: :pos_integer, default: System.schedulers_online() * 2],
+            min_demand: [type: :non_neg_integer],
+            max_demand: [type: :non_neg_integer, default: 10]
+          ]
         ]
       ],
       publishers: [

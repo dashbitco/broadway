@@ -43,7 +43,7 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule EventPrducer do
+  defmodule EventProducer do
     use GenStage
 
     def start_link(events) do
@@ -160,7 +160,7 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
+        processors: [default: []],
         publishers: [default: []]
       )
 
@@ -176,7 +176,7 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: [], stages: 3]
         ],
-        processors: [],
+        processors: [default: []],
         publishers: [default: []]
       )
 
@@ -191,7 +191,7 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
+        processors: [default: []],
         publishers: [default: []]
       )
 
@@ -206,7 +206,7 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [stages: 13],
+        processors: [default: [stages: 13]],
         publishers: [default: []]
       )
 
@@ -222,7 +222,7 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
+        processors: [default: []],
         publishers: [p1: [], p2: []]
       )
 
@@ -239,7 +239,7 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
+        processors: [default: []],
         publishers: [
           p1: [stages: 2],
           p2: [stages: 3]
@@ -258,11 +258,11 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
+        processors: [default: []],
         publishers: [default: []]
       )
 
-      pid = get_processor(broadway, 1)
+      pid = get_processor(broadway, :default)
       assert :sys.get_state(pid).state.context == :context_not_set
     end
   end
@@ -277,7 +277,7 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
+        processors: [default: []],
         publishers: [
           even: [],
           odd: []
@@ -307,7 +307,7 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [],
+          processors: [default: []],
           publishers: [
             even: [],
             odd: []
@@ -371,7 +371,7 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           publishers: [default: [batch_size: 2]]
         )
 
@@ -423,7 +423,7 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [],
+          processors: [default: []],
           publishers: [
             odd: [batch_size: 10, batch_timeout: 20],
             even: [batch_size: 5, batch_timeout: 20]
@@ -500,12 +500,12 @@ defmodule BroadwayTest do
           context: context,
           producers: [
             default: [
-              module: EventPrducer,
+              module: EventProducer,
               arg: Map.get(tags, :events, [1, 2, 3]),
               transformer: {Transformer, :transform, test_pid: self()}
             ]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           publishers: [default: [batch_size: 2]]
         )
 
@@ -560,12 +560,12 @@ defmodule BroadwayTest do
               arg: %{test_pid: self()}
             ]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           publishers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
-      processor = get_processor(broadway_name, 1)
+      processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
@@ -636,12 +636,12 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           publishers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
-      processor = get_processor(broadway_name, 1)
+      processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
@@ -732,12 +732,12 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           publishers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
-      processor = get_processor(broadway_name, 1)
+      processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
@@ -826,7 +826,7 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 4],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
           publishers: [default: [batch_size: 4]]
         )
 
@@ -877,7 +877,7 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 4],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
           publishers: [default: [batch_size: 4]],
           context: context,
           shutdown: Map.get(tags, :shutdown, 5000)
@@ -937,8 +937,8 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Producer_#{key}_#{index}"
   end
 
-  defp get_processor(broadway_name, key) do
-    :"#{broadway_name}.Processor_#{key}"
+  defp get_processor(broadway_name, key, index \\ 1) do
+    :"#{broadway_name}.Processor_#{key}_#{index}"
   end
 
   defp get_batcher(broadway_name, key) do
