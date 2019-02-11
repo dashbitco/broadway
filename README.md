@@ -10,7 +10,7 @@ Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/b
   * Back-pressure
   * Batching
   * Fault tolerance through restarts
-  * Clean shutdown (TODO)
+  * Clean shutdown
   * Rate-limiting (TODO)
   * Partitioning (TODO)
   * Statistics/Metrics (TODO)
@@ -50,14 +50,16 @@ end
             ]
           ]
         ],
-        processors: [stages: 50],
-        publishers: [
+        processors: [
+          default: [stages: 50]
+        ],
+        batchers: [
           s3: [stages: 5, batch_size: 10]
         ]
       )
     end
 
-    def handle_message(message, _) do
+    def handle_message(_, message, _) do
       message
       |> Message.update_data(&process_data/1)
       |> Message.put_batcher(:s3)

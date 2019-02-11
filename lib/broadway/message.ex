@@ -5,7 +5,7 @@ defmodule Broadway.Message do
   A message is first created by the producers. Once created,
   the message is sent downstream and gets updated multiple
   times, either by the module implementing the `Broadway`
-  behaviour through the `c:Broadway.handle_message/2` callback
+  behaviour through the `c:Broadway.handle_message/3` callback
   or internaly by one of the built-in stages of Broadway.
 
   In order to manipulate a message, you should use one of
@@ -30,7 +30,7 @@ defmodule Broadway.Message do
   @doc """
   Updates the data from a message.
 
-  This function is usually used inside the `handle_message/2` implementation
+  This function is usually used inside the `handle_message/3` implementation
   in order to replace the data with the new processed data.
   """
   @spec update_data(message :: Message.t(), fun :: (any -> any)) :: Message.t()
