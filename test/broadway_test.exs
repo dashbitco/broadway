@@ -28,12 +28,35 @@ defmodule BroadwayTest do
       GenStage.start_link(__MODULE__, args, opts)
     end
 
+    def init(%{test_pid: test_pid}) do
+      name = Process.info(self())[:registered_name]
+      send(test_pid, {:producer_initialized, name})
+      {:producer, %{test_pid: test_pid}}
+    end
+
     def init(_args) do
       {:producer, %{}}
     end
 
     def handle_demand(_demand, state) do
       {:noreply, [], state}
+    end
+  end
+
+  defmodule EventPrducer do
+    use GenStage
+
+    def start_link(events) do
+      GenStage.start_link(__MODULE__, events)
+    end
+
+    def init(events) do
+      {:producer, events}
+    end
+
+    def handle_demand(demand, events) when demand > 0 do
+      {events, rest} = Enum.split(events, demand)
+      {:noreply, events, rest}
     end
   end
 
@@ -74,6 +97,19 @@ defmodule BroadwayTest do
 
     def handle_batch(publisher, messages, batch_info, %{handle_batch: handler} = context) do
       handler.(publisher, messages, batch_info, context)
+    end
+  end
+
+  defmodule Transformer do
+    def transform(event, test_pid: test_pid) do
+      if event == :kill_producer do
+        raise "Error raised"
+      end
+
+      %Message{
+        data: "#{event} transformed",
+        acknowledger: {Acker, %{id: event, test_pid: test_pid}}
+      }
     end
   end
 
@@ -441,6 +477,133 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "transformer" do
+    setup tags do
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:message_handled, message})
+        message
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn _, batch, _, _ -> batch end
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers,
+          name: broadway_name,
+          resubscribe_interval: 0,
+          context: context,
+          producers: [
+            default: [
+              module: EventPrducer,
+              arg: Map.get(tags, :events, [1, 2, 3]),
+              transformer: {Transformer, :transform, test_pid: self()}
+            ]
+          ],
+          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          publishers: [default: [batch_size: 2]]
+        )
+
+      producer = get_producer(broadway_name, :default)
+
+      %{producer: producer}
+    end
+
+    test "transform all events" do
+      assert_receive {:message_handled, %{data: "1 transformed"}}
+      assert_receive {:message_handled, %{data: "2 transformed"}}
+      assert_receive {:message_handled, %{data: "3 transformed"}}
+    end
+
+    @tag events: [1, 2, :kill_producer, 4]
+    test "restart the producer if the transformation raises an error", context do
+      %{producer: producer} = context
+      ref_producer = Process.monitor(producer)
+
+      assert_receive {:message_handled, %{data: "1 transformed"}}
+      assert_receive {:message_handled, %{data: "2 transformed"}}
+      assert_receive {:DOWN, ^ref_producer, _, _, _}
+      assert_receive {:message_handled, %{data: "1 transformed"}}
+      assert_receive {:message_handled, %{data: "2 transformed"}}
+    end
+  end
+
+  describe "handle producer crash" do
+    setup do
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:message_handled, message})
+        message
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn _, batch, _, _ -> batch end
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers,
+          name: broadway_name,
+          resubscribe_interval: 0,
+          context: context,
+          producers: [
+            default: [
+              module: ManualProducer,
+              arg: %{test_pid: self()}
+            ]
+          ],
+          processors: [stages: 1, min_demand: 1, max_demand: 2],
+          publishers: [default: [batch_size: 2]]
+        )
+
+      producer = get_producer(broadway_name, :default)
+      processor = get_processor(broadway_name, 1)
+      batcher = get_batcher(broadway_name, :default)
+      consumer = get_consumer(broadway_name, :default)
+
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
+    end
+
+    test "only the producer will be restarted", context do
+      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} = context
+
+      ref_producer = Process.monitor(producer)
+      ref_batcher = Process.monitor(batcher)
+      ref_processor = Process.monitor(processor)
+      ref_consumer = Process.monitor(consumer)
+
+      GenStage.stop(producer)
+
+      assert_receive {:DOWN, ^ref_producer, _, _, _}
+      refute_receive {:DOWN, ^ref_processor, _, _, _}
+      refute_receive {:DOWN, ^ref_batcher, _, _, _}
+      refute_receive {:DOWN, ^ref_consumer, _, _, _}
+
+      assert_receive {:producer_initialized, ^producer}
+    end
+
+    test "processors resubscribe to the restarted producers and keep processing messages" do
+      assert_receive {:producer_initialized, producer}
+
+      push_messages(producer, [1])
+      assert_receive {:message_handled, %{data: 1}}
+
+      GenStage.stop(producer)
+      assert_receive {:producer_initialized, ^producer}
+
+      push_messages(producer, [2])
+      assert_receive {:message_handled, %{data: 2}}
+    end
+  end
+
   describe "handle processor crash" do
     setup do
       test_pid = self()
@@ -480,7 +643,7 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, 1)
       batcher = get_batcher(broadway_name, :default)
-      consumer = get_consumer(broadway_name, 1)
+      consumer = get_consumer(broadway_name, :default)
 
       %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
     end
@@ -576,7 +739,7 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, 1)
       batcher = get_batcher(broadway_name, :default)
-      consumer = get_consumer(broadway_name, 1)
+      consumer = get_consumer(broadway_name, :default)
 
       %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
     end
@@ -782,8 +945,8 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Batcher_#{key}"
   end
 
-  defp get_consumer(broadway_name, key) do
-    :"#{broadway_name}.Consumer_#{key}"
+  defp get_consumer(broadway_name, key, index \\ 1) do
+    :"#{broadway_name}.Consumer_#{key}_#{index}"
   end
 
   defp get_n_producers(broadway_name) do
