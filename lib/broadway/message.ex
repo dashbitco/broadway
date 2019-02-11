@@ -21,6 +21,7 @@ defmodule Broadway.Message do
           status: :ok | {:failed, reason :: binary}
         }
 
+  @enforce_keys [:data, :acknowledger]
   defstruct data: nil,
             acknowledger: nil,
             publisher: :default,
