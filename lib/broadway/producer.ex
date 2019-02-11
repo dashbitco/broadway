@@ -74,17 +74,20 @@ defmodule Broadway.Producer do
     end
   end
 
-  defp transform_events(events, transformer) do
-    Enum.map(events, &transform(&1, transformer))
+  defp transform_events(events, nil) do
+    case events do
+      [] -> :ok
+      [message | _] -> validate_message(message)
+    end
+
+    events
   end
 
-  defp transform(event, nil) do
-    validate_message(event)
-  end
-
-  defp transform(event, {m, f, opts}) do
-    message = apply(m, f, [event, opts])
-    validate_message(message)
+  defp transform_events(events, {m, f, opts}) do
+    for event <- events do
+      message = apply(m, f, [event, opts])
+      validate_message(message)
+    end
   end
 
   defp validate_message(%Message{} = message) do
