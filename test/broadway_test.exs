@@ -43,7 +43,7 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule EventPrducer do
+  defmodule EventProducer do
     use GenStage
 
     def start_link(events) do
@@ -65,25 +65,25 @@ defmodule BroadwayTest do
 
     import Message
 
-    def handle_message(%Message{data: data} = message, %{test_pid: test_pid})
+    def handle_message(:default, %Message{data: data} = message, %{test_pid: test_pid})
         when is_odd(data) do
       send(test_pid, {:message_handled, message.data})
 
       message
       |> update_data(fn data -> data + 1000 end)
-      |> put_publisher(:odd)
+      |> put_batcher(:odd)
     end
 
-    def handle_message(message, %{test_pid: test_pid}) do
+    def handle_message(:default, message, %{test_pid: test_pid}) do
       send(test_pid, {:message_handled, message.data})
 
       message
       |> update_data(fn data -> data + 1000 end)
-      |> put_publisher(:even)
+      |> put_batcher(:even)
     end
 
-    def handle_batch(publisher, messages, _, %{test_pid: test_pid}) do
-      send(test_pid, {:batch_handled, publisher, messages})
+    def handle_batch(batcher, messages, _, %{test_pid: test_pid}) do
+      send(test_pid, {:batch_handled, batcher, messages})
       messages
     end
   end
@@ -91,12 +91,12 @@ defmodule BroadwayTest do
   defmodule ForwarderWithCustomHandlers do
     use Broadway
 
-    def handle_message(message, %{handle_message: handler} = context) do
+    def handle_message(_, message, %{handle_message: handler} = context) do
       handler.(message, context)
     end
 
-    def handle_batch(publisher, messages, batch_info, %{handle_batch: handler} = context) do
-      handler.(publisher, messages, batch_info, context)
+    def handle_batch(batcher, messages, batch_info, %{handle_batch: handler} = context) do
+      handler.(batcher, messages, batch_info, context)
     end
   end
 
@@ -117,7 +117,7 @@ defmodule BroadwayTest do
     test "generates child_spec/1" do
       defmodule MyBroadway do
         use Broadway
-        def handle_message(_, _), do: nil
+        def handle_message(_, _, _), do: nil
         def handle_batch(_, _, _, _), do: nil
       end
 
@@ -132,7 +132,7 @@ defmodule BroadwayTest do
       defmodule MyBroadwayWithCustomOptions do
         use Broadway, id: :some_id
 
-        def handle_message(_, _), do: nil
+        def handle_message(_, _, _), do: nil
         def handle_batch(_, _, _, _), do: nil
       end
 
@@ -160,8 +160,8 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
-        publishers: [default: []]
+        processors: [default: []],
+        batchers: [default: []]
       )
 
       assert get_n_producers(broadway) == 1
@@ -176,8 +176,8 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: [], stages: 3]
         ],
-        processors: [],
-        publishers: [default: []]
+        processors: [default: []],
+        batchers: [default: []]
       )
 
       assert get_n_producers(broadway) == 3
@@ -191,8 +191,8 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
-        publishers: [default: []]
+        processors: [default: []],
+        batchers: [default: []]
       )
 
       assert get_n_processors(broadway) == System.schedulers_online() * 2
@@ -206,14 +206,14 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [stages: 13],
-        publishers: [default: []]
+        processors: [default: [stages: 13]],
+        batchers: [default: []]
       )
 
       assert get_n_processors(broadway) == 13
     end
 
-    test "default number of consumers is 1 per publisher" do
+    test "default number of consumers is 1 per batcher" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder,
@@ -222,8 +222,8 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
-        publishers: [p1: [], p2: []]
+        processors: [default: []],
+        batchers: [p1: [], p2: []]
       )
 
       assert get_n_consumers(broadway, :p1) == 1
@@ -239,8 +239,8 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
-        publishers: [
+        processors: [default: []],
+        batchers: [
           p1: [stages: 2],
           p2: [stages: 3]
         ]
@@ -258,11 +258,11 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
-        publishers: [default: []]
+        processors: [default: []],
+        batchers: [default: []]
       )
 
-      pid = get_processor(broadway, 1)
+      pid = get_processor(broadway, :default)
       assert :sys.get_state(pid).state.context == :context_not_set
     end
   end
@@ -277,8 +277,8 @@ defmodule BroadwayTest do
         producers: [
           default: [module: ManualProducer, arg: []]
         ],
-        processors: [],
-        publishers: [
+        processors: [default: []],
+        batchers: [
           even: [],
           odd: []
         ]
@@ -307,8 +307,8 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [],
-          publishers: [
+          processors: [default: []],
+          batchers: [
             even: [],
             odd: []
           ]
@@ -371,8 +371,8 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
-          publishers: [default: [batch_size: 2]]
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          batchers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
@@ -412,7 +412,7 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "publisher" do
+  describe "batcher" do
     setup do
       broadway = new_unique_name()
 
@@ -423,8 +423,8 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [],
-          publishers: [
+          processors: [default: []],
+          batchers: [
             odd: [batch_size: 10, batch_timeout: 20],
             even: [batch_size: 5, batch_timeout: 20]
           ]
@@ -500,13 +500,13 @@ defmodule BroadwayTest do
           context: context,
           producers: [
             default: [
-              module: EventPrducer,
+              module: EventProducer,
               arg: Map.get(tags, :events, [1, 2, 3]),
               transformer: {Transformer, :transform, test_pid: self()}
             ]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
-          publishers: [default: [batch_size: 2]]
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          batchers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
@@ -560,12 +560,12 @@ defmodule BroadwayTest do
               arg: %{test_pid: self()}
             ]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
-          publishers: [default: [batch_size: 2]]
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          batchers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
-      processor = get_processor(broadway_name, 1)
+      processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
@@ -636,12 +636,12 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
-          publishers: [default: [batch_size: 2]]
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          batchers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
-      processor = get_processor(broadway_name, 1)
+      processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
@@ -711,7 +711,7 @@ defmodule BroadwayTest do
 
       handle_batch = fn _publisher, messages, batch_info, _ ->
         if Enum.any?(messages, fn msg -> msg.data == :kill_batcher end) do
-          Process.exit(batch_info.batcher, :kill)
+          Process.exit(batch_info.batcher_pid, :kill)
         end
 
         send(test_pid, {:batch_handled, messages, batch_info})
@@ -732,12 +732,12 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 2],
-          publishers: [default: [batch_size: 2]]
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          batchers: [default: [batch_size: 2]]
         )
 
       producer = get_producer(broadway_name, :default)
-      processor = get_processor(broadway_name, 1)
+      processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
@@ -746,17 +746,17 @@ defmodule BroadwayTest do
 
     test "batcher will be restarted in order to handle other messages", %{producer: producer} do
       push_messages(producer, [1, 2])
-      assert_receive {:batch_handled, _, %BatchInfo{batcher: batcher1}}
+      assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: batcher1}}
 
       ref = Process.monitor(batcher1)
 
       push_messages(producer, [:kill_batcher, 3])
-      assert_receive {:batch_handled, _, %BatchInfo{batcher: ^batcher1}}
+      assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: ^batcher1}}
 
       assert_receive {:DOWN, ^ref, _, obj, _}
 
       push_messages(producer, [4, 5])
-      assert_receive {:batch_handled, _, %BatchInfo{batcher: batcher2}}
+      assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: batcher2}}
 
       assert batcher1 != batcher2
     end
@@ -826,8 +826,8 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 4],
-          publishers: [default: [batch_size: 4]]
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
+          batchers: [default: [batch_size: 4]]
         )
 
       producer = get_producer(broadway_name, :default)
@@ -877,8 +877,8 @@ defmodule BroadwayTest do
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
-          processors: [stages: 1, min_demand: 1, max_demand: 4],
-          publishers: [default: [batch_size: 4]],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
+          batchers: [default: [batch_size: 4]],
           context: context,
           shutdown: Map.get(tags, :shutdown, 5000)
         )
@@ -937,8 +937,8 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Producer_#{key}_#{index}"
   end
 
-  defp get_processor(broadway_name, key) do
-    :"#{broadway_name}.Processor_#{key}"
+  defp get_processor(broadway_name, key, index \\ 1) do
+    :"#{broadway_name}.Processor_#{key}_#{index}"
   end
 
   defp get_batcher(broadway_name, key) do

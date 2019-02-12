@@ -14,17 +14,17 @@ defmodule Broadway.Batcher do
   @impl true
   def init(args) do
     Process.put(@all_batches, %{})
-    publisher_key = args[:publisher_key]
+    batcher_key = args[:batcher_key]
 
     state = %{
-      publisher_key: publisher_key,
+      batcher_key: batcher_key,
       batch_size: args[:batch_size],
       batch_timeout: args[:batch_timeout]
     }
 
     Broadway.Subscriber.init(
       args[:processors],
-      [partition: publisher_key, max_demand: args[:batch_size]],
+      [partition: batcher_key, max_demand: args[:batch_size]],
       state,
       args
     )
@@ -160,8 +160,8 @@ defmodule Broadway.Batcher do
   end
 
   defp wrap_for_delivery(reversed_events, state) do
-    %{publisher_key: publisher_key} = state
-    batch_info = %BatchInfo{publisher_key: publisher_key, batcher: self()}
+    %{batcher_key: batcher_key} = state
+    batch_info = %BatchInfo{batcher_key: batcher_key, batcher_pid: self()}
     {Enum.reverse(reversed_events), batch_info}
   end
 end
