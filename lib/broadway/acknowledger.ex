@@ -40,23 +40,17 @@ defmodule Broadway.Acknowledger do
     |> Enum.each(&call_ack/1)
   end
 
-  defp group_by_acknowledger(grouped_messages, messages, key) do
-    Enum.reduce(messages, grouped_messages, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
-      Map.update(acc, acknowledger, [{key, msg}], &[{key, msg} | &1])
+  defp group_by_acknowledger(ackers, messages, key) do
+    Enum.reduce(messages, ackers, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
+      pdict_key = {acknowledger, key}
+      Process.put(pdict_key, [msg | Process.get({acknowledger, key}, [])])
+      Map.put(acc, acknowledger, true)
     end)
   end
 
-  defp call_ack({acknowledger, messages}) do
-    {successful, failed} = unpack_messages(messages, [], [])
-    acknowledger.ack(successful, failed)
+  defp call_ack({acknowledger, true}) do
+    successful = Process.delete({acknowledger, :successful}) || []
+    failed = Process.delete({acknowledger, :failed}) || []
+    acknowledger.ack(Enum.reverse(successful), Enum.reverse(failed))
   end
-
-  defp unpack_messages([{:successful, message} | messages], successful, failed),
-    do: unpack_messages(messages, [message | successful], failed)
-
-  defp unpack_messages([{:failed, message} | messages], successful, failed),
-    do: unpack_messages(messages, successful, [message | failed])
-
-  defp unpack_messages([], successful, failed),
-    do: {successful, failed}
 end
