@@ -147,7 +147,8 @@ defmodule Broadway.Server do
       dispatcher: dispatcher,
       processor_key: key,
       processor_config: processor_config,
-      producers: producers
+      producers: producers,
+      partitions: partitions
     ]
 
     specs =

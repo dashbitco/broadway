@@ -2,6 +2,8 @@ defmodule BroadwayTest do
   use ExUnit.Case
 
   import Integer
+  import ExUnit.CaptureLog
+
   alias Broadway.{Producer, Message, BatchInfo}
 
   defmodule Acker do
@@ -348,6 +350,8 @@ defmodule BroadwayTest do
         case message.data do
           :fail -> Message.failed(message, "Failed message")
           :raise -> raise "Error raised"
+          :bad_return -> :oops
+          :bad_batcher -> %{message | batcher: :unknown}
           _ -> message
         end
       end
@@ -376,8 +380,9 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name, :default)
+      processor = get_processor(broadway_name, :default)
 
-      %{producer: producer}
+      %{producer: producer, processor: processor}
     end
 
     test "successful messages are marked as :ok", %{producer: producer} do
@@ -388,12 +393,6 @@ defmodule BroadwayTest do
     test "failed messages are marked as {:failed, reason}", %{producer: producer} do
       push_messages(producer, [:fail])
       assert_receive {:ack, _, [%{status: {:failed, "Failed message"}}]}
-    end
-
-    test "messages are marked as {:failed, reason} when an error is raised while processing",
-         %{producer: producer} do
-      push_messages(producer, [:raise])
-      assert_receive {:ack, _, [%{status: {:failed, "Error raised"}}]}
     end
 
     test "failed messages are not forwarded to the batcher", %{producer: producer} do
@@ -409,6 +408,54 @@ defmodule BroadwayTest do
 
       assert_receive {:ack, [], [%{data: :fail}]}
       assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+    end
+
+    test "messages are marked as {:failed, reason} when an error is raised while processing",
+         %{producer: producer, processor: processor} do
+      assert capture_log(fn ->
+               push_messages(producer, [1, :raise, 4])
+               assert_receive {:ack, _, [%{status: {:failed, "due to an unhandled error"}}]}
+               assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+             end) =~ "[error] ** (RuntimeError) Error raised"
+
+      refute_received {:EXIT, _, ^processor}
+    end
+
+    test "messages are marked as {:failed, reason} on bad return",
+         %{producer: producer, processor: processor} do
+      assert capture_log(fn ->
+               push_messages(producer, [1, :bad_return, 4])
+               assert_receive {:ack, _, [%{status: {:failed, "due to an unhandled error"}}]}
+               assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+             end) =~
+               "[error] ** (RuntimeError) expected a Broadway.Message from handle_message/3, got :oops"
+
+      refute_received {:EXIT, _, ^processor}
+    end
+
+    test "messages are marked as {:failed, reason} on bad batcher",
+         %{producer: producer, processor: processor} do
+      assert capture_log(fn ->
+               push_messages(producer, [1, :bad_batcher, 4])
+               assert_receive {:ack, _, [%{status: {:failed, "due to an unhandled error"}}]}
+             end) =~
+               "[error] ** (RuntimeError) message was set to unknown batcher :unknown. The known batchers are [:default]"
+
+      refute_received {:EXIT, _, ^processor}
+    end
+
+    test "processors do not crash on bad acknowledger",
+         %{producer: producer, processor: processor} do
+      [one, raise, four] = wrap_messages([1, :raise, 4])
+      raise = %{raise | acknowledger: {Unknown, :ok}}
+
+      assert capture_log(fn ->
+               Producer.push_messages(producer, [one, raise, four])
+               assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+             end) =~
+               "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
+
+      refute_received {:EXIT, _, ^processor}
     end
   end
 
