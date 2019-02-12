@@ -1,7 +1,6 @@
 # Broadway
 
-Broadway is a concurrent, multi-stage event processing tool that aims to streamline data
-processing pipelines.
+Broadway makes it straight-forward to build concurrent and multi-stage data ingestion and data processing pipelines with Elixir.
 
 Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
