@@ -449,8 +449,7 @@ defmodule BroadwayTest do
       assert capture_log(fn ->
                Producer.push_messages(producer, [one, raise, four])
                assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
-             end) =~
-               "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
+             end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
 
       refute_received {:EXIT, _, ^processor}
     end
