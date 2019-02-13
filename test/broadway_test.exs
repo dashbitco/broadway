@@ -381,6 +381,7 @@ defmodule BroadwayTest do
 
       producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, :default)
+      Process.link(Process.whereis(processor))
 
       %{producer: producer, processor: processor}
     end
@@ -854,6 +855,7 @@ defmodule BroadwayTest do
           case message.data do
             :fail -> Message.failed(message, "Failed message")
             :raise -> raise "Error raised"
+            :bad_return -> :oops
             _ -> message
           end
         end)
@@ -878,21 +880,10 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name, :default)
+      consumer = get_consumer(broadway_name, :default)
+      Process.link(Process.whereis(consumer))
 
-      %{producer: producer}
-    end
-
-    test "all messages in the batch are marked as {:failed, reason} when an error is raised",
-         %{producer: producer} do
-      push_messages(producer, [1, 2, 3, :raise])
-
-      assert_receive {:ack, _,
-                      [
-                        %{data: 1, status: {:failed, "Error raised"}},
-                        %{data: 2, status: {:failed, "Error raised"}},
-                        %{data: 3, status: {:failed, "Error raised"}},
-                        %{data: :raise, status: {:failed, "Error raised"}}
-                      ]}
+      %{producer: producer, consumer: consumer}
     end
 
     test "messages are grouped as successful and failed before sent for acknowledgement",
@@ -900,6 +891,58 @@ defmodule BroadwayTest do
       push_messages(producer, [1, :fail, :fail, 4])
 
       assert_receive {:ack, [%{data: 1}, %{data: 4}], [%{data: :fail}, %{data: :fail}]}
+    end
+
+    test "all messages in the batch are marked as {:failed, reason} when an error is raised",
+         %{producer: producer, consumer: consumer} do
+      assert capture_log(fn ->
+               push_messages(producer, [1, 2, :raise, 3])
+
+               assert_receive {:ack, _,
+                               [
+                                 %{data: 1, status: {:failed, "due to an unhandled error"}},
+                                 %{data: 2, status: {:failed, "due to an unhandled error"}},
+                                 %{data: :raise, status: {:failed, "due to an unhandled error"}},
+                                 %{data: 3, status: {:failed, "due to an unhandled error"}}
+                               ]}
+             end) =~ "[error] ** (RuntimeError) Error raised"
+
+      refute_received {:EXIT, _, ^consumer}
+    end
+
+    test "all messages in the batch are marked as {:failed, reason} on bad return",
+         %{producer: producer, consumer: consumer} do
+      assert capture_log(fn ->
+               push_messages(producer, [1, 2, :bad_return, 3])
+
+               assert_receive {:ack, _,
+                               [
+                                 %{data: 1, status: {:failed, "due to an unhandled error"}},
+                                 %{data: 2, status: {:failed, "due to an unhandled error"}},
+                                 %{
+                                   data: :bad_return,
+                                   status: {:failed, "due to an unhandled error"}
+                                 },
+                                 %{data: 3, status: {:failed, "due to an unhandled error"}}
+                               ]}
+             end) =~ "[error]"
+
+      refute_received {:EXIT, _, ^consumer}
+    end
+
+    test "consumers do not crash on bad acknowledger",
+         %{producer: producer, consumer: consumer} do
+      [one, two, raise, three] = wrap_messages([1, 2, :raise, 3])
+      raise = %{raise | acknowledger: {Unknown, :ok}}
+
+      assert capture_log(fn ->
+               Producer.push_messages(producer, [one, two, raise, three])
+               push_messages(producer, [1, 2, 3, 4])
+               assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
+             end) =~
+               "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
+
+      refute_received {:EXIT, _, ^consumer}
     end
   end
 

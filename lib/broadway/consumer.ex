@@ -3,6 +3,8 @@ defmodule Broadway.Consumer do
   use GenStage
   use Broadway.Subscriber
 
+  require Logger
+
   alias Broadway.{Acknowledger, Message}
   @subscription_options [max_demand: 1, min_demand: 0]
 
@@ -32,9 +34,14 @@ defmodule Broadway.Consumer do
 
     {successful_messages, failed_messages} =
       handle_batch(batcher_key, messages, batch_info, state)
-      |> Enum.split_with(&(&1.status == :ok))
 
-    Acknowledger.ack_messages(successful_messages, failed_messages)
+    try do
+      Acknowledger.ack_messages(successful_messages, failed_messages)
+    catch
+      kind, reason ->
+        Logger.error(Exception.format(kind, reason, System.stacktrace()))
+    end
+
     {:noreply, [], state}
   end
 
@@ -43,10 +50,12 @@ defmodule Broadway.Consumer do
 
     try do
       module.handle_batch(batcher_key, messages, batch_info, context)
-    rescue
-      e ->
-        error_message = Exception.message(e)
-        Enum.map(messages, &Message.failed(&1, error_message))
+      |> Enum.split_with(fn %Message{status: status} -> status == :ok end)
+    catch
+      kind, reason ->
+        Logger.error(Exception.format(kind, reason, System.stacktrace()))
+        failed = "due to an unhandled #{kind}"
+        {[], Enum.map(messages, &Message.failed(&1, failed))}
     end
   end
 end
