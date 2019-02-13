@@ -144,13 +144,9 @@ defmodule BroadwayTest do
 
   describe "broadway configuration" do
     test "invalid configuration options" do
-      assert_raise(
-        ArgumentError,
-        "invalid configuration given to Broadway.start_link/3, expected :name to be an atom, got: 1",
-        fn ->
-          Broadway.start_link(Forwarder, name: 1)
-        end
-      )
+      assert_raise ArgumentError,
+                   "invalid configuration given to Broadway.start_link/2, expected :name to be an atom, got: 1",
+                   fn -> Broadway.start_link(Forwarder, name: 1) end
     end
 
     test "default number of producers is 1" do

@@ -1,17 +1,17 @@
 # Broadway
 
-Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir.
+Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. It allows developers to consume data efficiently from different sources, such as Amazon SQS, RabbitMQ, and others.
 
 Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
 ## Built-in features
 
-Broadway takes the burden of defining concurrent GenStage topologies and provide a simple configuration API that defines concurrent producers, concurrent processing, batch handling, and more, leading to both time and cost efficient ingestion and processing of data.
+Broadway takes the burden of defining concurrent GenStage topologies and provide a simple configuration API that automatically defines concurrent producers, concurrent processing, batch handling, and more, leading to both time and cost efficient ingestion and processing of data.
 
   * Back-pressure
   * Batching
   * Fault tolerance through restarts
-  * Clean shutdown
+  * Graceful shutdown
   * Rate-limiting (TODO)
   * Partitioning (TODO)
   * Statistics/Metrics (TODO)

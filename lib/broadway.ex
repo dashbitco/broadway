@@ -1,17 +1,32 @@
 defmodule Broadway do
   @moduledoc ~S"""
-  Broadway is a concurrent, multi-stage event processing tool
-  that aims to streamline data processing pipelines.
+  Broadway is a concurrent, multi-stage tool for building
+  data ingestion and data processing pipelines.
 
   It allows developers to consume data efficiently from different
   sources, such as Amazon SQS, RabbitMQ and others.
 
   ## Built-in features
 
-    * Back-pressure
-    * Batching
-    * Fault tolerance through restarts
-    * Clean shutdown (TODO)
+    * Back-pressure - by relying on `GenStage`, we only get the amount
+      of events necessary from upstream sources, never flooding the
+      pipeline
+
+    * Batching - Broadway provides built-in batching, allowing you to
+      group messages either by size and/or by time. This is important
+      in systems such as Amazon SQS, where batching is the most efficient
+      way to consume messages, both in terms of time and cost
+
+    * Fault tolerance through restarts - Broadway pipelines are carefully
+      designed to minimize restarts. User callbacks are stateless, and
+      therefore are safely handled in case of errors, and in the face of
+      unforeseen bugs in a given stage, we restart only downstream
+      components, avoiding data loss
+
+    * Graceful shutdown - Broadway integrates with the VM to provide graceful
+      shutdown. By starting Broadway as part of your supervision tree, it will
+      guarantee all events are flushed once the VM shuts down
+
     * Rate-limiting (TODO)
     * Partitioning (TODO)
     * Statistics/Metrics (TODO)
@@ -26,9 +41,9 @@ defmodule Broadway do
 
   ### Example
 
-  Like any other process-based behaviour, you can start
-  your Broadway process by defining a module that invokes
-  `use Broadway` and has a `start_link` function:
+  Like any other process-based behaviour, you can start your Broadway
+  process by defining a module that invokes `use Broadway` and has a
+  `start_link` function:
 
       defmodule MyBroadway do
         use Broadway
@@ -61,7 +76,7 @@ defmodule Broadway do
 
   Here is how this pipeline would be represented:
 
-  ```asciidoc
+  ```
                        [producer_1]
                            / \
                           /   \
@@ -80,16 +95,25 @@ defmodule Broadway do
                  /  \                  \
                 /    \                  \
                /      \                  \
-   [consumer_sqs_1] [consumer_sqs_2]  [consumer_s3_1] <- process in batches
+   [consumer_sqs_1] [consumer_sqs_2]  [consumer_s3_1] <- process each batch
   ```
 
-  When using Broadway, you need to implement two callbacks:
-  `c:handle_message/3`, invoked by the processor for each message,
+  After the pipeline is defined, you need to implement two callbacks:
+  `c:handle_message/3`, invoked by processors for each message,
   and `c:handle_batch/4`, invoked by consumers with each batch.
-  Here is how those callbacks would be implemented:
+  Each message is represented by a `Broadway.Message` struct. A batch
+  is simply a list of messages. The job of those callbacks is to
+  manipulate those messages, processing its data, setting up dispatching
+  information, or even failing a message altogether.
+
+  For example, imagine your producer generates integers as `data`.
+  You want to route the odd integers to SQS and the even ones to
+  S3. Your pipeline would look like this:
 
       defmodule MyBroadway do
         use Broadway
+        import Integer
+
         alias Broadway.Message
 
         ...start_link...
@@ -101,10 +125,14 @@ defmodule Broadway do
           |> Message.put_batcher(:sqs)
         end
 
-        def handle_message(_, %Message{data: data} = message, _context) do
+        def handle_message(_, %Message{data: data} = message, _context) is_even(data) do
           message
           |> Message.update_data(&process_data/1)
           |> Message.put_batcher(:s3)
+        end
+
+        defp process_data(data) do
+          # Do some calculations, generate a JSON representation, etc.
         end
 
         @impl true
@@ -115,204 +143,55 @@ defmodule Broadway do
         def handle_batch(:s3, messages, _batch_info, _context) do
           # Send batch of messages to S3
         end
-
-        defp process_data(data) do
-          # Do some calculations, generate a JSON representation, etc.
-        end
       end
 
-  The batchers generate batches of messages that will be processed
-  by the batcher's consumers. The consumers publish the results
-  elsewhere, although that's not strictly required. For
-  example, results could be processed and published per message
-  on the `c:handle_message/3` callback too. Publishers are also
-  responsible to inform when a message has not been successfully
-  published. You can mark a message as :failed using
-  `Broadway.Message.failed/2` in either `c:handle_message/3`
-  or `c:handle_batch/4`. This information will be sent back to
-  the producer which will correctly acknowledge the message.
+  See the callbacks documentation for more information on the
+  arguments given to each callback and their expected return types.
 
-  ## Working with standard GenStage producers
+  Now you are ready to get started. See the `start_link/2` function
+  for a complete reference on the arguments and options allowed.
 
-  In general, producers must generate `%Broadway.Message{}` structs in order
-  to be processed by Broadway. In case you need to use an existing GenStage
-  producer and you don't want to change its original implementation,
-  you'll have to set the producer's `:transformer` option to translate the
-  generated events into Broadway messages.
+  Also makes sure to check out GUIDES in the documentation sidebar
+  for more examples, how tos and more.
 
-  ### Example
+  ## Acknowledgements and failures
 
-  In the following example the producer is a regular GenStage, i.e., it
-  produces plain events that cannot be processed by Broadway directly.
-  By using a transformer, you can tell Broadway to transform all events
-  generated by the producer into proper Broadway messages.
+  At the end of the pipeline, messages are automatically acknowledged
+  to the producer.
 
-      defmodule Counter do
-        use GenStage
+  In case of failures, Broadway does its best to keep the failures
+  contained and avoid losing messages. For every failure, a log report
+  will be emitted. Failures are also automatically reported to producers
+  (if they provide such functionality).
 
-        def start_link(number) do
-          GenStage.start_link(Counter, number)
-        end
-
-        def init(counter) do
-          {:producer, counter}
-        end
-
-        def handle_demand(demand, counter) when demand > 0 do
-          events = Enum.to_list(counter..counter+demand-1)
-          {:noreply, events, counter + demand}
-        end
-      end
-
-      defmodule MyBroadway do
-        use Broadway
-
-        alias Broadway.Message
-
-        def start_link do
-          Broadway.start_link(__MODULE__,
-            name: __MODULE__,
-            producers: [
-              default: [
-                module: Counter,
-                arg: 1,
-                transformer: {__MODULE__, :transform, []}
-              ],
-            ],
-            processors: [
-              default: [stages: 10]
-            ],
-            batchers: [
-              default: [stages: 2, batch_size: 5],
-            ]
-          )
-        end
-
-        ...callbacks...
-
-        def transform(event, _opts) do
-          %Message{data: event}
-        end
-      end
-
-  Pay attention that if you need to send acknowledgement information
-  back to the producer you'll need to set the `:acknowledger` field
-  when creating the message.
-
-      defmodule MyBroadway do
-        use Broadway
-
-        alias Broadway.Message
-        @behaviour Broadway.Acknowledger
-
-        ...
-
-        def transform(event, _opts) do
-          %Message{data: event, acknowledger: {__MODULE__, event.id}}
-        end
-
-        def ack(successful, failed) do
-          # Do whatever you need here...
-        end
-      end
-
-  ## General Architecture
-
-  Broadway's architecture is built on top GenStage. That means we structure
-  our processing units as independent stages that are responsible for one
-  individual task in the pipeline. By implementing the `Broadway` behaviour
-  we define a `GenServer` process that wraps a `Supervisor` to manage and
-  own our pipeline.
-
-  ### The Pipeline Model
-
-  ```asciidoc
-                                     [producers]   <- pulls data from SQS, RabbitMQ, etc.
-                                          |
-                                          |   (demand dispatcher)
-                                          |
-     handle_message/3 runs here ->   [processors]
-                                         / \
-                                        /   \   (partition dispatcher)
-                                       /     \
-                                 [batcher]   [batcher]   <- one for each batcher key
-                                     |           |
-                                     |           |   (demand dispatcher)
-                                     |           |
-  handle_batch/4 runs here ->   [consumers]  [consumers]
-  ```
-
-  ### Internal Stages
-
-    * `Broadway.Producer` - A wrapper around the actual producer defined by
-      the user. It serves as the source of the pipeline.
-    * `Broadway.Processor` - This is where messages are processed, e.g. do
-      calculations, convert data into a custom json format etc. Here is where
-      the code from `handle_message/3` runs.
-    * `Broadway.Batcher` - Creates batches of messages based on the
-      batcher's key. One Batcher for each key will be created.
-    * `Broadway.Consumer` - This is where the code from `handle_batch/4` runs.
-
-  ### Fault-tolerance
-
-  Broadway was designed always go back to a working state in case
-  of failures thanks to the use of supervisors. Our supervision tree
-  is designed as follows:
-
-  ```asciidoc
-                          [Broadway GenServer]
-                                   |
-                                   |
-                                   |
-                    [Broadway Pipeline Supervisor]
-                        /   (:rest_for_one)     \
-                       /           |             \
-                      /            |              \
-                     /             |               \
-                    /              |                \
-                   /               |                 \
-    [ProducerSupervisor]  [ProcessorSupervisor] [BatcherPartitionSupervisor] [Terminator]
-      (:one_for_one)        (:one_for_all)           (:one_for_one)
-           / \                    / \                /            \
-          /   \                  /   \              /              \
-         /     \                /     \            /                \
-        /       \              /       \          /                  \
-  [Producer_1]  ...    [Processor_1]  ...  [BatcherConsumerSuperv_1]  ...
-                                              (:rest_for_one)
-                                                    /  \
-                                                   /    \
-                                                  /      \
-                                            [Batcher] [Supervisor]
-                                                      (:one_for_all)
-                                                            |
-                                                      [Consumer_1]
-  ```
-
-  Another part of Broadway fault-tolerance comes from the fact the
-  callbacks are stateless, which allows us to provide back-off in
-  processors and batchers out of the box.
-
-  Finally, Broadway guarantees proper shutdown of the supervision
-  tree, making sure that processes only terminate after all of the
-  currently fetched messages are processed and published (consumer).
+  Note however, that `Broadway` does not provide any sort of retries
+  out of the box. This is left completely as a responsibility of the
+  producer. For instance, if you are using Amazon SQS and you would
+  like unacknowledged messages to be retried, it is your responsibility
+  to configure a dead-letter queue and set the relevant timeouts.
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
 
   @doc """
-  Invoked to handle/process indiviual messages sent from a producer.
+  Invoked to handle/process individual messages sent from a producer.
+
+  It receives:
+
+    * `processor`  is the key that defined the processor.
+    * `message` is the `Broadway.Message` struct to be processed.
+    * `context` is the user defined data structure passed to `start_link/2`.
+
+  And it must return the (potentially) updated `Broadway.Message` struct.
 
   This is the place to do any kind of processing with the incoming message,
   e.g., transform the data into another data structure, call specific business
   logic to do calculations. Basically, any CPU bounded task that runs against
   a single message should be processed here.
 
-    * `processor`  is the key that defined the processor.
-    * `message` is the message to be processed.
-    * `context` is the user defined data structure passed to `start_link/3`.
-
-  In order to update the data after processing, use the `update_data/2` function.
-  This way the new message can be properly forwared and handled by the batcher:
+  In order to update the data after processing, use the
+  `Broadway.Message.update_data/2` function. This way the new message can be
+  properly forwarded and handled by the batcher:
 
       @impl true
       def handle_message(_, message, _) do
@@ -334,6 +213,13 @@ defmodule Broadway do
         |> put_batcher(:s3)
       end
 
+  Any message that has not been explicitly failed will be forwarded to the next
+  step in the pipeline. If there are no extra steps, it will be automatically
+  acknowledged.
+
+  In case of errors in this callback, the error will be logged and that particular
+  message will be immediatelly acknowledged as failed, not proceeding to the next
+  steps of the pipeline.
   """
   @callback handle_message(processor :: atom, message :: Message.t(), context :: any) ::
               Message.t()
@@ -341,14 +227,20 @@ defmodule Broadway do
   @doc """
   Invoked to handle generated batches.
 
-    * `batcher` is the key that defined the batcher. All messages
-      will be grouped as batches and then forwarded to this callback
-      based on this key. This value can be set in the `handle_message/3`
-      callback using `put_batcher/2`.
-    * `messages` is the list of messages of the incoming batch.
-    * `bach_info` is a struct containing extra information about the incoming batch.
-    * `context` is the user defined data structure passed to `start_link/3`.
+  It expects:
 
+    * `batcher` is the key that defined the batcher. This value can be
+      set in the `handle_message/3` callback using `Broadway.Message.put_batcher/2`.
+    * `messages` is the list of `Broadway.Message` structs of the incoming batch.
+    * `batch_info` is a `Broadway.BatchInfo` struct containing extra information
+      about the incoming batch.
+    * `context` is the user defined data structure passed to `start_link/2`.
+
+  It muts return a list of batches. Any message in the batch that has not been
+  explicitly failed will be considered successful and automatically acknowledged.
+
+  In case of errors in this callback, the error will be logged and the whole
+  batch will be failed.
   """
   @callback handle_batch(
               batcher :: atom,
@@ -386,7 +278,7 @@ defmodule Broadway do
 
   In order to set up how the pipeline created by Broadway,
   you need to specify the blueprint of the pipeline. You can
-  do this by passing a set of options to `start_link/3`.
+  do this by passing a set of options to `start_link/2`.
   Each component of the pipeline has its own set of options.
 
   The broadway options are:
@@ -397,20 +289,22 @@ defmodule Broadway do
     * `:producers` - Required. Defines a keyword list of named producers
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Producers options" section below.
+      Currently only a single producer is allowed.
 
     * `:processors` - Required. A keyword list of named processors
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Processors options" section below.
+      Currently only a single processor is allowed.
 
     * `:batchers` - Required. Defines a keyword list of named batchers
       where the key is an atom as identifier and the value is another
-      keyword list of options. See "Consumers options" section below.
+      keyword list of options. See "Batchers options" section below.
 
-    * `:context` - Optional. An immutable user defined data structure that will
+    * `:context` - Optional. A user defined data structure that will
       be passed to `handle_message/3` and `handle_batch/4`.
 
     * `:shutdown` - Optional. The time in miliseconds given for Broadway to
-      gracefuly shutdown without losing events. Defaults to `5_000`(ms).
+      gracefuly shutdown without discarding events. Defaults to `30_000`(ms).
 
     * `:resubscribe_interval` - The interval in miliseconds to attempt to
       subscribe to a producer after it crashes. Defaults to `100`(ms).
@@ -466,7 +360,7 @@ defmodule Broadway do
   def start_link(module, opts) do
     case Options.validate(opts, configuration_spec()) do
       {:error, message} ->
-        raise ArgumentError, "invalid configuration given to Broadway.start_link/3, " <> message
+        raise ArgumentError, "invalid configuration given to Broadway.start_link/2, " <> message
 
       {:ok, opts} ->
         Server.start_link(module, opts)
@@ -488,7 +382,7 @@ defmodule Broadway do
   defp configuration_spec() do
     [
       name: [required: true, type: :atom],
-      shutdown: [type: :pos_integer, default: 5000],
+      shutdown: [type: :pos_integer, default: 30000],
       max_restarts: [type: :non_neg_integer, default: 3],
       max_seconds: [type: :pos_integer, default: 5],
       resubscribe_interval: [type: :non_neg_integer, default: 100],
