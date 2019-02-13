@@ -481,7 +481,7 @@ defmodule Broadway do
   @spec push_messages(GenServer.server(), messages :: [Message.t()]) :: :ok
   def push_messages(server, messages) do
     server
-    |> Server.get_producer()
+    |> Server.get_random_producer()
     |> Producer.push_messages(messages)
   end
 

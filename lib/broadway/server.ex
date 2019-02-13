@@ -33,7 +33,7 @@ defmodule Broadway.Server do
   end
 
   @impl true
-  def handle_call(:get_producer, _from, state) do
+  def handle_call(:get_random_producer, _from, state) do
     producer = Enum.random(state.producers_names)
     {:reply, producer, state}
   end
@@ -49,8 +49,8 @@ defmodule Broadway.Server do
     end
   end
 
-  def get_producer(server) do
-    GenServer.call(server, :get_producer)
+  def get_random_producer(server) do
+    GenServer.call(server, :get_random_producer)
   end
 
   defp reason_to_signal(:killed), do: :kill
