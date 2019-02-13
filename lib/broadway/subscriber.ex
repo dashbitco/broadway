@@ -4,25 +4,12 @@ defmodule Broadway.Subscriber do
   #
   # In practice, only the first layer resubscribers in case of crashes
   # as the remaining ones are shutdown via the supervision tree which
-  # is set as one_for_all, with max_restarts of 1. This is done so
-  # cancellations model graceful shutdowns exclusively with the help
+  # is set as one_for_all and max_restarts of 0 to the inner most
+  # supervisor while the outer most is rest for one. This guarantees
+  # that either all processess are running or none of them.
+  # 
+  # For graceful shutdowns, we rely on cancellations with the help
   # of the terminator.
-  #
-  # On shutdown:
-  #
-  #   1. The terminator notifies the first layer that they should no longer resubscribe
-  #   2. The terminator tells producers to accumulate demand, flush and shutdown
-  #   3. The terminator proceeds to monitor and wait for the termination of the last layer
-  #   4. Each layer sees all cancellations from upstream, and cancels downstream via async_info
-  #   5. The last layer exits
-  #
-  # To ensure this is race free:
-  #
-  #   1. All layers (except the producers) should be one_for_all, permanent, and single max_restarts
-  #   2. Therefore, only the first layer (after the producers) resubscribe
-  #   3. The upper supervisor should be rest_for_one, permanent, and single max_restarts too
-  #   4. The terminator should have a reasonable shutdown child spec timeout
-  #
   @moduledoc false
 
   defmacro __using__(_opts) do

@@ -38,13 +38,11 @@ defmodule Broadway.MixProject do
       extra_section: "Guides",
       extras: [
         "guides/examples/Amazon SQS.md",
-        "guides/how_to/Testing with Broadway.md",
-        "guides/how_to/Using custom producers.md",
+        "guides/examples/Custom producers.md",
         "guides/internals/Architecture.md"
       ],
       groups_for_extras: [
         Examples: Path.wildcard("guides/examples/*.md"),
-        "How to": Path.wildcard("guides/how_to/*.md"),
         Internals: Path.wildcard("guides/internals/*.md")
       ]
     ]

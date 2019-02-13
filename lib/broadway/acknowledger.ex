@@ -12,7 +12,7 @@ defmodule Broadway.Acknowledger do
   after been successfully processed and published. In case of
   failed messages or messages without acknowledgement, depending
   on the technology chosen, the messages can be either moved back
-  in the queue or, alternatively, moved to a _dead-letter queue_.
+  in the queue or, alternatively, moved to a *dead-letter queue*.
   """
 
   alias Broadway.Message

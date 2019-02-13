@@ -10,22 +10,26 @@ defmodule Broadway do
 
     * Back-pressure - by relying on `GenStage`, we only get the amount
       of events necessary from upstream sources, never flooding the
-      pipeline
+      pipeline.
 
     * Batching - Broadway provides built-in batching, allowing you to
       group messages either by size and/or by time. This is important
       in systems such as Amazon SQS, where batching is the most efficient
-      way to consume messages, both in terms of time and cost
+      way to consume messages, both in terms of time and cost.
 
     * Fault tolerance through restarts - Broadway pipelines are carefully
       designed to minimize restarts. User callbacks are stateless, and
       therefore are safely handled in case of errors, and in the face of
       unforeseen bugs in a given stage, we restart only downstream
-      components, avoiding data loss
+      components, avoiding data loss.
 
     * Graceful shutdown - Broadway integrates with the VM to provide graceful
       shutdown. By starting Broadway as part of your supervision tree, it will
-      guarantee all events are flushed once the VM shuts down
+      guarantee all events are flushed once the VM shuts down.
+
+    * Built-in testing - Broadway ships with a built-in test API, making it
+      easy to push test messages through the pipeline and making sure the
+      event was properly processed.
 
     * Rate-limiting (TODO)
     * Partitioning (TODO)
@@ -169,6 +173,10 @@ defmodule Broadway do
   producer. For instance, if you are using Amazon SQS and you would
   like unacknowledged messages to be retried, it is your responsibility
   to configure a dead-letter queue and set the relevant timeouts.
+
+  ## Testing
+
+  TODO.
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
