@@ -19,7 +19,7 @@ defmodule Broadway.Server do
        supervisor_pid: supervisor_pid,
        terminator: config.terminator,
        name: opts[:name],
-       producers_config: config.producers_config
+       producers_names: producers_names(opts[:name], config.producers_config)
      }}
   end
 
@@ -34,12 +34,7 @@ defmodule Broadway.Server do
 
   @impl true
   def handle_call(:get_producer, _from, state) do
-    %{name: name, producers_config: producers_config} = state
-
-    key = producers_config |> Keyword.keys() |> Enum.random()
-    index = producers_config[key][:stages] |> :rand.uniform()
-    producer = producer_name(name, key, index)
-
+    producer = Enum.random(state.producers_names)
     {:reply, producer, state}
   end
 
@@ -295,6 +290,12 @@ defmodule Broadway.Server do
 
   defp producer_name(broadway_name, key, index) do
     process_name(broadway_name, "Producer_#{key}", index)
+  end
+
+  defp producers_names(broadway_name, producers_config) do
+    for {key, config} <- producers_config, index <- 1..config[:stages] do
+      producer_name(broadway_name, key, index)
+    end
   end
 
   defp build_producer_supervisor_spec(config, children) do
