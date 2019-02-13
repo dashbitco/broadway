@@ -269,30 +269,28 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "producer" do
-    test "push_messages/2" do
-      {:ok, pid} =
-        Broadway.start_link(Forwarder,
-          name: new_unique_name(),
-          context: %{test_pid: self()},
-          producers: [
-            default: [module: ManualProducer, arg: []]
-          ],
-          processors: [default: []],
-          batchers: [
-            even: [],
-            odd: []
-          ]
-        )
+  test "push_messages/2" do
+    {:ok, pid} =
+      Broadway.start_link(Forwarder,
+        name: new_unique_name(),
+        context: %{test_pid: self()},
+        producers: [
+          default: [module: ManualProducer, arg: []]
+        ],
+        processors: [default: []],
+        batchers: [
+          even: [],
+          odd: []
+        ]
+      )
 
-      Broadway.push_messages(pid, [
-        %Message{data: 1, acknowledger: {__MODULE__, 1}},
-        %Message{data: 3, acknowledger: {__MODULE__, 3}}
-      ])
+    Broadway.push_messages(pid, [
+      %Message{data: 1, acknowledger: {__MODULE__, 1}},
+      %Message{data: 3, acknowledger: {__MODULE__, 3}}
+    ])
 
-      assert_receive {:message_handled, 1}
-      assert_receive {:message_handled, 3}
-    end
+    assert_receive {:message_handled, 1}
+    assert_receive {:message_handled, 3}
   end
 
   describe "processor" do
