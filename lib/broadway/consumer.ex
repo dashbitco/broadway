@@ -39,7 +39,7 @@ defmodule Broadway.Consumer do
       Acknowledger.ack_messages(successful_messages, failed_messages)
     catch
       kind, reason ->
-        Logger.error(Exception.format(kind, reason, System.stacktrace))
+        Logger.error(Exception.format(kind, reason, System.stacktrace()))
     end
 
     {:noreply, [], state}
@@ -53,7 +53,7 @@ defmodule Broadway.Consumer do
       |> Enum.split_with(fn %Message{status: status} -> status == :ok end)
     catch
       kind, reason ->
-        Logger.error(Exception.format(kind, reason, System.stacktrace))
+        Logger.error(Exception.format(kind, reason, System.stacktrace()))
         failed = "due to an unhandled #{kind}"
         {[], Enum.map(messages, &Message.failed(&1, failed))}
     end
