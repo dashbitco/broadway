@@ -269,12 +269,10 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "producer" do
-    test "push_messages/2" do
-      broadway = new_unique_name()
-
+  test "push_messages/2" do
+    {:ok, pid} =
       Broadway.start_link(Forwarder,
-        name: broadway,
+        name: new_unique_name(),
         context: %{test_pid: self()},
         producers: [
           default: [module: ManualProducer, arg: []]
@@ -286,16 +284,13 @@ defmodule BroadwayTest do
         ]
       )
 
-      producer = get_producer(broadway)
+    Broadway.push_messages(pid, [
+      %Message{data: 1, acknowledger: {__MODULE__, 1}},
+      %Message{data: 3, acknowledger: {__MODULE__, 3}}
+    ])
 
-      Producer.push_messages(producer, [
-        %Message{data: 1, acknowledger: {__MODULE__, 1}},
-        %Message{data: 3, acknowledger: {__MODULE__, 3}}
-      ])
-
-      assert_receive {:message_handled, 1}
-      assert_receive {:message_handled, 3}
-    end
+    assert_receive {:message_handled, 1}
+    assert_receive {:message_handled, 3}
   end
 
   describe "processor" do
@@ -453,8 +448,7 @@ defmodule BroadwayTest do
       assert capture_log(fn ->
                Producer.push_messages(producer, [one, raise, four])
                assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
-             end) =~
-               "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
+             end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
 
       refute_received {:EXIT, _, ^processor}
     end
