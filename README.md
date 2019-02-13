@@ -1,10 +1,12 @@
 # Broadway
 
-Broadway makes it straight-forward to build concurrent and multi-stage data ingestion and data processing pipelines with Elixir.
+Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir.
 
 Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
 ## Built-in features
+
+Broadway takes the burden of defining concurrent GenStage topologies and provide a simple configuration API that defines concurrent producers, concurrent processing, batch handling, and more, leading to both time and cost efficient ingestion and processing of data.
 
   * Back-pressure
   * Batching
@@ -27,7 +29,9 @@ def deps do
 end
 ```
 
-## Example
+## A quick example: SQS integration
+
+Assuming you have added [`broadway_sqs`](https://github.com/plataformatec/broadway_sqs) as a dependency and configured your SQS credentials accordingly, you can consume Amazon SQS events in only 20 LOCs:
 
 ```elixir
 defmodule MyBroadway do
@@ -65,10 +69,12 @@ defmodule MyBroadway do
   end
 
   defp process_data(data) do
-    # Do some calculations, generate a JSON representation, etc.
+    # Do some calculations, generate a JSON representation, process images.
   end
 end
 ```
+
+API reference, examples, how tos and more at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
 ## License
 
