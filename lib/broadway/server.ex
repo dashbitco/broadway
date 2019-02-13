@@ -13,7 +13,14 @@ defmodule Broadway.Server do
     Process.flag(:trap_exit, true)
     config = init_config(module, opts)
     {:ok, supervisor_pid} = start_supervisor(config)
-    {:ok, %{supervisor_pid: supervisor_pid, terminator: config.terminator}}
+
+    {:ok,
+     %{
+       supervisor_pid: supervisor_pid,
+       terminator: config.terminator,
+       name: opts[:name],
+       producers_config: config.producers_config
+     }}
   end
 
   @impl true
@@ -26,6 +33,17 @@ defmodule Broadway.Server do
   end
 
   @impl true
+  def handle_call(:get_producer, _from, state) do
+    %{name: name, producers_config: producers_config} = state
+
+    key = producers_config |> Keyword.keys() |> Enum.random()
+    index = producers_config[key][:stages] |> :rand.uniform()
+    producer = producer_name(name, key, index)
+
+    {:reply, producer, state}
+  end
+
+  @impl true
   def terminate(reason, %{supervisor_pid: supervisor_pid, terminator: terminator}) do
     Broadway.Terminator.trap_exit(terminator)
     ref = Process.monitor(supervisor_pid)
@@ -34,6 +52,10 @@ defmodule Broadway.Server do
     receive do
       {:DOWN, ^ref, _, _, _} -> :ok
     end
+  end
+
+  def get_producer(server) do
+    GenServer.call(server, :get_producer)
   end
 
   defp reason_to_signal(:killed), do: :kill
@@ -95,7 +117,7 @@ defmodule Broadway.Server do
 
     names =
       for index <- 1..n_producers do
-        process_name(broadway_name, "Producer_#{key}", index)
+        producer_name(broadway_name, key, index)
       end
 
     specs =
@@ -269,6 +291,10 @@ defmodule Broadway.Server do
 
   defp process_name(prefix, type, key) do
     :"#{prefix}.#{type}_#{key}"
+  end
+
+  defp producer_name(broadway_name, key, index) do
+    process_name(broadway_name, "Producer_#{key}", index)
   end
 
   defp build_producer_supervisor_spec(config, children) do

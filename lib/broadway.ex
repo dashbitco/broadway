@@ -297,7 +297,7 @@ defmodule Broadway do
   currently fetched messages are processed and published (consumer).
   """
 
-  alias Broadway.{BatchInfo, Message, Options, Server}
+  alias Broadway.{BatchInfo, Message, Options, Server, Producer}
 
   @doc """
   Invoked to handle/process indiviual messages sent from a producer.
@@ -471,6 +471,12 @@ defmodule Broadway do
       {:ok, opts} ->
         Server.start_link(module, opts)
     end
+  end
+
+  def push_messages(server, messages) do
+    server
+    |> Server.get_producer()
+    |> Producer.push_messages(messages)
   end
 
   defp configuration_spec() do
