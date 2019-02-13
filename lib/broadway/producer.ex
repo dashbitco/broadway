@@ -17,7 +17,25 @@ defmodule Broadway.Producer do
     transformer = args[:transformer]
     # TODO: Raise a proper error message if we don't get  {:producer, state} back.
     {:producer, module_state} = module.init(args[:arg])
-    {:producer, %{module: module, module_state: module_state, transformer: transformer}}
+
+    state = %{
+      module: module,
+      module_state: module_state,
+      transformer: transformer,
+      consumers: []
+    }
+
+    {:producer, state}
+  end
+
+  @impl true
+  def handle_subscribe(:consumer, _, from, state) do
+    {:automatic, update_in(state.consumers, &[from | &1])}
+  end
+
+  @impl true
+  def handle_cancel(_, from, state) do
+    {:noreply, [], update_in(state.consumers, &List.delete(&1, from))}
   end
 
   @impl true
@@ -39,8 +57,12 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def handle_info(:shutdown, state) do
-    {:stop, :shutdown, state}
+  def handle_info(:cancel_consumers, state) do
+    for from <- state.consumers do
+      send(self(), {:"$gen_producer", from, {:cancel, :shutdown}})
+    end
+
+    {:noreply, [], state}
   end
 
   def handle_info(message, state) do
