@@ -515,7 +515,7 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "partition" do
+  describe "put_partition" do
     setup do
       broadway = new_unique_name()
 
