@@ -20,6 +20,14 @@ defmodule Broadway.Acknowledger do
   @doc """
   Invoked to acknowledge successful and failed messages.
 
+    * `ack_ref` is a term that uniquely identifies how messages
+      should be grouped and sent for acknowledgement. Imagine
+      you have a scenario where messages are coming from
+      different producers. Broadway will use this information
+      to correctly identify the acknowledger and pass it among
+      with the messages so you can property communicate with
+      the source of the data for acknowledgement.
+
     * `successful` is the list of messages that were
       successfully processed and published.
 
