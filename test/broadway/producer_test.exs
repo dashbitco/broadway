@@ -1,5 +1,5 @@
 defmodule Broadway.ProducerTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias Broadway.{Producer, Message}
 

@@ -1,5 +1,5 @@
 defmodule Broadway.ProcessorTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   test "set custom min and max demand" do
     {_, state, _} =
