@@ -1,5 +1,5 @@
 defmodule Broadway.BatcherTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   test "max_demand defaults to batch_size" do
     {_, state, _} =

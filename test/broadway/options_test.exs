@@ -1,6 +1,7 @@
 defmodule Broadway.OptionsTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
+  doctest Broadway.Options
   alias Broadway.Options
 
   test "known options" do
