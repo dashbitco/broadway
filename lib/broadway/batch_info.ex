@@ -9,11 +9,13 @@ defmodule Broadway.BatchInfo do
 
   @type t :: %__MODULE__{
           batcher_key: atom,
-          batcher_pid: pid
+          batcher_pid: pid,
+          partition: term
         }
 
   defstruct [
     :batcher_key,
-    :batcher_pid
+    :batcher_pid,
+    :partition
   ]
 end

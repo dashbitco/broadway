@@ -31,8 +31,12 @@ defmodule Broadway do
       easy to push test messages through the pipeline and making sure the
       event was properly processed.
 
+    * Partitioning - Broadway allows developers to batch messages based on
+      dynamic partitions. For example, if your pipeline needs to build
+      batches based on the `user_id`, email address, etc, it can be done
+      by calling `Broadway.Message.put_partition/2`.
+
     * Rate-limiting (TODO)
-    * Partitioning (TODO)
     * Statistics/Metrics (TODO)
     * Back-off (TODO)
 

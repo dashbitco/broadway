@@ -18,6 +18,7 @@ defmodule Broadway.Message do
           data: any,
           acknowledger: {module, data :: any},
           batcher: atom,
+          partition: term,
           status: :ok | {:failed, reason :: binary}
         }
 
@@ -25,6 +26,7 @@ defmodule Broadway.Message do
   defstruct data: nil,
             acknowledger: nil,
             batcher: :default,
+            partition: :default,
             status: :ok
 
   @doc """
@@ -44,6 +46,14 @@ defmodule Broadway.Message do
   @spec put_batcher(message :: Message.t(), batcher :: atom) :: Message.t()
   def put_batcher(%Message{} = message, batcher) when is_atom(batcher) do
     %Message{message | batcher: batcher}
+  end
+
+  @doc """
+  Defines the partition within a batcher for the message.
+  """
+  @spec put_partition(message :: Message.t(), partition :: term) :: Message.t()
+  def put_partition(%Message{} = message, partition) do
+    %Message{message | partition: partition}
   end
 
   @doc """

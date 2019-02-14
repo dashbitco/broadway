@@ -449,6 +449,51 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "put_partition" do
+    setup do
+      broadway = new_unique_name()
+
+      handle_message = fn message, _ ->
+        if is_odd(message.data) do
+          Message.put_partition(message, :odd)
+        else
+          Message.put_partition(message, :even)
+        end
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn _, batch, _, _ -> batch end
+      }
+
+      {:ok, _pid} =
+        Broadway.start_link(ForwarderWithCustomHandlers,
+          name: broadway,
+          context: context,
+          producers: [default: [module: ManualProducer, arg: []]],
+          processors: [default: []],
+          batchers: [default: [batch_size: 2, batch_timeout: 20]]
+        )
+
+      %{producer: get_producer(broadway)}
+    end
+
+    test "generate batches based on :batch_size", %{producer: producer} do
+      push_messages(producer, 1..10)
+
+      assert_receive {:ack, [%{data: 1, partition: :odd}, %{data: 3, partition: :odd}], []}
+      assert_receive {:ack, [%{data: 2, partition: :even}, %{data: 4, partition: :even}], []}
+    end
+
+    test "generate batches with the remaining messages after :batch_timeout is reached",
+         %{producer: producer} do
+      push_messages(producer, 1..2)
+
+      assert_receive {:ack, [%{data: 1, partition: :odd}], []}
+      assert_receive {:ack, [%{data: 2, partition: :even}], []}
+    end
+  end
+
   describe "transformer" do
     setup tags do
       broadway_name = new_unique_name()
