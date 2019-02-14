@@ -12,10 +12,10 @@ defmodule BroadwayTest do
     def ack(successful, failed) do
       test_pid =
         case {successful, failed} do
-          {[%Message{acknowledger: {_, %{test_pid: pid}}} | _], _failed} ->
+          {[%Message{acknowledger: {_, _ack_ref, %{test_pid: pid}}} | _], _failed} ->
             pid
 
-          {_successful, [%Message{acknowledger: {_, %{test_pid: pid}}} | _]} ->
+          {_successful, [%Message{acknowledger: {_, _ack_ref, %{test_pid: pid}}} | _]} ->
             pid
         end
 
@@ -96,7 +96,7 @@ defmodule BroadwayTest do
 
       %Message{
         data: "#{event} transformed",
-        acknowledger: {Acker, %{id: event, test_pid: test_pid}}
+        acknowledger: {Acker, :ack_ref, %{id: event, test_pid: test_pid}}
       }
     end
   end
@@ -264,8 +264,8 @@ defmodule BroadwayTest do
       )
 
     Broadway.push_messages(pid, [
-      %Message{data: 1, acknowledger: {__MODULE__, 1}},
-      %Message{data: 3, acknowledger: {__MODULE__, 3}}
+      %Message{data: 1, acknowledger: {__MODULE__, :ack_ref, 1}},
+      %Message{data: 3, acknowledger: {__MODULE__, :ack_ref, 3}}
     ])
 
     assert_receive {:message_handled, 1}
@@ -378,7 +378,7 @@ defmodule BroadwayTest do
     test "processors do not crash on bad acknowledger",
          %{producer: producer, processor: processor} do
       [one, raise, four] = wrap_messages([1, :raise, 4])
-      raise = %{raise | acknowledger: {Unknown, :ok}}
+      raise = %{raise | acknowledger: {Unknown, :ack_ref, :ok}}
 
       assert capture_log(fn ->
                Producer.push_messages(producer, [one, raise, four])
@@ -780,7 +780,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, _pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -795,14 +795,20 @@ defmodule BroadwayTest do
       consumer = get_consumer(broadway_name, :default)
       Process.link(Process.whereis(consumer))
 
-      %{producer: producer, consumer: consumer}
+      %{broadway: broadway, producer: producer, consumer: consumer}
     end
 
-    test "messages are grouped as successful and failed before sent for acknowledgement",
-         %{producer: producer} do
-      push_messages(producer, [1, :fail, :fail, 4])
+    test "messages are grouped by ack_ref + status (successful or failed) before sent for acknowledgement",
+         %{broadway: broadway} do
+      Broadway.push_messages(broadway, [
+        %Message{data: 1, acknowledger: {Acker, :ack_ref_1, %{test_pid: self(), data_id: 1}}},
+        %Message{data: :fail, acknowledger: {Acker, :ack_ref_2, %{test_pid: self(), data_id: 2}}},
+        %Message{data: :fail, acknowledger: {Acker, :ack_ref_1, %{test_pid: self(), data_id: 3}}},
+        %Message{data: 4, acknowledger: {Acker, :ack_ref_2, %{test_pid: self(), data_id: 4}}}
+      ])
 
-      assert_receive {:ack, [%{data: 1}, %{data: 4}], [%{data: :fail}, %{data: :fail}]}
+      assert_receive {:ack, [%{data: 1}], [%{data: :fail, acknowledger: {_, _, %{data_id: 3}}}]}
+      assert_receive {:ack, [%{data: 4}], [%{data: :fail, acknowledger: {_, _, %{data_id: 2}}}]}
     end
 
     test "all messages in the batch are marked as {:failed, reason} when an error is raised",
@@ -845,14 +851,13 @@ defmodule BroadwayTest do
     test "consumers do not crash on bad acknowledger",
          %{producer: producer, consumer: consumer} do
       [one, two, raise, three] = wrap_messages([1, 2, :raise, 3])
-      raise = %{raise | acknowledger: {Unknown, :ok}}
+      raise = %{raise | acknowledger: {Unknown, :ack_ref, :ok}}
 
       assert capture_log(fn ->
                Producer.push_messages(producer, [one, two, raise, three])
                push_messages(producer, [1, 2, 3, 4])
                assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
-             end) =~
-               "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
+             end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
 
       refute_received {:EXIT, _, ^consumer}
     end
@@ -973,7 +978,7 @@ defmodule BroadwayTest do
 
   defp wrap_messages(list) do
     Enum.map(list, fn data ->
-      %Message{data: data, acknowledger: {Acker, %{id: data, test_pid: self()}}}
+      %Message{data: data, acknowledger: {Acker, :ack_ref, %{id: data, test_pid: self()}}}
     end)
   end
 end

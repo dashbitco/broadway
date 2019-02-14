@@ -16,7 +16,7 @@ defmodule Broadway.Message do
 
   @type t :: %Message{
           data: any,
-          acknowledger: {module, data :: any},
+          acknowledger: {module, ack_ref :: any, data :: any},
           batcher: atom,
           status: :ok | {:failed, reason :: binary}
         }

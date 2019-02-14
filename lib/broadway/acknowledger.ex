@@ -41,16 +41,17 @@ defmodule Broadway.Acknowledger do
   end
 
   defp group_by_acknowledger(ackers, messages, key) do
-    Enum.reduce(messages, ackers, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
-      pdict_key = {acknowledger, key}
-      Process.put(pdict_key, [msg | Process.get({acknowledger, key}, [])])
-      Map.put(acc, acknowledger, true)
+    Enum.reduce(messages, ackers, fn %{acknowledger: {acknowledger, ack_ref, _}} = msg, acc ->
+      ack_info = {acknowledger, ack_ref}
+      pdict_key = {ack_info, key}
+      Process.put(pdict_key, [msg | Process.get({ack_info, key}, [])])
+      Map.put(acc, ack_info, true)
     end)
   end
 
-  defp call_ack({acknowledger, true}) do
-    successful = Process.delete({acknowledger, :successful}) || []
-    failed = Process.delete({acknowledger, :failed}) || []
+  defp call_ack({{acknowledger, _ack_ref} = ack_info, true}) do
+    successful = Process.delete({ack_info, :successful}) || []
+    failed = Process.delete({ack_info, :failed}) || []
     acknowledger.ack(Enum.reverse(successful), Enum.reverse(failed))
   end
 end
