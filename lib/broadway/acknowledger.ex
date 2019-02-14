@@ -35,8 +35,7 @@ defmodule Broadway.Acknowledger do
       could not be processed or published.
 
   """
-  @callback ack(ack_ref :: reference, successful :: [Message.t()], failed :: [Message.t()]) ::
-              no_return
+  @callback ack(ack_ref :: reference, successful :: [Message.t()], failed :: [Message.t()]) :: :ok
 
   @doc """
   Acknowledges successful and failed messages grouped by acknowledger.
@@ -53,7 +52,7 @@ defmodule Broadway.Acknowledger do
     Enum.reduce(messages, ackers, fn %{acknowledger: {acknowledger, ack_ref, _}} = msg, acc ->
       ack_info = {acknowledger, ack_ref}
       pdict_key = {ack_info, key}
-      Process.put(pdict_key, [msg | Process.get({ack_info, key}, [])])
+      Process.put(pdict_key, [msg | Process.get(pdict_key, [])])
       Map.put(acc, ack_info, true)
     end)
   end
