@@ -467,7 +467,7 @@ defmodule BroadwayTest do
       }
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(CustomHandlers,
           name: broadway,
           context: context,
           producers: [default: [module: ManualProducer, arg: []]],
