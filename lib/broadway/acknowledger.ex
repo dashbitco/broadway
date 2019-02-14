@@ -20,6 +20,14 @@ defmodule Broadway.Acknowledger do
   @doc """
   Invoked to acknowledge successful and failed messages.
 
+    * `ack_ref` is a term that uniquely identifies how messages
+      should be grouped and sent for acknowledgement. Imagine
+      you have a scenario where messages are coming from
+      different producers. Broadway will use this information
+      to correctly identify the acknowledger and pass it among
+      with the messages so you can property communicate with
+      the source of the data for acknowledgement.
+
     * `successful` is the list of messages that were
       successfully processed and published.
 
@@ -27,7 +35,7 @@ defmodule Broadway.Acknowledger do
       could not be processed or published.
 
   """
-  @callback ack(successful :: [Message.t()], failed :: [Message.t()]) :: no_return
+  @callback ack(ack_ref :: reference, successful :: [Message.t()], failed :: [Message.t()]) :: :ok
 
   @doc """
   Acknowledges successful and failed messages grouped by acknowledger.
@@ -41,16 +49,17 @@ defmodule Broadway.Acknowledger do
   end
 
   defp group_by_acknowledger(ackers, messages, key) do
-    Enum.reduce(messages, ackers, fn %{acknowledger: {acknowledger, _}} = msg, acc ->
-      pdict_key = {acknowledger, key}
-      Process.put(pdict_key, [msg | Process.get({acknowledger, key}, [])])
-      Map.put(acc, acknowledger, true)
+    Enum.reduce(messages, ackers, fn %{acknowledger: {acknowledger, ack_ref, _}} = msg, acc ->
+      ack_info = {acknowledger, ack_ref}
+      pdict_key = {ack_info, key}
+      Process.put(pdict_key, [msg | Process.get(pdict_key, [])])
+      Map.put(acc, ack_info, true)
     end)
   end
 
-  defp call_ack({acknowledger, true}) do
-    successful = Process.delete({acknowledger, :successful}) || []
-    failed = Process.delete({acknowledger, :failed}) || []
-    acknowledger.ack(Enum.reverse(successful), Enum.reverse(failed))
+  defp call_ack({{acknowledger, ack_ref} = ack_info, true}) do
+    successful = Process.delete({ack_info, :successful}) || []
+    failed = Process.delete({ack_info, :failed}) || []
+    acknowledger.ack(ack_ref, Enum.reverse(successful), Enum.reverse(failed))
   end
 end
