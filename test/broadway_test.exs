@@ -65,23 +65,9 @@ defmodule BroadwayTest do
   defmodule Forwarder do
     use Broadway
 
-    import Message
-
-    def handle_message(:default, %Message{data: data} = message, %{test_pid: test_pid})
-        when is_odd(data) do
-      send(test_pid, {:message_handled, message.data})
-
-      message
-      |> update_data(fn data -> data + 1000 end)
-      |> put_batcher(:odd)
-    end
-
     def handle_message(:default, message, %{test_pid: test_pid}) do
       send(test_pid, {:message_handled, message.data})
-
       message
-      |> update_data(fn data -> data + 1000 end)
-      |> put_batcher(:even)
     end
 
     def handle_batch(batcher, messages, _, %{test_pid: test_pid}) do
@@ -90,7 +76,7 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule ForwarderWithCustomHandlers do
+  defmodule CustomHandlers do
     use Broadway
 
     def handle_message(_, message, %{handle_message: handler} = context) do
@@ -274,10 +260,7 @@ defmodule BroadwayTest do
           default: [module: ManualProducer, arg: []]
         ],
         processors: [default: []],
-        batchers: [
-          even: [],
-          odd: []
-        ]
+        batchers: [default: []]
       )
 
     Broadway.push_messages(pid, [
@@ -290,50 +273,6 @@ defmodule BroadwayTest do
   end
 
   describe "processor" do
-    setup do
-      broadway = new_unique_name()
-
-      {:ok, _pid} =
-        Broadway.start_link(Forwarder,
-          name: broadway,
-          context: %{test_pid: self()},
-          producers: [
-            default: [module: ManualProducer, arg: []]
-          ],
-          processors: [default: []],
-          batchers: [
-            even: [],
-            odd: []
-          ]
-        )
-
-      %{producer: get_producer(broadway)}
-    end
-
-    test "handle all produced messages", %{producer: producer} do
-      push_messages(producer, 1..200)
-
-      for counter <- 1..200 do
-        assert_receive {:message_handled, ^counter}
-      end
-
-      refute_receive {:message_handled, _}
-    end
-
-    test "forward messages to the specified batcher", %{producer: producer} do
-      push_messages(producer, 1..200)
-
-      assert_receive {:batch_handled, :odd, messages}
-      assert Enum.all?(messages, fn msg -> is_odd(msg.data) end)
-
-      assert_receive {:batch_handled, :even, messages}
-      assert Enum.all?(messages, fn msg -> is_even(msg.data) end)
-
-      refute_receive {:batch_handled, _, _}
-    end
-  end
-
-  describe "processor - failed messages handling" do
     setup do
       test_pid = self()
 
@@ -360,7 +299,7 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
           producers: [
@@ -450,14 +389,31 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "batcher" do
+  describe "put_batcher" do
     setup do
       broadway = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        if is_odd(message.data) do
+          Message.put_batcher(message, :odd)
+        else
+          Message.put_batcher(message, :even)
+        end
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn batcher, batch, _, _ ->
+          send(test_pid, {:batch_handled, batcher, batch})
+          batch
+        end
+      }
 
       {:ok, _pid} =
-        Broadway.start_link(Forwarder,
+        Broadway.start_link(CustomHandlers,
           name: broadway,
-          context: %{test_pid: self()},
+          context: context,
           producers: [
             default: [module: ManualProducer, arg: []]
           ],
@@ -491,51 +447,17 @@ defmodule BroadwayTest do
       assert_receive {:batch_handled, :even, messages} when length(messages) == 2
       refute_receive {:batch_handled, _, _}
     end
-
-    test "pass all messages to the acknowledger", %{producer: producer} do
-      push_messages(producer, [1, 3, 5, 7, 9, 11, 13, 15, 17, 19])
-
-      assert_receive {:ack, successful, _failed}
-      assert length(successful) == 10
-
-      push_messages(producer, [2, 4, 6, 8, 10])
-
-      assert_receive {:ack, successful, _failed}
-      assert length(successful) == 5
-    end
-
-    test "pass all messages to the acknowledger, including extra data", %{producer: producer} do
-      push_messages(producer, [2, 4, 6, 8, 10])
-
-      assert_receive {:ack, successful, _failed}
-
-      assert Enum.all?(successful, fn %Message{acknowledger: {_, ack_data}, data: data} ->
-               data == ack_data.id + 1000
-             end)
-    end
   end
 
   describe "transformer" do
     setup tags do
-      test_pid = self()
-
-      handle_message = fn message, _ ->
-        send(test_pid, {:message_handled, message})
-        message
-      end
-
-      context = %{
-        handle_message: handle_message,
-        handle_batch: fn _, batch, _, _ -> batch end
-      }
-
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(Forwarder,
           name: broadway_name,
           resubscribe_interval: 0,
-          context: context,
+          context: %{test_pid: self()},
           producers: [
             default: [
               module: EventProducer,
@@ -553,9 +475,9 @@ defmodule BroadwayTest do
     end
 
     test "transform all events" do
-      assert_receive {:message_handled, %{data: "1 transformed"}}
-      assert_receive {:message_handled, %{data: "2 transformed"}}
-      assert_receive {:message_handled, %{data: "3 transformed"}}
+      assert_receive {:message_handled, "1 transformed"}
+      assert_receive {:message_handled, "2 transformed"}
+      assert_receive {:message_handled, "3 transformed"}
     end
 
     @tag events: [1, 2, :kill_producer, 4]
@@ -563,11 +485,11 @@ defmodule BroadwayTest do
       %{producer: producer} = context
       ref_producer = Process.monitor(producer)
 
-      assert_receive {:message_handled, %{data: "1 transformed"}}
-      assert_receive {:message_handled, %{data: "2 transformed"}}
+      assert_receive {:message_handled, "1 transformed"}
+      assert_receive {:message_handled, "2 transformed"}
       assert_receive {:DOWN, ^ref_producer, _, _, _}
-      assert_receive {:message_handled, %{data: "1 transformed"}}
-      assert_receive {:message_handled, %{data: "2 transformed"}}
+      assert_receive {:message_handled, "1 transformed"}
+      assert_receive {:message_handled, "2 transformed"}
     end
   end
 
@@ -588,7 +510,7 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(CustomHandlers,
           name: broadway_name,
           resubscribe_interval: 0,
           context: context,
@@ -668,7 +590,7 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
           producers: [
@@ -764,7 +686,7 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
           producers: [
@@ -834,7 +756,7 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "batcher - failed messages handling" do
+  describe "batcher" do
     setup do
       test_pid = self()
 
@@ -859,7 +781,7 @@ defmodule BroadwayTest do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
           producers: [
@@ -952,7 +874,7 @@ defmodule BroadwayTest do
       }
 
       {:ok, pid} =
-        Broadway.start_link(ForwarderWithCustomHandlers,
+        Broadway.start_link(CustomHandlers,
           name: broadway_name,
           producers: [
             default: [module: ManualProducer, arg: []]
