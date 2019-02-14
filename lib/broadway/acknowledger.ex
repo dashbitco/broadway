@@ -27,7 +27,8 @@ defmodule Broadway.Acknowledger do
       could not be processed or published.
 
   """
-  @callback ack(successful :: [Message.t()], failed :: [Message.t()]) :: no_return
+  @callback ack(ack_ref :: reference, successful :: [Message.t()], failed :: [Message.t()]) ::
+              no_return
 
   @doc """
   Acknowledges successful and failed messages grouped by acknowledger.
@@ -49,9 +50,9 @@ defmodule Broadway.Acknowledger do
     end)
   end
 
-  defp call_ack({{acknowledger, _ack_ref} = ack_info, true}) do
+  defp call_ack({{acknowledger, ack_ref} = ack_info, true}) do
     successful = Process.delete({ack_info, :successful}) || []
     failed = Process.delete({ack_info, :failed}) || []
-    acknowledger.ack(Enum.reverse(successful), Enum.reverse(failed))
+    acknowledger.ack(ack_ref, Enum.reverse(successful), Enum.reverse(failed))
   end
 end

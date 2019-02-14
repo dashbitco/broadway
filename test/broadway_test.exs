@@ -9,7 +9,7 @@ defmodule BroadwayTest do
   defmodule Acker do
     @behaviour Broadway.Acknowledger
 
-    def ack(successful, failed) do
+    def ack(_ack_ref, successful, failed) do
       test_pid =
         case {successful, failed} do
           {[%Message{acknowledger: {_, _ack_ref, %{test_pid: pid}}} | _], _failed} ->
@@ -383,7 +383,7 @@ defmodule BroadwayTest do
       assert capture_log(fn ->
                Producer.push_messages(producer, [one, raise, four])
                assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
-             end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
+             end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/3 is undefined"
 
       refute_received {:EXIT, _, ^processor}
     end
@@ -857,7 +857,7 @@ defmodule BroadwayTest do
                Producer.push_messages(producer, [one, two, raise, three])
                push_messages(producer, [1, 2, 3, 4])
                assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
-             end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/2 is undefined"
+             end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/3 is undefined"
 
       refute_received {:EXIT, _, ^consumer}
     end
