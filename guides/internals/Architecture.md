@@ -8,7 +8,7 @@ own our pipeline.
 
 ## The pipeline model
 
-```
+```asciidoc
                                    [producers]   <- pulls data from SQS, RabbitMQ, etc.
                                         |
                                         |   (demand dispatcher)
@@ -41,7 +41,7 @@ Broadway was designed to always go back to a working state in case
 of failures thanks to the use of supervisors. Our supervision tree
 is designed as follows:
 
-```
+```asciidoc
                         [Broadway GenServer]
                                  |
                                  |
@@ -91,7 +91,7 @@ shutdown. We know that either all processes are running OR they are all
 being shutdown. Therefore, to gracefully shutdown the supervision tree,
 a terminator process is activated, which starts the following steps:
 
-  1. It notifies the first layer of processors that they should no
+  1. It notifies the first layer of processors that they should not
      resubscribe to producers once they exit
 
   2. It tells all producers to no longer accept demand, flush all

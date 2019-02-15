@@ -25,7 +25,7 @@ defmodule Broadway.Acknowledger do
       you have a scenario where messages are coming from
       different producers. Broadway will use this information
       to correctly identify the acknowledger and pass it among
-      with the messages so you can property communicate with
+      with the messages so you can properly communicate with
       the source of the data for acknowledgement.
 
     * `successful` is the list of messages that were
@@ -38,7 +38,7 @@ defmodule Broadway.Acknowledger do
   @callback ack(ack_ref :: reference, successful :: [Message.t()], failed :: [Message.t()]) :: :ok
 
   @doc """
-  Acknowledges successful and failed messages grouped by acknowledger.
+  Acknowledges successful and failed messages grouped by `{acknowledger, ack_ref}`.
   """
   @spec ack_messages([Message.t()], [Message.t()]) :: no_return
   def ack_messages(successful, failed) do

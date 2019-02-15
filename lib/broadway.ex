@@ -84,7 +84,7 @@ defmodule Broadway do
 
   Here is how this pipeline would be represented:
 
-  ```
+  ```asciidoc
                        [producer_1]
                            / \
                           /   \
@@ -133,7 +133,7 @@ defmodule Broadway do
           |> Message.put_batcher(:sqs)
         end
 
-        def handle_message(_, %Message{data: data} = message, _context) is_even(data) do
+        def handle_message(_, %Message{data: data} = message, _) when is_even(data) do
           message
           |> Message.update_data(&process_data/1)
           |> Message.put_batcher(:s3)
@@ -174,9 +174,11 @@ defmodule Broadway do
 
   Note however, that `Broadway` does not provide any sort of retries
   out of the box. This is left completely as a responsibility of the
-  producer. For instance, if you are using Amazon SQS and you would
-  like unacknowledged messages to be retried, it is your responsibility
-  to configure a dead-letter queue and set the relevant timeouts.
+  producer. For instance, if you are using Amazon SQS, the default
+  behaviour is to retry unacknowledged messages after a user-defined
+  timeout. If you don't want unacknowledged messages to be retried,
+  is your responsibility to configure a dead-letter queue as target
+  for those messages.
 
   ## Testing
 
