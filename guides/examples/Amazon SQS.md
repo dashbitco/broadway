@@ -44,15 +44,13 @@ which is a Broadway SQS Connector provided by [Plataformatec](http://www.platafo
 Add `:broadway_sqs` to the list of dependencies in `mix.exs` along the HTTP
 client of your choice (defaults to `:hackney`):
 
-```elixir
-def deps do
-  [
-    ...
-    {:broadway_sqs, "~> 0.1.0"},
-    {:hackney, "~> 1.9"},
-  ]
-end
-```
+    def deps do
+      [
+        ...
+        {:broadway_sqs, "~> 0.1.0"},
+        {:hackney, "~> 1.9"},
+      ]
+    end
 
 ## Define the pipeline configuration
 
@@ -145,7 +143,7 @@ Some of the configuration options available for Broadway come already with a
 requirements. Depending on the number of messages you get, how much processing
 they need and how much IO work is going to take place, you might need completely
 different values to optimize the flow of your pipeline. The `stages` option
-avaiable for every set of producers, processors and batchers, among with
+available for every set of producers, processors and batchers, among with
 `batch_size` and `batch_timeout` can give you a great deal of flexibility.
 The `stages` option controls the concurrency level in each layer of
 the pipeline. Here's an example on how you could tune them according to
