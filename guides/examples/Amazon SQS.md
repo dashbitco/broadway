@@ -36,9 +36,8 @@ which is a message queue system that offers a SQS-compatible query interface.
 
 ## Configure the project
 
-In this guide we're going to use the
-[BroadwaySQS](https://github.com/plataformatec/broadway_sqs), which is a
-Broadway SQS Connector provided by Plataformatec.
+In this guide we're going to use [BroadwaySQS](https://github.com/plataformatec/broadway_sqs),
+which is a Broadway SQS Connector provided by [Plataformatec](http://www.plataformatec.com).
 
 ### Setting up dependencies
 
@@ -60,7 +59,7 @@ end
 Like any other process-based behaviour, implementing the Broadway
 bahaviour is straightforward. The second argument of
 `Broadway.start_link/2` is the pipeline configuration. Assuming we
-want to consume messages from our queue called `my_queue`. The minimal
+want to consume messages from a queue called `my_queue`. The minimal
 configuration would be:
 
     defmodule MyBroadway do
@@ -90,9 +89,9 @@ configuration would be:
 
 The above configuration also assumes that you have the AWS credentials
 set up in your environment, for instance, by having the `AWS_ACCESS_KEY_ID`
-and `AWS_SECRET_ACCESS_KEY` environment variables configured. If that's
+and `AWS_SECRET_ACCESS_KEY` environment variables set. If that's
 not the case, you will need to pass that information to the client so it
-can properly connect to the the AWS servers. Here is how you can do it:
+can properly connect to the AWS servers. Here is how you can do it:
 
     ...
     sqs_client: {BroadwaySQS.ExAwsClient, [
@@ -113,7 +112,7 @@ and `BroadwaySQS.ExAwsClient` in [BroadwaySQS](https://hexdocs.pm/broadway_sqs/)
 
 In order to process incoming messages, we need to implement the
 required callbacks. For the sake of simplicity, we're considering that
-all messages received from the queue are numbers:
+all messages received from the queue are just numbers:
 
     defmodule MyBroadway do
       use Broadway
@@ -141,12 +140,12 @@ purpose. First we update the message's data individually inside
 
 ## Tuning the configuration
 
-Some of the configuration options available in Broadway come already wih a
+Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However those values might not suit your
 requirements. Depending on the number of messages you get, how much processing
 they need and how much IO work is going to take place, you might need completely
-different values to optimize the flow of your pipeline. Playing the `stages`
-option avaiable for every set of producers, processors and batchers, among with
+different values to optimize the flow of your pipeline. The `stages` option
+avaiable for every set of producers, processors and batchers, among with
 `batch_size` and `batch_timeout` can give you a great deal of flexibility.
 The `stages` option controls the concurrency level in each layer of
 the pipeline. Here's an example on how you could tune them according to
