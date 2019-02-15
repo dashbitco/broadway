@@ -4,7 +4,7 @@ defmodule BroadwayTest do
   import Integer
   import ExUnit.CaptureLog
 
-  alias Broadway.{Producer, Message, BatchInfo}
+  alias Broadway.{Message, BatchInfo, CallerAcknowledger}
 
   defmodule Acker do
     @behaviour Broadway.Acknowledger
@@ -298,7 +298,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, _pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -309,55 +309,54 @@ defmodule BroadwayTest do
           batchers: [default: [batch_size: 2]]
         )
 
-      producer = get_producer(broadway_name, :default)
       processor = get_processor(broadway_name, :default)
       Process.link(Process.whereis(processor))
-
-      %{producer: producer, processor: processor}
+      %{broadway: broadway, processor: processor}
     end
 
-    test "successful messages are marked as :ok", %{producer: producer} do
-      push_messages(producer, [1, 2])
+    test "successful messages are marked as :ok", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, 2])
       assert_receive {:batch_handled, [%{status: :ok}, %{status: :ok}]}
+      assert_receive {:ack, ^ref, [%{status: :ok}, %{status: :ok}], []}
     end
 
-    test "failed messages are marked as {:failed, reason}", %{producer: producer} do
-      push_messages(producer, [:fail])
-      assert_receive {:ack, _, [%{status: {:failed, "Failed message"}}]}
+    test "failed messages are marked as {:failed, reason}", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [:fail])
+      assert_receive {:ack, ^ref, _, [%{status: {:failed, "Failed message"}}]}
     end
 
-    test "failed messages are not forwarded to the batcher", %{producer: producer} do
-      push_messages(producer, [1, :fail, :fail, 4])
+    test "failed messages are not forwarded to the batcher", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, :fail, :fail, 4])
 
-      assert_receive {:batch_handled, batch}
-      assert Enum.map(batch, & &1.data) == [1, 4]
-    end
-
-    test "messages are grouped as successful and failed before sent for acknowledgement",
-         %{producer: producer} do
-      push_messages(producer, [1, :fail, 4])
-
-      assert_receive {:ack, [], [%{data: :fail}]}
-      assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+      assert_receive {:batch_handled, [%{data: 1}, %{data: 4}]}
+      assert_receive {:ack, ^ref, [%{status: :ok}, %{status: :ok}], []}
+      assert_receive {:ack, ^ref, _, [%{status: {:failed, "Failed message"}}]}
+      assert_receive {:ack, ^ref, _, [%{status: {:failed, "Failed message"}}]}
     end
 
     test "messages are marked as {:failed, reason} when an error is raised while processing",
-         %{producer: producer, processor: processor} do
+         %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               push_messages(producer, [1, :raise, 4])
-               assert_receive {:ack, _, [%{status: {:failed, "due to an unhandled error"}}]}
-               assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+               ref = Broadway.test_messages(broadway, [1, :raise, 4])
+
+               assert_receive {:ack, ^ref, [],
+                               [%{status: {:failed, "due to an unhandled error"}}]}
+
+               assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~ "[error] ** (RuntimeError) Error raised"
 
       refute_received {:EXIT, _, ^processor}
     end
 
     test "messages are marked as {:failed, reason} on bad return",
-         %{producer: producer, processor: processor} do
+         %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               push_messages(producer, [1, :bad_return, 4])
-               assert_receive {:ack, _, [%{status: {:failed, "due to an unhandled error"}}]}
-               assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+               ref = Broadway.test_messages(broadway, [1, :bad_return, 4])
+
+               assert_receive {:ack, ^ref, [],
+                               [%{status: {:failed, "due to an unhandled error"}}]}
+
+               assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~
                "[error] ** (RuntimeError) expected a Broadway.Message from handle_message/3, got :oops"
 
@@ -365,10 +364,14 @@ defmodule BroadwayTest do
     end
 
     test "messages are marked as {:failed, reason} on bad batcher",
-         %{producer: producer, processor: processor} do
+         %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               push_messages(producer, [1, :bad_batcher, 4])
-               assert_receive {:ack, _, [%{status: {:failed, "due to an unhandled error"}}]}
+               ref = Broadway.test_messages(broadway, [1, :bad_batcher, 4])
+
+               assert_receive {:ack, ^ref, [],
+                               [%{status: {:failed, "due to an unhandled error"}}]}
+
+               assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~
                "[error] ** (RuntimeError) message was set to unknown batcher :unknown. The known batchers are [:default]"
 
@@ -376,13 +379,13 @@ defmodule BroadwayTest do
     end
 
     test "processors do not crash on bad acknowledger",
-         %{producer: producer, processor: processor} do
+         %{broadway: broadway, processor: processor} do
       [one, raise, four] = wrap_messages([1, :raise, 4])
       raise = %{raise | acknowledger: {Unknown, :ack_ref, :ok}}
 
       assert capture_log(fn ->
-               Producer.push_messages(producer, [one, raise, four])
-               assert_receive {:ack, [%{data: 1}, %{data: 4}], []}
+               Broadway.push_messages(broadway, [one, raise, four])
+               assert_receive {:ack, _, [%{data: 1}, %{data: 4}], []}
              end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/3 is undefined"
 
       refute_received {:EXIT, _, ^processor}
@@ -391,7 +394,7 @@ defmodule BroadwayTest do
 
   describe "put_batcher" do
     setup do
-      broadway = new_unique_name()
+      broadway_name = new_unique_name()
       test_pid = self()
 
       handle_message = fn message, _ ->
@@ -410,9 +413,9 @@ defmodule BroadwayTest do
         end
       }
 
-      {:ok, _pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
-          name: broadway,
+          name: broadway_name,
           context: context,
           producers: [
             default: [module: ManualProducer, arg: []]
@@ -424,11 +427,11 @@ defmodule BroadwayTest do
           ]
         )
 
-      %{producer: get_producer(broadway)}
+      %{broadway: broadway}
     end
 
-    test "generate batches based on :batch_size", %{producer: producer} do
-      push_messages(producer, 1..40)
+    test "generate batches based on :batch_size", %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(1..40))
 
       assert_receive {:batch_handled, :odd, messages} when length(messages) == 10
       assert_receive {:batch_handled, :odd, messages} when length(messages) == 10
@@ -440,8 +443,8 @@ defmodule BroadwayTest do
     end
 
     test "generate batches with the remaining messages after :batch_timeout is reached",
-         %{producer: producer} do
-      push_messages(producer, 1..5)
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, [1, 2, 3, 4, 5])
 
       assert_receive {:batch_handled, :odd, messages} when length(messages) == 3
       assert_receive {:batch_handled, :even, messages} when length(messages) == 2
@@ -451,7 +454,7 @@ defmodule BroadwayTest do
 
   describe "put_partition" do
     setup do
-      broadway = new_unique_name()
+      broadway_name = new_unique_name()
 
       handle_message = fn message, _ ->
         if is_odd(message.data) do
@@ -466,31 +469,33 @@ defmodule BroadwayTest do
         handle_batch: fn _, batch, _, _ -> batch end
       }
 
-      {:ok, _pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
-          name: broadway,
+          name: broadway_name,
           context: context,
           producers: [default: [module: ManualProducer, arg: []]],
           processors: [default: []],
           batchers: [default: [batch_size: 2, batch_timeout: 20]]
         )
 
-      %{producer: get_producer(broadway)}
+      %{broadway: broadway}
     end
 
-    test "generate batches based on :batch_size", %{producer: producer} do
-      push_messages(producer, 1..10)
+    test "generate batches based on :batch_size", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, Enum.to_list(1..10))
 
-      assert_receive {:ack, [%{data: 1, partition: :odd}, %{data: 3, partition: :odd}], []}
-      assert_receive {:ack, [%{data: 2, partition: :even}, %{data: 4, partition: :even}], []}
+      assert_receive {:ack, ^ref, [%{data: 1, partition: :odd}, %{data: 3, partition: :odd}], []}
+
+      assert_receive {:ack, ^ref, [%{data: 2, partition: :even}, %{data: 4, partition: :even}],
+                      []}
     end
 
     test "generate batches with the remaining messages after :batch_timeout is reached",
-         %{producer: producer} do
-      push_messages(producer, 1..2)
+         %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, 2])
 
-      assert_receive {:ack, [%{data: 1, partition: :odd}], []}
-      assert_receive {:ack, [%{data: 2, partition: :even}], []}
+      assert_receive {:ack, ^ref, [%{data: 1, partition: :odd}], []}
+      assert_receive {:ack, ^ref, [%{data: 2, partition: :even}], []}
     end
   end
 
@@ -554,7 +559,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, _pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           resubscribe_interval: 0,
@@ -574,37 +579,41 @@ defmodule BroadwayTest do
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
-      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
+      %{
+        broadway: broadway,
+        producer: producer,
+        processor: processor,
+        batcher: batcher,
+        consumer: consumer
+      }
     end
 
-    test "only the producer will be restarted", context do
-      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} = context
-
+    test "only the producer will be restarted",
+         %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} do
       ref_producer = Process.monitor(producer)
       ref_batcher = Process.monitor(batcher)
       ref_processor = Process.monitor(processor)
       ref_consumer = Process.monitor(consumer)
-
       GenStage.stop(producer)
 
       assert_receive {:DOWN, ^ref_producer, _, _, _}
       refute_receive {:DOWN, ^ref_processor, _, _, _}
       refute_receive {:DOWN, ^ref_batcher, _, _, _}
       refute_receive {:DOWN, ^ref_consumer, _, _, _}
-
       assert_receive {:producer_initialized, ^producer}
     end
 
-    test "processors resubscribe to the restarted producers and keep processing messages" do
-      assert_receive {:producer_initialized, producer}
+    test "processors resubscribe to the restarted producers and keep processing messages",
+         %{broadway: broadway, producer: producer} do
+      assert_receive {:producer_initialized, ^producer}
 
-      push_messages(producer, [1])
+      Broadway.test_messages(broadway, [1])
       assert_receive {:message_handled, %{data: 1}}
 
       GenStage.stop(producer)
       assert_receive {:producer_initialized, ^producer}
 
-      push_messages(producer, [2])
+      Broadway.test_messages(broadway, [2])
       assert_receive {:message_handled, %{data: 2}}
     end
   end
@@ -634,7 +643,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, _pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -650,42 +659,53 @@ defmodule BroadwayTest do
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
-      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
+      %{
+        broadway: broadway,
+        producer: producer,
+        processor: processor,
+        batcher: batcher,
+        consumer: consumer
+      }
     end
 
     test "processor will be restarted in order to handle other messages",
-         %{producer: producer, processor: processor} do
-      push_messages(producer, [1])
+         %{broadway: broadway, processor: processor} do
+      Broadway.test_messages(broadway, [1])
       assert_receive {:message_handled, %{data: 1}}
 
       pid = Process.whereis(processor)
       ref = Process.monitor(processor)
-      push_messages(producer, [:kill_processor])
+      Broadway.test_messages(broadway, [:kill_processor])
       assert_receive {:DOWN, ^ref, _, _, _}
 
-      push_messages(producer, [2])
+      Broadway.test_messages(broadway, [2])
       assert_receive {:message_handled, %{data: 2}}
       assert Process.whereis(processor) != pid
     end
 
     test "processor crashes cascade down (but not up)", context do
-      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} = context
+      %{
+        broadway: broadway,
+        producer: producer,
+        processor: processor,
+        batcher: batcher,
+        consumer: consumer
+      } = context
 
       ref_batcher = Process.monitor(batcher)
       ref_processor = Process.monitor(processor)
       ref_producer = Process.monitor(producer)
       ref_consumer = Process.monitor(consumer)
 
-      push_messages(producer, [:kill_processor])
-
+      Broadway.test_messages(broadway, [:kill_processor])
       assert_receive {:DOWN, ^ref_processor, _, _, _}
       assert_receive {:DOWN, ^ref_batcher, _, _, _}
       assert_receive {:DOWN, ^ref_consumer, _, _, _}
       refute_received {:DOWN, ^ref_producer, _, _, _}
     end
 
-    test "only the messages in the crashing processor are lost", %{producer: producer} do
-      push_messages(producer, [1, 2, :kill_processor, 3, 4, 5])
+    test "only the messages in the crashing processor are lost", %{broadway: broadway} do
+      Broadway.test_messages(broadway, [1, 2, :kill_processor, 3, 4, 5])
 
       assert_receive {:message_handled, %{data: 1}}
       assert_receive {:message_handled, %{data: 2}}
@@ -697,8 +717,8 @@ defmodule BroadwayTest do
       assert_receive {:message_handled, %{data: 5}}
     end
 
-    test "batches are created normally (without the lost messages)", %{producer: producer} do
-      push_messages(producer, [1, 2, :kill_processor, 3, 4, 5])
+    test "batches are created normally (without the lost messages)", %{broadway: broadway} do
+      Broadway.test_messages(broadway, [1, 2, :kill_processor, 3, 4, 5])
 
       assert_receive {:batch_handled, messages}
       values = messages |> Enum.map(& &1.data)
@@ -730,7 +750,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, _pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -746,58 +766,66 @@ defmodule BroadwayTest do
       batcher = get_batcher(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
 
-      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer}
+      %{
+        broadway: broadway,
+        producer: producer,
+        processor: processor,
+        batcher: batcher,
+        consumer: consumer
+      }
     end
 
-    test "batcher will be restarted in order to handle other messages", %{producer: producer} do
-      push_messages(producer, [1, 2])
+    test "batcher will be restarted in order to handle other messages", %{broadway: broadway} do
+      Broadway.test_messages(broadway, [1, 2])
       assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: batcher1}}
-
       ref = Process.monitor(batcher1)
 
-      push_messages(producer, [:kill_batcher, 3])
+      Broadway.test_messages(broadway, [:kill_batcher, 3])
       assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: ^batcher1}}
-
       assert_receive {:DOWN, ^ref, _, obj, _}
 
-      push_messages(producer, [4, 5])
+      Broadway.test_messages(broadway, [4, 5])
       assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: batcher2}}
-
       assert batcher1 != batcher2
     end
 
     test "batcher crashes cascade down (but not up)", context do
-      %{producer: producer, processor: processor, batcher: batcher, consumer: consumer} = context
+      %{
+        broadway: broadway,
+        producer: producer,
+        processor: processor,
+        batcher: batcher,
+        consumer: consumer
+      } = context
 
       ref_batcher = Process.monitor(batcher)
       ref_processor = Process.monitor(processor)
       ref_producer = Process.monitor(producer)
       ref_consumer = Process.monitor(consumer)
 
-      push_messages(producer, [:kill_batcher, 3])
-
+      Broadway.test_messages(broadway, [:kill_batcher, 3])
       assert_receive {:DOWN, ^ref_batcher, _, _, _}
       assert_receive {:DOWN, ^ref_consumer, _, _, _}
       refute_received {:DOWN, ^ref_producer, _, _, _}
       refute_received {:DOWN, ^ref_processor, _, _, _}
     end
 
-    test "only the messages in the crashing batcher are lost", %{producer: producer} do
-      push_messages(producer, [1, 2, :kill_batcher, 3, 4, 5, 6, 7])
+    test "only the messages in the crashing batcher are lost", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, 2, :kill_batcher, 3, 4, 5, 6, 7])
 
-      assert_receive {:ack, successful, _failed}
+      assert_receive {:ack, ^ref, successful, _failed}
       values = Enum.map(successful, & &1.data)
       assert values == [1, 2]
 
-      assert_receive {:ack, successful, _failed}
+      assert_receive {:ack, ^ref, successful, _failed}
       values = Enum.map(successful, & &1.data)
       assert values == [:kill_batcher, 3]
 
-      assert_receive {:ack, successful, _failed}
+      assert_receive {:ack, ^ref, successful, _failed}
       values = Enum.map(successful, & &1.data)
       assert values == [6, 7]
 
-      refute_receive {:ack, _successful, _failed}
+      refute_receive {:ack, _, _successful, _failed}
     end
   end
 
@@ -836,32 +864,30 @@ defmodule BroadwayTest do
           batchers: [default: [batch_size: 4]]
         )
 
-      producer = get_producer(broadway_name, :default)
       consumer = get_consumer(broadway_name, :default)
       Process.link(Process.whereis(consumer))
-
-      %{broadway: broadway, producer: producer, consumer: consumer}
+      %{broadway: broadway, consumer: consumer}
     end
 
     test "messages are grouped by ack_ref + status (successful or failed) before sent for acknowledgement",
          %{broadway: broadway} do
       Broadway.push_messages(broadway, [
-        %Message{data: 1, acknowledger: {Acker, :ack_ref_1, %{test_pid: self(), data_id: 1}}},
-        %Message{data: :fail, acknowledger: {Acker, :ack_ref_2, %{test_pid: self(), data_id: 2}}},
-        %Message{data: :fail, acknowledger: {Acker, :ack_ref_1, %{test_pid: self(), data_id: 3}}},
-        %Message{data: 4, acknowledger: {Acker, :ack_ref_2, %{test_pid: self(), data_id: 4}}}
+        %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ack_ref_1}, :ok}},
+        %Message{data: :fail, acknowledger: {CallerAcknowledger, {self(), :ack_ref_2}, :ok}},
+        %Message{data: :fail, acknowledger: {CallerAcknowledger, {self(), :ack_ref_1}, :ok}},
+        %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ack_ref_2}, :ok}}
       ])
 
-      assert_receive {:ack, [%{data: 1}], [%{data: :fail, acknowledger: {_, _, %{data_id: 3}}}]}
-      assert_receive {:ack, [%{data: 4}], [%{data: :fail, acknowledger: {_, _, %{data_id: 2}}}]}
+      assert_receive {:ack, :ack_ref_1, [%{data: 1}], [%{data: :fail}]}
+      assert_receive {:ack, :ack_ref_2, [%{data: 4}], [%{data: :fail}]}
     end
 
     test "all messages in the batch are marked as {:failed, reason} when an error is raised",
-         %{producer: producer, consumer: consumer} do
+         %{broadway: broadway, consumer: consumer} do
       assert capture_log(fn ->
-               push_messages(producer, [1, 2, :raise, 3])
+               ref = Broadway.test_messages(broadway, [1, 2, :raise, 3])
 
-               assert_receive {:ack, _,
+               assert_receive {:ack, ^ref, [],
                                [
                                  %{data: 1, status: {:failed, "due to an unhandled error"}},
                                  %{data: 2, status: {:failed, "due to an unhandled error"}},
@@ -874,11 +900,11 @@ defmodule BroadwayTest do
     end
 
     test "all messages in the batch are marked as {:failed, reason} on bad return",
-         %{producer: producer, consumer: consumer} do
+         %{broadway: broadway, consumer: consumer} do
       assert capture_log(fn ->
-               push_messages(producer, [1, 2, :bad_return, 3])
+               ref = Broadway.test_messages(broadway, [1, 2, :bad_return, 3])
 
-               assert_receive {:ack, _,
+               assert_receive {:ack, ^ref, [],
                                [
                                  %{data: 1, status: {:failed, "due to an unhandled error"}},
                                  %{data: 2, status: {:failed, "due to an unhandled error"}},
@@ -894,14 +920,14 @@ defmodule BroadwayTest do
     end
 
     test "consumers do not crash on bad acknowledger",
-         %{producer: producer, consumer: consumer} do
+         %{broadway: broadway, consumer: consumer} do
       [one, two, raise, three] = wrap_messages([1, 2, :raise, 3])
       raise = %{raise | acknowledger: {Unknown, :ack_ref, :ok}}
 
       assert capture_log(fn ->
-               Producer.push_messages(producer, [one, two, raise, three])
-               push_messages(producer, [1, 2, 3, 4])
-               assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
+               Broadway.push_messages(broadway, [one, two, raise, three])
+               ref = Broadway.test_messages(broadway, [1, 2, 3, 4])
+               assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
              end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/3 is undefined"
 
       refute_received {:EXIT, _, ^consumer}
@@ -923,7 +949,7 @@ defmodule BroadwayTest do
         handle_batch: fn _, batch, _, _ -> batch end
       }
 
-      {:ok, pid} =
+      {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           producers: [
@@ -936,7 +962,7 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name, :default)
-      %{broadway: pid, producer: producer}
+      %{broadway: broadway, producer: producer}
     end
 
     test "killing the supervisor brings down the broadway GenServer",
@@ -962,20 +988,20 @@ defmodule BroadwayTest do
       async_push_messages(producer, [1, 2, 3, 4])
       Process.exit(broadway, :shutdown)
       :sys.resume(producer)
-      assert_receive {:ack, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
+      assert_receive {:ack, _, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
     end
 
     test "shutting down broadway waits until all events are processed even on incomplete batches",
-         %{broadway: broadway, producer: producer} do
-      push_messages(producer, [1, 2])
+         %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, 2])
       Process.exit(broadway, :shutdown)
-      assert_receive {:ack, [%{data: 1}, %{data: 2}], []}
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
     end
 
     @tag shutdown: 1
     test "shutting down broadway respects shutdown value",
-         %{broadway: broadway, producer: producer} do
-      push_messages(producer, [:sleep, 1, 2, 3])
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, [:sleep, 1, 2, 3])
       Process.exit(broadway, :shutdown)
       assert_receive {:EXIT, ^broadway, :shutdown}
     end
@@ -985,7 +1011,7 @@ defmodule BroadwayTest do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
-  defp get_producer(broadway_name, key \\ :default, index \\ 1) do
+  defp get_producer(broadway_name, key, index \\ 1) do
     :"#{broadway_name}.Producer_#{key}_#{index}"
   end
 
@@ -1017,13 +1043,8 @@ defmodule BroadwayTest do
     send(producer, {:"$gen_call", {self(), make_ref()}, {:push_messages, wrap_messages(list)}})
   end
 
-  defp push_messages(producer, list) do
-    Producer.push_messages(producer, wrap_messages(list))
-  end
-
   defp wrap_messages(list) do
-    Enum.map(list, fn data ->
-      %Message{data: data, acknowledger: {Acker, :ack_ref, %{id: data, test_pid: self()}}}
-    end)
+    ack = {CallerAcknowledger, {self(), make_ref()}, :ok}
+    Enum.map(list, &%Message{data: &1, acknowledger: ack})
   end
 end
