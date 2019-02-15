@@ -84,7 +84,7 @@ defmodule Broadway do
 
   Here is how this pipeline would be represented:
 
-  ```
+  ```asciidoc
                        [producer_1]
                            / \
                           /   \
