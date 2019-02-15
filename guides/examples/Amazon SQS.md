@@ -24,8 +24,7 @@ In order to use Broadway with SQS, we basically need to:
   1. Create a SQS queue (or use an existing one)
   1. Configure our Elixir project to use Broadway
   1. Define your pipeline configuration
-  1. Implement Broadway's callbacks so we can process incoming messages
-  1. Add Broadway to the application supervision tree (Optional)
+  1. Implement Broadway callbacks, so we can process incoming messages
   1. Tuning the configuration (Optional)
 
 ## Create a SQS queue
@@ -95,30 +94,22 @@ and `AWS_SECRET_ACCESS_KEY` environment variables configured. If that's
 not the case, you will need to pass that information to the client so it
 can properly connect to the the AWS servers. Here is how you can do it:
 
+    ...
+    sqs_client: {BroadwaySQS.ExAwsClient, [
+      queue_name: "my_queue",
+      config: [
+        access_key_id: "YOUR_AWS_ACCESS_KEY_ID",
+        secret_access_key: "YOUR_AWS_SECRET_ACCESS_KEY"
+      ]
+    ]}
+    ...
 
-    Broadway.start_link(__MODULE__,
-      name: __MODULE__,
-      producers: [
-        default: [
-          module: BroadwaySQS.SQSProducer,
-          arg: [
-            sqs_client: {BroadwaySQS.ExAwsClient, [
-              queue_name: "my_queue",
-              config: [
-                access_key_id: "YOUR_AWS_ACCESS_KEY_ID",
-                secret_access_key: "YOUR_AWS_SECRET_ACCESS_KEY"
-              ]
-            ]}
-          ]
-        ]
-      ],
-      ...
-    )
 
 For a full list of config options, please see [ExAws](https://hexdocs.pm/ex_aws/)
-documentation.
+documentation. You can also find adicional options for both `BroadwaySQS.SQSProducer`
+and `BroadwaySQS.ExAwsClient` in [BroadwaySQS](https://hexdocs.pm/broadway_sqs/) documentation.
 
-## Implement Broadway's callbacks
+## Implement Broadway callbacks
 
 In order to process incoming messages, we need to implement the
 required callbacks. For the sake of simplicity, we're considering that
@@ -144,12 +135,54 @@ all messages received from the queue are numbers:
 
     end
 
-We are not doing anything fancy here. First we update the message's data
-individually inside `handle_message/3` and then we print each batch inside
-handle_batch/4.
-
-## Add Broadway to the application supervision tree (Optional)
-TODO
+We are not doing anything fancy here, but it should be enough for our
+purpose. First we update the message's data individually inside
+`handle_message/3` and then we print each batch inside `handle_batch/4`.
 
 ## Tuning the configuration
-TODO
+
+Some of the configuration options available in Broadway come already wih a
+"reasonable" default value. However those values might not suit your
+requirements. Depending on the number of messages you get, how much processing
+they need and how much IO work is going to take place, you might need completely
+different values to optimize the flow of your pipeline. Playing the `stages`
+option avaiable for every set of producers, processors and batchers, among with
+`batch_size` and `batch_timeout` can give you a great deal of flexibility.
+The `stages` option controls the concurrency level in each layer of
+the pipeline. Here's an example on how you could tune them according to
+your needs.
+
+    defmodule MyBroadway do
+      use Broadway
+      alias BroadwaySQS.{SQSProducer, ExAwsClient}
+
+      def start_link(_opts) do
+        Broadway.start_link(__MODULE__,
+          name: __MODULE__,
+          producers: [
+            default: [
+              ...
+              stages: 60,
+            ]
+          ],
+          processors: [
+            default: [
+              stages: 100,
+            ]
+          ],
+          batchers: [
+            default: [
+              batch_size: 10,
+              stages: 80,
+            ]
+          ]
+        )
+      end
+
+      ...callbacks...
+    end
+
+In order to get a good set of configurations for your pipeline, it's
+important to respect the limitations of the servers you're running,
+as well as the limitations of the services you're providing/consuming
+data to/from.
