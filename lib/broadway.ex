@@ -180,7 +180,34 @@ defmodule Broadway do
 
   ## Testing
 
-  TODO.
+  Testing Broadway pipelines can be done with `test_messages/2`.
+  With `test_messages/2`, you can push some sample data into the
+  pipeline and receive a process message when the pipeline
+  acknowledges the data you have pushed has been processed.
+  This is very useful as a synchronization mechanism. Because
+  many pipelines end-up working with side-effects, you can use
+  the test message acknowledgment to guarantee the message has
+  been processed and therefore side-effects should be visible.
+
+  For example, if you have a pipeline named `MyApp.Broadway` that
+  writes to the database on every message, you could test it as:
+
+      # Push 3 messages with the data field set to 1, 2, and 3 respectively
+      ref = Broadway.test_messages(MyApp.Broadway, [1, 2, 3])
+
+      # Assert that the messages have been consumed
+      assert_receive {:ack, ^ref, [_, _, _] = _successful, failed}
+
+      # Now assert the database side-effects
+      ...
+
+  Keep in mind that multiple acknowledgement messages may be sent.
+  For example, if the batcher in the example above has size of 2,
+  then two batches would be created and therefore two ack messages
+  would be sent. Similarly, if any of the messages fail when
+  processed, an acknowledgement of their failure may be sent early
+  on. On the positive side, if you always push just a single test
+  message, then there is always one acknowledgment.
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
@@ -380,15 +407,47 @@ defmodule Broadway do
   end
 
   @doc """
-  Sends a list of messages using one of the configured producers.
+  Sends a list of `Broadway.Message`s to the Broadway pipeline.
 
   The producer is randomly chosen among all sets of producers/stages.
+  This is used to send out of band data to a Broadway pipeline.
   """
   @spec push_messages(GenServer.server(), messages :: [Message.t()]) :: :ok
-  def push_messages(server, messages) do
-    server
+  def push_messages(broadway, messages) when is_list(messages) do
+    broadway
     |> Server.get_random_producer()
     |> Producer.push_messages(messages)
+  end
+
+  @doc """
+  Sends a list of data as messsages to the Broadway pipeline.
+
+  This is a convenience used mostly for testing. The given data
+  is automaticaly wrapped in a `Broadway.Message` with
+  `Broadway.CallerAcknowledger` configured to send a message
+  back to the caller once the message has been fully processed.
+  It uses `push_messages/2` for dispatching.
+
+  It returns a reference that can be used to identify the ack
+  messages.
+
+  ## Examples
+
+  For example, in your tests, you may do:
+
+      ref = Broadway.test_messages(broadway, [1, 2, 3])
+      assert_receive {:ack, ^ref, successful, failed}
+      assert length(successful) == 3
+      assert length(failed) == 0
+
+  """
+  @spec test_messages(GenServer.server(), data :: [term]) :: reference()
+  def test_messages(broadway, data) when is_list(data) do
+    ref = make_ref()
+    ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
+    messages = Enum.map(data, &%Message{data: &1, acknowledger: ack})
+    :ok = push_messages(broadway, messages)
+    ref
   end
 
   defp configuration_spec() do
