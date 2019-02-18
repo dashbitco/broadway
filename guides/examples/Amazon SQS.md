@@ -11,7 +11,8 @@ queues:
 
   * FIFO
     * Limited number of transactions per second (TPS).
-      See AWS SQS documentation for more information on limits.
+      See [Amazon SQS FIFO](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-queues.html)
+      developer guide for more information on limits.
     * Order in which messages are sent/received is strictly preserved 
     * Exactly-once delivery
   
@@ -19,7 +20,7 @@ Broadway can work seamlessly with both, Standard and FIFO queues.
 
 ## Getting Started
 
-In order to use Broadway with SQS, we basically need to:
+In order to use Broadway with SQS, we need to:
 
   1. Create a SQS queue (or use an existing one)
   1. Configure our Elixir project to use Broadway
@@ -62,23 +63,22 @@ configuration would be:
 
     defmodule MyBroadway do
       use Broadway
-      alias BroadwaySQS.{SQSProducer, ExAwsClient}
 
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
           producers: [
             default: [
-              module: SQSProducer,
-              arg: [
-                sqs_client: {ExAwsClient, [
-                  queue_name: "my_queue",
-                ]}
-              ]
+              module: {BroadwaySQS.Producer, queue_name: "my_queue"}
             ]
           ],
           processors: [default: []],
-          batchers: [default: []]
+          batchers: [
+            default: [
+              batch_size: 10,
+              batch_timeout: 2000
+            ]
+          ]
         )
       end
 
@@ -92,19 +92,22 @@ not the case, you will need to pass that information to the client so it
 can properly connect to the AWS servers. Here is how you can do it:
 
     ...
-    sqs_client: {BroadwaySQS.ExAwsClient, [
-      queue_name: "my_queue",
-      config: [
-        access_key_id: "YOUR_AWS_ACCESS_KEY_ID",
-        secret_access_key: "YOUR_AWS_SECRET_ACCESS_KEY"
+    producers: [
+      default: [
+        module: {BroadwaySQS.Producer,
+          queue_name: "my_queue",
+          config: [
+            access_key_id: "YOUR_AWS_ACCESS_KEY_ID",
+            secret_access_key: "YOUR_AWS_SECRET_ACCESS_KEY"
+          ]
+        }
       ]
-    ]}
+    ]
     ...
 
 
-For a full list of config options, please see [ExAws](https://hexdocs.pm/ex_aws/)
-documentation. You can also find adicional options for both `BroadwaySQS.SQSProducer`
-and `BroadwaySQS.ExAwsClient` in [BroadwaySQS](https://hexdocs.pm/broadway_sqs/) documentation.
+For a full list of options for `BroadwaySQS.Producer`, please see
+[BroadwaySQS](https://hexdocs.pm/broadway_sqs/) documentation.
 
 ## Implement Broadway callbacks
 
@@ -114,7 +117,6 @@ all messages received from the queue are just numbers:
 
     defmodule MyBroadway do
       use Broadway
-      alias BroadwaySQS.{SQSProducer, ExAwsClient}
       import Message
 
       ...start_link...
@@ -151,7 +153,6 @@ your needs.
 
     defmodule MyBroadway do
       use Broadway
-      alias BroadwaySQS.{SQSProducer, ExAwsClient}
 
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
