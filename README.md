@@ -39,15 +39,13 @@ defmodule MyBroadway do
   use Broadway
 
   alias Broadway.Message
-  alias BroadwaySQS.{SQSProducer, ExAwsClient}
 
   def start_link(_opts) do
     Broadway.start_link(__MODULE__,
       name: __MODULE__,
       producers: [
         sqs: [
-          module: SQSProducer,
-          arg: [sqs_client: {ExAwsClient, [queue_name: "my_queue"]}]
+          module: {BroadwaySQS.Producer, queue_name: "my_queue"}
         ]
       ],
       processors: [

@@ -60,7 +60,10 @@ defmodule Broadway do
           Broadway.start_link(MyBroadway,
             name: MyBroadwayExample,
             producers: [
-              default: [module: Counter, stages: 1]
+              default: [
+                module: {Counter, []},
+                stages: 1
+              ]
             ],
             processors: [
               default: [stages: 2]
@@ -354,11 +357,11 @@ defmodule Broadway do
 
   The producer options are:
 
-    * `:module` - Required. A module defining a GenStage producer.
-      Pay attention that this producer must emit events that are
-      `Broadway.Message` structs.
-    * `:arg` - Required. The argument that will be passed to the
-      `init/1` callback of the producer.
+    * `:module` - Required. A tuple representing a GenStage producer.
+      The tuple format should be `{mod, arg}`, where `mod` is the module
+      that implements the GenStage behaviour and `arg` the argument that will
+      be passed to the `init/1` callback of the producer. Pay attention that
+      this producer must emit events that are `Broadway.Message` structs.
     * `:stages` - Optional. The number of stages that will be
       created by Broadway. Use this option to control the concurrency
       level of each set of producers. The default value is `1`.
