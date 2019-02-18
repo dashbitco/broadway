@@ -122,6 +122,41 @@ defmodule Broadway.OptionsTest do
                :error,
                ~s(expected :transformer to be a tuple {Mod, Fun, Args}, got: {SomeMod, :func, "not_a_list"})
              }
+
+      opts = [transformer: NotATuple]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :transformer to be a tuple {Mod, Fun, Args}, got: NotATuple)
+             }
+    end
+
+    test "valid mod_arg" do
+      spec = [producer: [type: :mod_arg]]
+
+      opts = [producer: {SomeMod, [1, 2]}]
+      assert Options.validate(opts, spec) == {:ok, opts}
+
+      opts = [producer: {SomeMod, []}]
+      assert Options.validate(opts, spec) == {:ok, opts}
+    end
+
+    test "invalid mod_arg" do
+      spec = [producer: [type: :mod_arg]]
+
+      opts = [producer: NotATuple]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :producer to be a tuple {Mod, Arg}, got: NotATuple)
+             }
+
+      opts = [producer: {"not_a_module", []}]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :producer to be a tuple {Mod, Arg}, got: {"not_a_module", []})
+             }
     end
   end
 

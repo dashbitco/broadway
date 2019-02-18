@@ -1,7 +1,7 @@
 defmodule Broadway.Options do
   @moduledoc false
 
-  @types [:any, :keyword_list, :atom, :non_neg_integer, :pos_integer, :mfa]
+  @types [:any, :keyword_list, :atom, :non_neg_integer, :pos_integer, :mfa, :mod_arg]
 
   def validate(opts, spec) do
     case validate_unknown_options(opts, spec) do
@@ -105,9 +105,20 @@ defmodule Broadway.Options do
     end
   end
 
-  defp validate_type(:mfa, key, {m, f, args} = value)
-       when not is_atom(m) or not is_atom(f) or not is_list(args) do
+  defp validate_type(:mfa, _key, {m, f, args}) when is_atom(m) and is_atom(f) and is_list(args) do
+    :ok
+  end
+
+  defp validate_type(:mfa, key, value) when not is_nil(value) do
     {:error, "expected #{inspect(key)} to be a tuple {Mod, Fun, Args}, got: #{inspect(value)}"}
+  end
+
+  defp validate_type(:mod_arg, _key, {m, _arg}) when is_atom(m) do
+    :ok
+  end
+
+  defp validate_type(:mod_arg, key, value) do
+    {:error, "expected #{inspect(key)} to be a tuple {Mod, Arg}, got: #{inspect(value)}"}
   end
 
   defp validate_type(nil, key, value) do

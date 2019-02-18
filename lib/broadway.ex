@@ -465,8 +465,7 @@ defmodule Broadway do
         type: :keyword_list,
         keys: [
           *: [
-            module: [required: true, type: :atom],
-            arg: [required: true],
+            module: [required: true, type: :mod_arg],
             stages: [type: :pos_integer, default: 1],
             transformer: [type: :mfa, default: nil]
           ]
