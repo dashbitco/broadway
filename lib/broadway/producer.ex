@@ -13,10 +13,10 @@ defmodule Broadway.Producer do
 
   @impl true
   def init(args) do
-    module = args[:module]
+    {module, arg} = args[:module]
     transformer = args[:transformer]
     # TODO: Raise a proper error message if we don't get  {:producer, state} back.
-    {:producer, module_state} = module.init(args[:arg])
+    {:producer, module_state} = module.init(arg)
 
     state = %{
       module: module,

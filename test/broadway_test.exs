@@ -142,7 +142,7 @@ defmodule BroadwayTest do
         name: broadway,
         context: %{test_pid: self()},
         producers: [
-          default: [module: ManualProducer, arg: []]
+          default: [module: {ManualProducer, []}]
         ],
         processors: [default: []],
         batchers: [default: []]
@@ -158,7 +158,7 @@ defmodule BroadwayTest do
         name: broadway,
         context: %{test_pid: self()},
         producers: [
-          default: [module: ManualProducer, arg: [], stages: 3]
+          default: [module: {ManualProducer, []}, stages: 3]
         ],
         processors: [default: []],
         batchers: [default: []]
@@ -173,7 +173,7 @@ defmodule BroadwayTest do
       Broadway.start_link(Forwarder,
         name: broadway,
         producers: [
-          default: [module: ManualProducer, arg: []]
+          default: [module: {ManualProducer, []}]
         ],
         processors: [default: []],
         batchers: [default: []]
@@ -188,7 +188,7 @@ defmodule BroadwayTest do
       Broadway.start_link(Forwarder,
         name: broadway,
         producers: [
-          default: [module: ManualProducer, arg: []]
+          default: [module: {ManualProducer, []}]
         ],
         processors: [default: [stages: 13]],
         batchers: [default: []]
@@ -204,7 +204,7 @@ defmodule BroadwayTest do
         name: broadway,
         context: %{test_pid: self()},
         producers: [
-          default: [module: ManualProducer, arg: []]
+          default: [module: {ManualProducer, []}]
         ],
         processors: [default: []],
         batchers: [p1: [], p2: []]
@@ -221,7 +221,7 @@ defmodule BroadwayTest do
         name: broadway,
         context: %{test_pid: self()},
         producers: [
-          default: [module: ManualProducer, arg: []]
+          default: [module: {ManualProducer, []}]
         ],
         processors: [default: []],
         batchers: [
@@ -240,7 +240,7 @@ defmodule BroadwayTest do
       Broadway.start_link(Forwarder,
         name: broadway,
         producers: [
-          default: [module: ManualProducer, arg: []]
+          default: [module: {ManualProducer, []}]
         ],
         processors: [default: []],
         batchers: [default: []]
@@ -257,7 +257,7 @@ defmodule BroadwayTest do
         name: new_unique_name(),
         context: %{test_pid: self()},
         producers: [
-          default: [module: ManualProducer, arg: []]
+          default: [module: {ManualProducer, []}]
         ],
         processors: [default: []],
         batchers: [default: []]
@@ -303,7 +303,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producers: [
-            default: [module: ManualProducer, arg: []]
+            default: [module: {ManualProducer, []}]
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
@@ -418,7 +418,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producers: [
-            default: [module: ManualProducer, arg: []]
+            default: [module: {ManualProducer, []}]
           ],
           processors: [default: []],
           batchers: [
@@ -473,7 +473,7 @@ defmodule BroadwayTest do
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
-          producers: [default: [module: ManualProducer, arg: []]],
+          producers: [default: [module: {ManualProducer, []}]],
           processors: [default: []],
           batchers: [default: [batch_size: 2, batch_timeout: 20]]
         )
@@ -510,8 +510,7 @@ defmodule BroadwayTest do
           context: %{test_pid: self()},
           producers: [
             default: [
-              module: EventProducer,
-              arg: Map.get(tags, :events, [1, 2, 3]),
+              module: {EventProducer, Map.get(tags, :events, [1, 2, 3])},
               transformer: {Transformer, :transform, test_pid: self()}
             ]
           ],
@@ -566,8 +565,7 @@ defmodule BroadwayTest do
           context: context,
           producers: [
             default: [
-              module: ManualProducer,
-              arg: %{test_pid: self()}
+              module: {ManualProducer, %{test_pid: self()}}
             ]
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
@@ -648,7 +646,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producers: [
-            default: [module: ManualProducer, arg: []]
+            default: [module: {ManualProducer, []}]
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
@@ -755,7 +753,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producers: [
-            default: [module: ManualProducer, arg: []]
+            default: [module: {ManualProducer, []}]
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
@@ -858,7 +856,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producers: [
-            default: [module: ManualProducer, arg: []]
+            default: [module: {ManualProducer, []}]
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
           batchers: [default: [batch_size: 4]]
@@ -953,7 +951,7 @@ defmodule BroadwayTest do
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           producers: [
-            default: [module: ManualProducer, arg: []]
+            default: [module: {ManualProducer, []}]
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
           batchers: [default: [batch_size: 4]],
