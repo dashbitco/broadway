@@ -76,7 +76,7 @@ Both `ProcessorSupervisor` and `ConsumerSupervisor` are set with
 to restart the rest of the tree. Since Broadway callbacks are
 stateless, we can handle errors and provide reports without crashing
 processes. This means that the supervision tree will only shutdown
-in case of unforeseen errros in Broadway's implementation. 
+in case of unforeseen errors in Broadway's implementation.
 
 The only exception are the producers, which contain external code
 and are expected to fail. If a producer crashes, it will be restarted

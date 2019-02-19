@@ -12,16 +12,21 @@ defmodule Broadway do
       of events necessary from upstream sources, never flooding the
       pipeline.
 
+    * Automatic acknowledgements - Broadway automatically acknowledges
+      messages at the end of the pipeline or in case of errors.
+
     * Batching - Broadway provides built-in batching, allowing you to
       group messages either by size and/or by time. This is important
       in systems such as Amazon SQS, where batching is the most efficient
       way to consume messages, both in terms of time and cost.
 
-    * Fault tolerance through restarts - Broadway pipelines are carefully
-      designed to minimize restarts. User callbacks are stateless, and
-      therefore are safely handled in case of errors, and in the face of
-      unforeseen bugs in a given stage, we restart only downstream
-      components, avoiding data loss.
+    * Fault tolerance with minimal data loss - Broadway pipelines are
+      carefully designed to minimize data loss. Producers are isolated
+      from the rest of the pipeline and automatically resubscribed to
+      in case of failures. On the other hand, user callbacks are stateless,
+      allowing us to handle any errors locally. Finally, in face of any
+      unforeseen bug, we restart only downstream components, avoiding
+      data loss.
 
     * Graceful shutdown - Broadway integrates with the VM to provide graceful
       shutdown. By starting Broadway as part of your supervision tree, it will

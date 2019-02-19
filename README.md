@@ -9,8 +9,9 @@ Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/b
 Broadway takes the burden of defining concurrent GenStage topologies and provide a simple configuration API that automatically defines concurrent producers, concurrent processing, batch handling, and more, leading to both time and cost efficient ingestion and processing of data.
 
   * Back-pressure
+  * Automatic acknowledgements
   * Batching
-  * Fault tolerance through restarts
+  * Fault tolerance with minimal data loss
   * Graceful shutdown
   * Built-in testing
   * Partitioning
@@ -74,6 +75,10 @@ end
 ```
 
 API reference, examples, how tos and more at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
+
+## Comparison to Flow
+
+You may also be interested in [Flow by Plataformatec](https://github.com/plataformatec/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general and powerful abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway aims to streamline data pipelines and focuses more on operational features, such as metrics, rate-limiting, and so on.
 
 ## License
 
