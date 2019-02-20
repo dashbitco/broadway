@@ -74,6 +74,8 @@ defmodule MyBroadway do
 end
 ```
 
+Once your Broadway module is defined, you just need to add it as a child of your application supervision tree as `{MyBroadway, []}`.
+
 API reference, examples, how tos and more at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
 ## Comparison to Flow

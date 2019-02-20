@@ -13,9 +13,9 @@ queues:
     * Limited number of transactions per second (TPS).
       See [Amazon SQS FIFO](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-queues.html)
       developer guide for more information on limits.
-    * Order in which messages are sent/received is strictly preserved 
+    * Order in which messages are sent/received is strictly preserved
     * Exactly-once delivery
-  
+
 Broadway can work seamlessly with both, Standard and FIFO queues.
 
 ## Getting Started
@@ -25,7 +25,8 @@ In order to use Broadway with SQS, we need to:
   1. Create a SQS queue (or use an existing one)
   1. Configure our Elixir project to use Broadway
   1. Define your pipeline configuration
-  1. Implement Broadway callbacks, so we can process incoming messages
+  1. Implement Broadway callbacks
+  1. Run the Broadway pipeline
   1. Tuning the configuration (Optional)
 
 ## Create a SQS queue
@@ -39,6 +40,14 @@ which is a message queue system that offers a SQS-compatible query interface.
 
 In this guide we're going to use [BroadwaySQS](https://github.com/plataformatec/broadway_sqs),
 which is a Broadway SQS Connector provided by [Plataformatec](http://www.plataformatec.com).
+
+### Starting a new project
+
+If you plan to start a new project, just run:
+
+    mix new my_app --sup
+
+The `--sup` flag instructs Elixir to generate an application with a supervision tree.
 
 ### Setting up dependencies
 
@@ -55,11 +64,16 @@ client of your choice (defaults to `:hackney`):
 
 ## Define the pipeline configuration
 
-Like any other process-based behaviour, implementing the Broadway
-bahaviour is straightforward. The second argument of
-`Broadway.start_link/2` is the pipeline configuration. Assuming we
-want to consume messages from a queue called `my_queue`. The minimal
-configuration would be:
+Broadway is a process-based behaviour and to define a Broadway
+pipeline, we need to define three functions: `start_link/1`,
+`handle_message/3` and `handle_batch/4`. We will cover `start_link/1`
+in this section and the `handle_` callbacks in the next one.
+
+Similar to other process-based behaviour, `start_link/1` simply
+delegates to `Broadway.start_link/2`, which should defines the
+producers, processors, and batchers in the Broadway pipeline.
+Assuming we want to consume messages from a queue called
+`my_queue`, the minimal configuration would be:
 
     defmodule MyBroadway do
       use Broadway
@@ -72,7 +86,9 @@ configuration would be:
               module: {BroadwaySQS.Producer, queue_name: "my_queue"}
             ]
           ],
-          processors: [default: []],
+          processors: [
+            default: []
+          ],
           batchers: [
             default: [
               batch_size: 10,
@@ -105,9 +121,11 @@ can properly connect to the AWS servers. Here is how you can do it:
     ]
     ...
 
-
 For a full list of options for `BroadwaySQS.Producer`, please see
 [BroadwaySQS](https://hexdocs.pm/broadway_sqs/) documentation.
+
+For general information about setting up Broadway, see `Broadway`
+module docs as well as `Broadway.start_link/2`.
 
 ## Implement Broadway callbacks
 
@@ -120,7 +138,7 @@ all messages received from the queue are just numbers:
       import Message
 
       ...start_link...
-      
+
       def handle_message(_, %Message{data: data} = message, _) do
         message
         |> update_data(fn data -> data * data end)
@@ -131,12 +149,32 @@ all messages received from the queue are just numbers:
         IO.inspect(list, label: "Got batch from SQS")
         messages
       end
-
     end
 
 We are not doing anything fancy here, but it should be enough for our
 purpose. First we update the message's data individually inside
 `handle_message/3` and then we print each batch inside `handle_batch/4`.
+
+For more information, see `c:Broadway.handle_message/3` and
+`c:Broadway.handle_batch/4`.
+
+## Run the Broadway pipeline
+
+To run your `Broadway` pipeline, you just need to add as a child in
+a supervision tree. Most applications have a supervision tree defined
+at `lib/my_app/application.ex`. You can add Broadway as a child to a
+supervisor as follows:
+
+    children = [
+      {MyBroadway, []}
+    ]
+
+    Supervisor.start_link(children, strategy: :one_for_one)
+
+Now the Broadway pipeline should be started when your application starts.
+Also, if your Broadway has any dependency (for example, it needs to talk
+to the database), make sure that Broadway is listed *after* its dependencies
+in the supervision tree.
 
 ## Tuning the configuration
 

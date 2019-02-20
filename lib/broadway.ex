@@ -83,6 +83,15 @@ defmodule Broadway do
         ...callbacks...
       end
 
+  Then add your Broadway pipeline to your supervision tree
+  (usually in `lib/my_app/application.ex`):
+
+      children = [
+        {MyBroadway, []}
+      ]
+
+      Supervisor.start_link(children, strategy: :one_for_one)
+
   The configuration above defines a pipeline with:
 
     * 1 producer
