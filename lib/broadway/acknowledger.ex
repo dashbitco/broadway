@@ -7,7 +7,7 @@ defmodule Broadway.Acknowledger do
   implement this behaviour and consider how the technology
   you're working with handles message acknowledgement.
 
-  The `c:ack/2` callback must be implemented in order to notify
+  The `c:ack/3` callback must be implemented in order to notify
   the origin of the data that a message can be safely removed
   after been successfully processed and published. In case of
   failed messages or messages without acknowledgement, depending
