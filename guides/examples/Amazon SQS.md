@@ -135,13 +135,14 @@ all messages received from the queue are just numbers:
 
     defmodule MyBroadway do
       use Broadway
-      import Message
+
+      alias Broadway.Message
 
       ...start_link...
 
       def handle_message(_, %Message{data: data} = message, _) do
         message
-        |> update_data(fn data -> data * data end)
+        |> Message.update_data(fn data -> data * data end)
       end
 
       def handle_batch(_, messages, _, _) do
