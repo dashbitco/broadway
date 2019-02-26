@@ -135,6 +135,8 @@ all messages received from the queue are just numbers:
 
     defmodule MyBroadway do
       use Broadway
+      
+      alias Broadway.Message
       import Message
 
       ...start_link...
