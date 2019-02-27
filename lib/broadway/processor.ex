@@ -4,8 +4,9 @@ defmodule Broadway.Processor do
   use Broadway.Subscriber
 
   require Logger
-  alias Broadway.{Message, Acknowledger}
+  alias Broadway.{Acknowledger, Message}
 
+  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
   end
@@ -52,7 +53,8 @@ defmodule Broadway.Processor do
     } = state
 
     try do
-      module.handle_message(processor_key, message, context)
+      processor_key
+      |> module.handle_message(message, context)
       |> validate_message(partitions)
     catch
       kind, error ->

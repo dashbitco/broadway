@@ -4,7 +4,7 @@ defmodule BroadwayTest do
   import Integer
   import ExUnit.CaptureLog
 
-  alias Broadway.{Message, BatchInfo, CallerAcknowledger}
+  alias Broadway.{BatchInfo, CallerAcknowledger, Message}
 
   defmodule Acker do
     @behaviour Broadway.Acknowledger
@@ -1005,7 +1005,7 @@ defmodule BroadwayTest do
     end
   end
 
-  defp new_unique_name() do
+  defp new_unique_name do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 

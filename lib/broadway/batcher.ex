@@ -6,6 +6,7 @@ defmodule Broadway.Batcher do
 
   @all_batches __MODULE__.All
 
+  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
   end

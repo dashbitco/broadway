@@ -1,7 +1,7 @@
 defmodule Broadway.ProducerTest do
   use ExUnit.Case, async: true
 
-  alias Broadway.{Producer, Message}
+  alias Broadway.{Message, Producer}
 
   defmodule FakeProducer do
     use GenStage

@@ -8,6 +8,7 @@ defmodule Broadway.Consumer do
   alias Broadway.{Acknowledger, Message}
   @subscription_options [max_demand: 1, min_demand: 0]
 
+  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
   end
@@ -49,7 +50,8 @@ defmodule Broadway.Consumer do
     %{module: module, context: context} = state
 
     try do
-      module.handle_batch(batcher_key, messages, batch_info, context)
+      batcher_key
+      |> module.handle_batch(messages, batch_info, context)
       |> Enum.split_with(fn %Message{status: status} -> status == :ok end)
     catch
       kind, reason ->

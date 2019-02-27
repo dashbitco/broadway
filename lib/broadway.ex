@@ -229,7 +229,7 @@ defmodule Broadway do
   message, then there is always one acknowledgment.
   """
 
-  alias Broadway.{BatchInfo, Message, Options, Server, Producer}
+  alias Broadway.{BatchInfo, Message, Options, Producer, Server}
 
   @doc """
   Invoked to handle/process individual messages sent from a producer.
@@ -279,7 +279,7 @@ defmodule Broadway do
   message will be immediatelly acknowledged as failed, not proceeding to the next
   steps of the pipeline.
   """
-  @callback handle_message(processor :: atom, message :: Message.t(), context :: any) ::
+  @callback handle_message(processor :: atom, message :: Message.t(), context :: term) ::
               Message.t()
 
   @doc """
@@ -304,7 +304,7 @@ defmodule Broadway do
               batcher :: atom,
               messages :: [Message.t()],
               batch_info :: BatchInfo.t(),
-              context :: any
+              context :: term
             ) :: [Message.t()]
 
   @doc false
@@ -382,7 +382,7 @@ defmodule Broadway do
     * `:transformer` - Optional. A tuple representing a transformer
        that translates a produced GenStage event into a `%Broadway.Message{}`.
        The tuple format should be `{mod, fun, opts}` and the function should have
-       the following spec `(event :: any, opts :: any) :: Broadway.Message.t`
+       the following spec `(event :: term, opts :: term) :: Broadway.Message.t`
 
   ### Processors options
 
@@ -460,7 +460,7 @@ defmodule Broadway do
       assert length(failed) == 0
 
   """
-  @spec test_messages(GenServer.server(), data :: [term]) :: reference()
+  @spec test_messages(GenServer.server(), data :: [term]) :: reference
   def test_messages(broadway, data) when is_list(data) do
     ref = make_ref()
     ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
@@ -469,10 +469,10 @@ defmodule Broadway do
     ref
   end
 
-  defp configuration_spec() do
+  defp configuration_spec do
     [
       name: [required: true, type: :atom],
-      shutdown: [type: :pos_integer, default: 30000],
+      shutdown: [type: :pos_integer, default: 30_000],
       max_restarts: [type: :non_neg_integer, default: 3],
       max_seconds: [type: :pos_integer, default: 5],
       resubscribe_interval: [type: :non_neg_integer, default: 100],
@@ -506,7 +506,7 @@ defmodule Broadway do
           *: [
             stages: [type: :pos_integer, default: 1],
             batch_size: [type: :pos_integer, default: 100],
-            batch_timeout: [type: :pos_integer, default: 1000]
+            batch_timeout: [type: :pos_integer, default: 1_000]
           ]
         ]
       ]

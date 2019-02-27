@@ -43,11 +43,13 @@ defmodule Broadway.TermStorage do
 
   # Callbacks
 
+  @impl true
   def init(:ok) do
     ets = :ets.new(@name, [:named_table, :protected, :set, read_concurrency: true])
     {:ok, ets}
   end
 
+  @impl true
   def handle_call({:put, term}, _from, state) do
     if ref = find_by_term(term) do
       {:reply, ref, state}
