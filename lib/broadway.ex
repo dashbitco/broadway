@@ -307,6 +307,8 @@ defmodule Broadway do
               context :: any
             ) :: [Message.t()]
 
+  @optional_callbacks handle_batch: 4
+
   @doc false
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts, module: __CALLER__.module] do
@@ -500,7 +502,7 @@ defmodule Broadway do
         ]
       ],
       batchers: [
-        required: true,
+        required: false,
         type: :keyword_list,
         keys: [
           *: [

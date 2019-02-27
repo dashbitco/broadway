@@ -88,6 +88,14 @@ defmodule BroadwayTest do
     end
   end
 
+  defmodule CustomHandlersWithoutHandleBatch do
+    use Broadway
+
+    def handle_message(_, message, %{handle_message: handler} = context) do
+      handler.(message, context)
+    end
+  end
+
   defmodule Transformer do
     def transform(event, test_pid: test_pid) do
       if event == :kill_producer do
@@ -389,6 +397,50 @@ defmodule BroadwayTest do
              end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/3 is undefined"
 
       refute_received {:EXIT, _, ^processor}
+    end
+  end
+
+  describe "pipeline without batchers" do
+    setup do
+      handle_message = fn message, _ ->
+        case message.data do
+          :fail -> Message.failed(message, "Failed message")
+          _ -> message
+        end
+      end
+
+      context = %{
+        handle_message: handle_message
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlersWithoutHandleBatch,
+          name: broadway_name,
+          context: context,
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]]
+        )
+
+      %{broadway_name: broadway_name, broadway: broadway}
+    end
+
+    test "no batcher supervisor is initialized", %{broadway_name: broadway_name} do
+      assert Process.whereis(:"#{broadway_name}.BatcherPartitionSupervisor") == nil
+    end
+
+    test "successful messages are marked as :ok", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, 2])
+      assert_receive {:ack, ^ref, [%{status: :ok}], []}
+      assert_receive {:ack, ^ref, [%{status: :ok}], []}
+    end
+
+    test "failed messages are marked as {:failed, reason}", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [:fail])
+      assert_receive {:ack, ^ref, _, [%{status: {:failed, "Failed message"}}]}
     end
   end
 
