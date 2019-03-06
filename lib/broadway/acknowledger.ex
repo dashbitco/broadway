@@ -35,7 +35,8 @@ defmodule Broadway.Acknowledger do
       could not be processed or published.
 
   """
-  @callback ack(ack_ref :: reference, successful :: [Message.t()], failed :: [Message.t()]) :: :ok
+  @callback ack(ack_ref :: {pid, reference}, successful :: [Message.t()], failed :: [Message.t()]) ::
+              :ok
 
   @doc """
   Acknowledges successful and failed messages grouped by `{acknowledger, ack_ref}`.

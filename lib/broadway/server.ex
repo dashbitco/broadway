@@ -4,6 +4,7 @@ defmodule Broadway.Server do
 
   alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator}
 
+  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(module, opts) do
     GenServer.start_link(__MODULE__, {module, opts}, opts)
   end
@@ -49,6 +50,7 @@ defmodule Broadway.Server do
     end
   end
 
+  @spec get_random_producer(GenServer.server()) :: term
   def get_random_producer(server) do
     GenServer.call(server, :get_random_producer)
   end
