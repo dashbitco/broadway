@@ -3,10 +3,12 @@ defmodule Broadway.Producer do
   use GenStage
   alias Broadway.Message
 
+  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts \\ []) do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
+  @spec push_messages(term, [Message.t()]) :: term
   def push_messages(producer, messages) do
     GenStage.call(producer, {:push_messages, messages})
   end

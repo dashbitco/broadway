@@ -8,6 +8,7 @@ defmodule Broadway.Consumer do
   alias Broadway.{Acknowledger, Message}
   @subscription_options [max_demand: 1, min_demand: 0]
 
+  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
   end

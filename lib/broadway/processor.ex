@@ -6,6 +6,7 @@ defmodule Broadway.Processor do
   require Logger
   alias Broadway.{Message, Acknowledger}
 
+  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts) do
     GenStage.start_link(__MODULE__, args, opts)
   end

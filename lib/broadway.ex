@@ -279,7 +279,7 @@ defmodule Broadway do
   message will be immediatelly acknowledged as failed, not proceeding to the next
   steps of the pipeline.
   """
-  @callback handle_message(processor :: atom, message :: Message.t(), context :: any) ::
+  @callback handle_message(processor :: atom, message :: Message.t(), context :: term) ::
               Message.t()
 
   @doc """
@@ -304,7 +304,7 @@ defmodule Broadway do
               batcher :: atom,
               messages :: [Message.t()],
               batch_info :: BatchInfo.t(),
-              context :: any
+              context :: term
             ) :: [Message.t()]
 
   @doc false
@@ -382,7 +382,7 @@ defmodule Broadway do
     * `:transformer` - Optional. A tuple representing a transformer
        that translates a produced GenStage event into a `%Broadway.Message{}`.
        The tuple format should be `{mod, fun, opts}` and the function should have
-       the following spec `(event :: any, opts :: any) :: Broadway.Message.t`
+       the following spec `(event :: term, opts :: term) :: Broadway.Message.t`
 
   ### Processors options
 
@@ -460,7 +460,7 @@ defmodule Broadway do
       assert length(failed) == 0
 
   """
-  @spec test_messages(GenServer.server(), data :: [term]) :: reference()
+  @spec test_messages(GenServer.server(), data :: [term]) :: reference
   def test_messages(broadway, data) when is_list(data) do
     ref = make_ref()
     ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}

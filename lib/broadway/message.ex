@@ -15,8 +15,8 @@ defmodule Broadway.Message do
   alias __MODULE__, as: Message
 
   @type t :: %Message{
-          data: any,
-          acknowledger: {module, ack_ref :: any, data :: any},
+          data: term,
+          acknowledger: {module, ack_ref :: term, data :: term},
           batcher: atom,
           partition: term,
           status: :ok | {:failed, reason :: binary}
@@ -35,7 +35,7 @@ defmodule Broadway.Message do
   This function is usually used inside the `handle_message/3` implementation
   in order to replace the data with the new processed data.
   """
-  @spec update_data(message :: Message.t(), fun :: (any -> any)) :: Message.t()
+  @spec update_data(message :: Message.t(), fun :: (term -> term)) :: Message.t()
   def update_data(%Message{} = message, fun) when is_function(fun, 1) do
     %Message{message | data: fun.(message.data)}
   end
@@ -62,7 +62,7 @@ defmodule Broadway.Message do
   Failed messages are sent directly to the related acknowledger so they're not
   forwarded to the next step in the pipeline.
   """
-  @spec failed(message :: Message.t(), reason :: any) :: Message.t()
+  @spec failed(message :: Message.t(), reason :: term) :: Message.t()
   def failed(%Message{} = message, reason) do
     %Message{message | status: {:failed, reason}}
   end
