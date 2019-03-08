@@ -31,14 +31,15 @@ defmodule Broadway.Processor do
 
   @impl true
   def handle_events(messages, _from, state) do
-    %{partitions: partitions} = state
     {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
 
     {successful_messages_to_forward, successful_messages_to_ack} =
-      if partitions == [] do
-        {[], successful_messages}
-      else
-        {successful_messages, []}
+      case state do
+        %{type: :consumer} ->
+          {[], successful_messages}
+
+        %{} ->
+          {successful_messages, []}
       end
 
     try do

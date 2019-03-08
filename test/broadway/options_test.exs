@@ -385,7 +385,28 @@ defmodule Broadway.OptionsTest do
                {:error, "expected :stages to be a positive integer, got: :an_atom"}
     end
 
-    test "validate empty keys" do
+    test "validate empty keys for :non_empty_keyword_list" do
+      spec = [
+        producers: [
+          type: :non_empty_keyword_list,
+          keys: [
+            *: [
+              module: [required: true, type: :atom],
+              stages: [type: :pos_integer]
+            ]
+          ]
+        ]
+      ]
+
+      opts = [
+        producers: []
+      ]
+
+      assert Options.validate(opts, spec) ==
+               {:error, "expected :producers to be a non-empty keyword list, got: []"}
+    end
+
+    test "allow empty keys for :keyword_list" do
       spec = [
         producers: [
           type: :keyword_list,
@@ -402,8 +423,26 @@ defmodule Broadway.OptionsTest do
         producers: []
       ]
 
-      assert Options.validate(opts, spec) ==
-               {:error, "expected :producers to be a non-empty keyword list, got: []"}
+      assert Options.validate(opts, spec) == {:ok, opts}
+    end
+
+    test "default value for :keyword_list" do
+      spec = [
+        batchers: [
+          required: false,
+          default: [],
+          type: :keyword_list,
+          keys: [
+            *: [
+              stages: [type: :pos_integer, default: 1]
+            ]
+          ]
+        ]
+      ]
+
+      opts = []
+
+      assert Options.validate(opts, spec) == {:ok, [batchers: []]}
     end
   end
 end

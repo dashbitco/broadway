@@ -481,7 +481,7 @@ defmodule Broadway do
       context: [type: :any, default: :context_not_set],
       producers: [
         required: true,
-        type: :keyword_list,
+        type: :non_empty_keyword_list,
         keys: [
           *: [
             module: [required: true, type: :mod_arg],
@@ -492,7 +492,7 @@ defmodule Broadway do
       ],
       processors: [
         required: true,
-        type: :keyword_list,
+        type: :non_empty_keyword_list,
         keys: [
           *: [
             stages: [type: :pos_integer, default: System.schedulers_online() * 2],
@@ -502,7 +502,7 @@ defmodule Broadway do
         ]
       ],
       batchers: [
-        required: false,
+        default: [],
         type: :keyword_list,
         keys: [
           *: [

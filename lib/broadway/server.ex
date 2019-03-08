@@ -149,14 +149,14 @@ defmodule Broadway.Server do
         process_name(broadway_name, "Processor_#{key}", index)
       end
 
-    partitions = Keyword.keys(batchers_config || [])
+    partitions = Keyword.keys(batchers_config)
 
     {type, dispatcher} =
-      if batchers_config do
+      if batchers_config == [] do
+        {:consumer, nil}
+      else
         options = [partitions: partitions, hash: &{&1, &1.batcher}]
         {:producer_consumer, {GenStage.PartitionDispatcher, options}}
-      else
-        {:consumer, nil}
       end
 
     args = [
@@ -186,7 +186,9 @@ defmodule Broadway.Server do
   end
 
   defp build_batcher_supervisor_and_terminator_specs(config, producers_names, processors_names) do
-    if config[:batchers_config] do
+    if config[:batchers_config] == [] do
+      [build_terminator_spec(config, producers_names, processors_names, processors_names)]
+    else
       {consumers_names, batchers_consumers_specs} =
         build_batchers_consumers_supervisors_specs(config, processors_names)
 
@@ -194,8 +196,6 @@ defmodule Broadway.Server do
         build_batcher_partition_supervisor_spec(config, batchers_consumers_specs),
         build_terminator_spec(config, producers_names, processors_names, consumers_names)
       ]
-    else
-      [build_terminator_spec(config, producers_names, processors_names, processors_names)]
     end
   end
 

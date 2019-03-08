@@ -1,7 +1,16 @@
 defmodule Broadway.Options do
   @moduledoc false
 
-  @types [:any, :keyword_list, :atom, :non_neg_integer, :pos_integer, :mfa, :mod_arg]
+  @types [
+    :any,
+    :keyword_list,
+    :non_empty_keyword_list,
+    :atom,
+    :non_neg_integer,
+    :pos_integer,
+    :mfa,
+    :mod_arg
+  ]
 
   def validate(opts, spec) do
     case validate_unknown_options(opts, spec) do
@@ -43,9 +52,9 @@ defmodule Broadway.Options do
   end
 
   defp validate_option(opts, key, spec) do
-    with {:ok, value} <- get_value(opts, key, spec),
-         :ok <- validate_type(spec[:type], key, value),
-         :ok <- validate_keys(spec[:keys], key, value) do
+    with {:ok, opts} <- validate_value(opts, key, spec),
+         value <- opts[key],
+         :ok <- validate_type(spec[:type], key, value) do
       if spec[:keys] do
         keys = normalize_keys(spec[:keys], value)
         validate(opts[key], keys)
@@ -55,14 +64,14 @@ defmodule Broadway.Options do
     end
   end
 
-  defp get_value(opts, key, spec) do
+  defp validate_value(opts, key, spec) do
     required? = Keyword.get(spec, :required, false)
     has_key? = Keyword.has_key?(opts, key)
     has_default? = Keyword.has_key?(spec, :default)
 
     case {required?, has_key?, has_default?} do
       {_, true, _} ->
-        {:ok, opts[key]}
+        {:ok, opts}
 
       {true, false, _} ->
         {:error,
@@ -70,18 +79,10 @@ defmodule Broadway.Options do
            inspect(Keyword.keys(opts))}
 
       {_, false, true} ->
-        {:ok, spec[:default]}
+        {:ok, Keyword.put(opts, key, spec[:default])}
 
       {_, false, false} ->
         :no_value
-    end
-  end
-
-  defp validate_keys(keys, key, value) do
-    if keys[:*] && value == [] do
-      {:error, "expected #{inspect(key)} to be a non-empty keyword list, got: #{inspect(value)}"}
-    else
-      :ok
     end
   end
 
@@ -98,10 +99,18 @@ defmodule Broadway.Options do
   end
 
   defp validate_type(:keyword_list, key, value) do
-    if is_list(value) && Enum.all?(value, &tagged_tuple?/1) do
+    if keyword_list?(value) do
       :ok
     else
       {:error, "expected #{inspect(key)} to be a keyword list, got: #{inspect(value)}"}
+    end
+  end
+
+  defp validate_type(:non_empty_keyword_list, key, value) do
+    if keyword_list?(value) && value != [] do
+      :ok
+    else
+      {:error, "expected #{inspect(key)} to be a non-empty keyword list, got: #{inspect(value)}"}
     end
   end
 
@@ -135,6 +144,10 @@ defmodule Broadway.Options do
 
   defp tagged_tuple?({key, _value}) when is_atom(key), do: true
   defp tagged_tuple?(_), do: false
+
+  defp keyword_list?(value) do
+    is_list(value) && Enum.all?(value, &tagged_tuple?/1)
+  end
 
   defp normalize_keys(keys, opts) do
     case keys[:*] do
