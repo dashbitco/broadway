@@ -425,7 +425,9 @@ defmodule BroadwayTest do
           processors: [default: [stages: 1, min_demand: 1, max_demand: 2]]
         )
 
-      %{broadway_name: broadway_name, broadway: broadway}
+      producer = get_producer(broadway_name, :default)
+
+      %{broadway_name: broadway_name, broadway: broadway, producer: producer}
     end
 
     test "no batcher supervisor is initialized", %{broadway_name: broadway_name} do
@@ -441,6 +443,20 @@ defmodule BroadwayTest do
     test "failed messages are marked as {:failed, reason}", %{broadway: broadway} do
       ref = Broadway.test_messages(broadway, [:fail])
       assert_receive {:ack, ^ref, _, [%{status: {:failed, "Failed message"}}]}
+    end
+
+    test "shutting down broadway waits until all events are processed",
+         %{broadway: broadway, producer: producer} do
+      # We suspend the producer to make sure that it doesn't process the messages early on
+      :sys.suspend(producer)
+      async_push_messages(producer, [1, 2, 3, 4])
+      Process.exit(broadway, :shutdown)
+      :sys.resume(producer)
+
+      assert_receive {:ack, _, [%{data: 1}], []}
+      assert_receive {:ack, _, [%{data: 2}], []}
+      assert_receive {:ack, _, [%{data: 3}], []}
+      assert_receive {:ack, _, [%{data: 4}], []}
     end
   end
 
