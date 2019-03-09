@@ -152,11 +152,16 @@ defmodule Broadway.Server do
     partitions = Keyword.keys(batchers_config)
 
     {type, dispatcher} =
-      if batchers_config == [] do
-        {:consumer, nil}
-      else
-        options = [partitions: partitions, hash: &{&1, &1.batcher}]
-        {:producer_consumer, {GenStage.PartitionDispatcher, options}}
+      case partitions do
+        [] ->
+          {:consumer, nil}
+
+        [_] ->
+          {:producer_consumer, GenStage.DemandDispatcher}
+
+        [_ | _] ->
+          {:producer_consumer,
+           {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.batcher}}}
       end
 
     args = [
