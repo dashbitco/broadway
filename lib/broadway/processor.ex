@@ -34,14 +34,23 @@ defmodule Broadway.Processor do
   def handle_events(messages, _from, state) do
     {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
 
+    {successful_messages_to_forward, successful_messages_to_ack} =
+      case state do
+        %{type: :consumer} ->
+          {[], successful_messages}
+
+        %{} ->
+          {successful_messages, []}
+      end
+
     try do
-      Acknowledger.ack_messages([], failed_messages)
+      Acknowledger.ack_messages(successful_messages_to_ack, failed_messages)
     catch
       kind, error ->
         Logger.error(Exception.format(kind, error, System.stacktrace()))
     end
 
-    {:noreply, successful_messages, state}
+    {:noreply, successful_messages_to_forward, state}
   end
 
   defp handle_messages([message | messages], successful, failed, state) do
@@ -71,6 +80,10 @@ defmodule Broadway.Processor do
 
   defp handle_messages([], successful, failed, _state) do
     {Enum.reverse(successful), Enum.reverse(failed)}
+  end
+
+  defp validate_message(%Message{} = message, []) do
+    message
   end
 
   defp validate_message(%Message{batcher: batcher} = message, partitions) do

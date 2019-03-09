@@ -62,15 +62,12 @@ defmodule Broadway.Server do
     {producers_names, producers_specs} = build_producers_specs(config)
     {processors_names, processors_specs} = build_processors_specs(config, producers_names)
 
-    {consumers_names, batchers_consumers_specs} =
-      build_batchers_consumers_supervisors_specs(config, processors_names)
-
-    children = [
-      build_producer_supervisor_spec(config, producers_specs),
-      build_processor_supervisor_spec(config, processors_specs),
-      build_batcher_partition_supervisor_spec(config, batchers_consumers_specs),
-      build_terminator_spec(config, producers_names, processors_names, consumers_names)
-    ]
+    children =
+      [
+        build_producer_supervisor_spec(config, producers_specs),
+        build_processor_supervisor_spec(config, processors_specs)
+      ] ++
+        build_batcher_supervisor_and_terminator_specs(config, producers_names, processors_names)
 
     supervisor_opts = [
       name: :"#{config.name}.Supervisor",
@@ -155,10 +152,22 @@ defmodule Broadway.Server do
       end
 
     partitions = Keyword.keys(batchers_config)
-    dispatcher = {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.batcher}}
+
+    {type, dispatcher} =
+      case partitions do
+        [] ->
+          {:consumer, nil}
+
+        [_] ->
+          {:producer_consumer, GenStage.DemandDispatcher}
+
+        [_ | _] ->
+          {:producer_consumer,
+           {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.batcher}}}
+      end
 
     args = [
-      type: :producer_consumer,
+      type: type,
       resubscribe: resubscribe_interval,
       terminator: terminator,
       module: module,
@@ -181,6 +190,20 @@ defmodule Broadway.Server do
       end
 
     {names, specs}
+  end
+
+  defp build_batcher_supervisor_and_terminator_specs(config, producers_names, processors_names) do
+    if config[:batchers_config] == [] do
+      [build_terminator_spec(config, producers_names, processors_names, processors_names)]
+    else
+      {consumers_names, batchers_consumers_specs} =
+        build_batchers_consumers_supervisors_specs(config, processors_names)
+
+      [
+        build_batcher_partition_supervisor_spec(config, batchers_consumers_specs),
+        build_terminator_spec(config, producers_names, processors_names, consumers_names)
+      ]
+    end
   end
 
   defp build_batchers_consumers_supervisors_specs(config, processors) do

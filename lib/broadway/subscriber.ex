@@ -7,7 +7,7 @@ defmodule Broadway.Subscriber do
   # is set as one_for_all and max_restarts of 0 to the inner most
   # supervisor while the outer most is rest for one. This guarantees
   # that either all processess are running or none of them.
-  # 
+  #
   # For graceful shutdowns, we rely on cancellations with the help
   # of the terminator.
   @moduledoc false
@@ -42,7 +42,12 @@ defmodule Broadway.Subscriber do
       })
 
     Enum.each(names, &subscribe(&1, state))
-    {type, state, Keyword.take(options, [:dispatcher])}
+
+    if type == :consumer do
+      {type, state}
+    else
+      {type, state, Keyword.take(options, [:dispatcher])}
+    end
   end
 
   ## Callbacks
