@@ -18,7 +18,7 @@ defmodule Broadway.Message do
           data: any,
           acknowledger: {module, ack_ref :: any, data :: any},
           batcher: atom,
-          partition: term,
+          batch_key: term,
           status: :ok | {:failed, reason :: binary}
         }
 
@@ -26,7 +26,7 @@ defmodule Broadway.Message do
   defstruct data: nil,
             acknowledger: nil,
             batcher: :default,
-            partition: :default,
+            batch_key: :default,
             status: :ok
 
   @doc """
@@ -49,11 +49,14 @@ defmodule Broadway.Message do
   end
 
   @doc """
-  Defines the partition within a batcher for the message.
+  Defines the batch key within a batcher for the message.
+
+  Inside each batcher, we attempt to build `batch_size`
+  within `batch_timeout` for each `batch_key`.
   """
-  @spec put_partition(message :: Message.t(), partition :: term) :: Message.t()
-  def put_partition(%Message{} = message, partition) do
-    %Message{message | partition: partition}
+  @spec put_batch_key(message :: Message.t(), batch_key :: term) :: Message.t()
+  def put_batch_key(%Message{} = message, batch_key) do
+    %Message{message | batch_key: batch_key}
   end
 
   @doc """

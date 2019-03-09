@@ -211,7 +211,7 @@ defmodule Broadway.Server do
         type: :producer_consumer,
         resubscribe: :never,
         terminator: terminator,
-        batcher_key: key,
+        batcher: key,
         processors: processors
       ] ++ options
 

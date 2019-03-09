@@ -9,7 +9,7 @@ defmodule Broadway.BatcherTest do
         type: :producer_consumer,
         terminator: __MODULE__,
         resubscribe: :never,
-        batcher_key: :default,
+        batcher: :default,
         processors: [:some_processor],
         batch_size: 123,
         batch_timeout: 1000

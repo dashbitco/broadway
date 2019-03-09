@@ -39,7 +39,7 @@ defmodule Broadway do
     * Partitioning - Broadway allows developers to batch messages based on
       dynamic partitions. For example, if your pipeline needs to build
       batches based on the `user_id`, email address, etc, it can be done
-      by calling `Broadway.Message.put_partition/2`.
+      by calling `Broadway.Message.put_batch_key/2`.
 
     * Rate-limiting (TODO)
     * Statistics/Metrics (TODO)
@@ -126,10 +126,22 @@ defmodule Broadway do
   After the pipeline is defined, you need to implement two callbacks:
   `c:handle_message/3`, invoked by processors for each message,
   and `c:handle_batch/4`, invoked by consumers with each batch.
-  Each message is represented by a `Broadway.Message` struct. A batch
-  is simply a list of messages. The job of those callbacks is to
-  manipulate those messages, processing its data, setting up dispatching
-  information, or even failing a message altogether.
+
+  `c:handle_message/3` receives every message as a `Broadway.Message`
+  struct and it must return an updated message. `c:handle_message/3`
+  may also invoke `Broadway.Message.put_batcher/3` to control to which
+  batcher the message should go to.
+
+  The batcher will receive the processor messages and create batches
+  specified by the `batch_size` and `batch_timeout` configuration. The
+  goal is to create a batch with at most `batch_size` entries within
+  `batch_timeout` miliseconds. Each message goes into a particular batch,
+  controller by calling `Broadway.Message.put_batch_key/3` in
+  `c:handle_message/3. The default batch key is `:default`. Once a
+  batch is created, it is sent to a separate process that will call
+  `c:handle_batch/4`, passing the batcher, the batch itself (i.e. a
+  list of messages), a `Broadway.BatchInfo` struct and the Broadway
+  context.
 
   For example, imagine your producer generates integers as `data`.
   You want to route the odd integers to SQS and the even ones to

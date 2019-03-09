@@ -407,8 +407,8 @@ defmodule BroadwayTest do
 
       context = %{
         handle_message: handle_message,
-        handle_batch: fn batcher, batch, _, _ ->
-          send(test_pid, {:batch_handled, batcher, batch})
+        handle_batch: fn batcher, batch, batch_info, _ ->
+          send(test_pid, {:batch_handled, batcher, batch, batch_info})
           batch
         end
       }
@@ -433,12 +433,24 @@ defmodule BroadwayTest do
     test "generate batches based on :batch_size", %{broadway: broadway} do
       Broadway.test_messages(broadway, Enum.to_list(1..40))
 
-      assert_receive {:batch_handled, :odd, messages} when length(messages) == 10
-      assert_receive {:batch_handled, :odd, messages} when length(messages) == 10
-      assert_receive {:batch_handled, :even, messages} when length(messages) == 5
-      assert_receive {:batch_handled, :even, messages} when length(messages) == 5
-      assert_receive {:batch_handled, :even, messages} when length(messages) == 5
-      assert_receive {:batch_handled, :even, messages} when length(messages) == 5
+      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd}}
+                     when length(messages) == 10
+
+      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd}}
+                     when length(messages) == 10
+
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+                     when length(messages) == 5
+
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+                     when length(messages) == 5
+
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+                     when length(messages) == 5
+
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+                     when length(messages) == 5
+
       refute_receive {:batch_handled, _, _}
     end
 
@@ -446,27 +458,31 @@ defmodule BroadwayTest do
          %{broadway: broadway} do
       Broadway.test_messages(broadway, [1, 2, 3, 4, 5])
 
-      assert_receive {:batch_handled, :odd, messages} when length(messages) == 3
-      assert_receive {:batch_handled, :even, messages} when length(messages) == 2
-      refute_receive {:batch_handled, _, _}
+      assert_receive {:batch_handled, :odd, messages, _} when length(messages) == 3
+      assert_receive {:batch_handled, :even, messages, _} when length(messages) == 2
+      refute_receive {:batch_handled, _, _, _}
     end
   end
 
-  describe "put_partition" do
+  describe "put_batch_key" do
     setup do
+      test_pid = self()
       broadway_name = new_unique_name()
 
       handle_message = fn message, _ ->
         if is_odd(message.data) do
-          Message.put_partition(message, :odd)
+          Message.put_batch_key(message, :odd)
         else
-          Message.put_partition(message, :even)
+          Message.put_batch_key(message, :even)
         end
       end
 
       context = %{
         handle_message: handle_message,
-        handle_batch: fn _, batch, _, _ -> batch end
+        handle_batch: fn batcher, batch, batch_info, _ ->
+          send(test_pid, {:batch_handled, batcher, batch_info})
+          batch
+        end
       }
 
       {:ok, broadway} =
@@ -484,18 +500,21 @@ defmodule BroadwayTest do
     test "generate batches based on :batch_size", %{broadway: broadway} do
       ref = Broadway.test_messages(broadway, Enum.to_list(1..10))
 
-      assert_receive {:ack, ^ref, [%{data: 1, partition: :odd}, %{data: 3, partition: :odd}], []}
+      assert_receive {:ack, ^ref, [%{data: 1, batch_key: :odd}, %{data: 3, batch_key: :odd}], []}
 
-      assert_receive {:ack, ^ref, [%{data: 2, partition: :even}, %{data: 4, partition: :even}],
+      assert_receive {:ack, ^ref, [%{data: 2, batch_key: :even}, %{data: 4, batch_key: :even}],
                       []}
+
+      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :odd}}
+      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :even}}
     end
 
     test "generate batches with the remaining messages after :batch_timeout is reached",
          %{broadway: broadway} do
       ref = Broadway.test_messages(broadway, [1, 2])
 
-      assert_receive {:ack, ^ref, [%{data: 1, partition: :odd}], []}
-      assert_receive {:ack, ^ref, [%{data: 2, partition: :even}], []}
+      assert_receive {:ack, ^ref, [%{data: 1, batch_key: :odd}], []}
+      assert_receive {:ack, ^ref, [%{data: 2, batch_key: :even}], []}
     end
   end
 
@@ -731,13 +750,16 @@ defmodule BroadwayTest do
   describe "handle batcher crash" do
     setup do
       test_pid = self()
+      broadway_name = new_unique_name()
 
-      handle_batch = fn _publisher, messages, batch_info, _ ->
+      handle_batch = fn _, messages, _, _ ->
+        pid = Process.whereis(get_batcher(broadway_name, :default))
+
         if Enum.any?(messages, fn msg -> msg.data == :kill_batcher end) do
-          Process.exit(batch_info.batcher_pid, :kill)
+          Process.exit(pid, :kill)
         end
 
-        send(test_pid, {:batch_handled, messages, batch_info})
+        send(test_pid, {:batch_handled, messages, pid})
         messages
       end
 
@@ -745,8 +767,6 @@ defmodule BroadwayTest do
         handle_batch: handle_batch,
         handle_message: fn message, _ -> message end
       }
-
-      broadway_name = new_unique_name()
 
       {:ok, broadway} =
         Broadway.start_link(CustomHandlers,
@@ -775,15 +795,15 @@ defmodule BroadwayTest do
 
     test "batcher will be restarted in order to handle other messages", %{broadway: broadway} do
       Broadway.test_messages(broadway, [1, 2])
-      assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: batcher1}}
+      assert_receive {:batch_handled, _, batcher1} when is_pid(batcher1)
       ref = Process.monitor(batcher1)
 
       Broadway.test_messages(broadway, [:kill_batcher, 3])
-      assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: ^batcher1}}
+      assert_receive {:batch_handled, _, ^batcher1}
       assert_receive {:DOWN, ^ref, _, obj, _}
 
       Broadway.test_messages(broadway, [4, 5])
-      assert_receive {:batch_handled, _, %BatchInfo{batcher_pid: batcher2}}
+      assert_receive {:batch_handled, _, batcher2} when is_pid(batcher2)
       assert batcher1 != batcher2
     end
 
