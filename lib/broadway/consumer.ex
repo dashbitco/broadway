@@ -32,8 +32,7 @@ defmodule Broadway.Consumer do
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{batcher: batcher} = batch_info
 
-    {successful_messages, failed_messages} =
-      handle_batch(batcher, messages, batch_info, state)
+    {successful_messages, failed_messages} = handle_batch(batcher, messages, batch_info, state)
 
     try do
       Acknowledger.ack_messages(successful_messages, failed_messages)
