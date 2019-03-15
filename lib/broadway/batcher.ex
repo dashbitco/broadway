@@ -14,17 +14,17 @@ defmodule Broadway.Batcher do
   @impl true
   def init(args) do
     Process.put(@all_batches, %{})
-    batcher_key = args[:batcher_key]
+    batcher = args[:batcher]
 
     state = %{
-      batcher_key: batcher_key,
+      batcher: batcher,
       batch_size: args[:batch_size],
       batch_timeout: args[:batch_timeout]
     }
 
     Broadway.Subscriber.init(
       args[:processors],
-      [partition: batcher_key, max_demand: args[:batch_size]],
+      [partition: batcher, max_demand: args[:batch_size]],
       state,
       args
     )
@@ -32,7 +32,7 @@ defmodule Broadway.Batcher do
 
   @impl true
   def handle_events(events, _from, state) do
-    batches = handle_events_per_partition(events, [], state)
+    batches = handle_events_per_batch_key(events, [], state)
     {:noreply, batches, state}
   end
 
@@ -75,32 +75,32 @@ defmodule Broadway.Batcher do
 
   ## Default batch handling
 
-  defp handle_events_per_partition([], acc, _state) do
+  defp handle_events_per_batch_key([], acc, _state) do
     Enum.reverse(acc)
   end
 
-  defp handle_events_per_partition([%{partition: partition} | _] = events, acc, state) do
-    {current, pending_count, timer} = init_or_get_batch(partition, state)
-    {current, pending_count, events} = split_counting(partition, events, pending_count, current)
+  defp handle_events_per_batch_key([%{batch_key: batch_key} | _] = events, acc, state) do
+    {current, pending_count, timer} = init_or_get_batch(batch_key, state)
+    {current, pending_count, events} = split_counting(batch_key, events, pending_count, current)
 
-    acc = deliver_or_update_batch(partition, current, pending_count, timer, acc, state)
-    handle_events_per_partition(events, acc, state)
+    acc = deliver_or_update_batch(batch_key, current, pending_count, timer, acc, state)
+    handle_events_per_batch_key(events, acc, state)
   end
 
-  defp split_counting(partition, [%{partition: partition} = event | events], count, acc)
+  defp split_counting(batch_key, [%{batch_key: batch_key} = event | events], count, acc)
        when count > 0,
        do: split_counting(events, count - 1, [event | acc])
 
   defp split_counting(events, count, acc), do: {acc, count, events}
 
-  defp deliver_or_update_batch(partition, current, 0, timer, acc, state) do
-    delete_batch(partition)
+  defp deliver_or_update_batch(batch_key, current, 0, timer, acc, state) do
+    delete_batch(batch_key)
     cancel_batch_timeout(timer)
-    [wrap_for_delivery(partition, current, state) | acc]
+    [wrap_for_delivery(batch_key, current, state) | acc]
   end
 
-  defp deliver_or_update_batch(partition, current, pending_count, timer, acc, _state) do
-    put_batch(partition, {current, pending_count, timer})
+  defp deliver_or_update_batch(batch_key, current, pending_count, timer, acc, _state) do
+    put_batch(batch_key, {current, pending_count, timer})
     acc
   end
 
@@ -159,13 +159,12 @@ defmodule Broadway.Batcher do
     end
   end
 
-  defp wrap_for_delivery(partition, reversed_events, state) do
-    %{batcher_key: batcher_key} = state
+  defp wrap_for_delivery(batch_key, reversed_events, state) do
+    %{batcher: batcher} = state
 
     batch_info = %BatchInfo{
-      batcher_key: batcher_key,
-      batcher_pid: self(),
-      partition: partition
+      batcher: batcher,
+      batch_key: batch_key
     }
 
     {Enum.reverse(reversed_events), batch_info}

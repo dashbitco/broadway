@@ -31,10 +31,9 @@ defmodule Broadway.Consumer do
   @impl true
   def handle_events(events, _from, state) do
     [{messages, batch_info}] = events
-    %Broadway.BatchInfo{batcher_key: batcher_key} = batch_info
+    %Broadway.BatchInfo{batcher: batcher} = batch_info
 
-    {successful_messages, failed_messages} =
-      handle_batch(batcher_key, messages, batch_info, state)
+    {successful_messages, failed_messages} = handle_batch(batcher, messages, batch_info, state)
 
     try do
       Acknowledger.ack_messages(successful_messages, failed_messages)
@@ -46,11 +45,11 @@ defmodule Broadway.Consumer do
     {:noreply, [], state}
   end
 
-  defp handle_batch(batcher_key, messages, batch_info, state) do
+  defp handle_batch(batcher, messages, batch_info, state) do
     %{module: module, context: context} = state
 
     try do
-      module.handle_batch(batcher_key, messages, batch_info, context)
+      module.handle_batch(batcher, messages, batch_info, context)
       |> Enum.split_with(fn %Message{status: status} -> status == :ok end)
     catch
       kind, reason ->
