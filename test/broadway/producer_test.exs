@@ -59,8 +59,19 @@ defmodule Broadway.ProducerTest do
     def init(_), do: {:producer, nil}
   end
 
+  defmodule ProducerWithBadReturn do
+    use GenStage
+
+    def init(_), do: {:consumer, nil}
+  end
+
   setup do
     %{state: %{module: FakeProducer, transformer: nil, module_state: nil}}
+  end
+
+  test "init with bad return" do
+    args = %{module: {ProducerWithBadReturn, []}}
+    assert Producer.init(args) == {:stop, {:bad_return_value, {:consumer, nil}}}
   end
 
   describe "wrap handle_demand" do

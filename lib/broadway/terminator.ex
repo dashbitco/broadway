@@ -41,6 +41,7 @@ defmodule Broadway.Terminator do
     end
 
     for name <- state.producers, pid = Process.whereis(name) do
+      GenStage.cast(pid, :cancel_producer)
       GenStage.demand(pid, :accumulate)
       GenStage.async_info(pid, :cancel_consumers)
     end

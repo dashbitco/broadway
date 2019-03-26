@@ -17,17 +17,24 @@ defmodule Broadway.Producer do
   def init(args) do
     {module, arg} = args[:module]
     transformer = args[:transformer]
-    # TODO: Raise a proper error message if we don't get  {:producer, state} back.
-    {:producer, module_state} = module.init(arg)
 
     state = %{
       module: module,
-      module_state: module_state,
+      module_state: nil,
       transformer: transformer,
       consumers: []
     }
 
-    {:producer, state}
+    case module.init(arg) do
+      {:producer, module_state} ->
+        {:producer, %{state | module_state: module_state}}
+
+      {:producer, module_state, options} ->
+        {:producer, %{state | module_state: module_state}, options}
+
+      return_value ->
+        {:stop, {:bad_return_value, return_value}}
+    end
   end
 
   @impl true
@@ -56,6 +63,17 @@ defmodule Broadway.Producer do
       {:stop, reason, new_module_state} ->
         {:stop, reason, %{state | module_state: new_module_state}}
     end
+  end
+
+  @impl true
+  def handle_cast(:cancel_producer, state) do
+    %{module: module, module_state: module_state} = state
+
+    if function_exported?(module, :cancel, 1) do
+      module.cancel(module_state)
+    end
+
+    {:noreply, [], state}
   end
 
   @impl true
