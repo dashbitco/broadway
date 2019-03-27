@@ -3,6 +3,9 @@ defmodule Broadway.Producer do
   use GenStage
   alias Broadway.Message
 
+  @callback prepare_for_draining(state :: any) :: any
+  @optional_callbacks prepare_for_draining: 1
+
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts \\ []) do
     GenStage.start_link(__MODULE__, args, opts)
@@ -66,11 +69,11 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def handle_cast(:cancel_producer, state) do
+  def handle_cast(:prepare_for_draining, state) do
     %{module: module, module_state: module_state} = state
 
-    if function_exported?(module, :cancel, 1) do
-      module.cancel(module_state)
+    if function_exported?(module, :prepare_for_draining, 1) do
+      module.prepare_for_draining(module_state)
     end
 
     {:noreply, [], state}

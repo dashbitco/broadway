@@ -26,6 +26,8 @@ defmodule BroadwayTest do
   defmodule ManualProducer do
     use GenStage
 
+    @behaviour Broadway.Producer
+
     def start_link(args, opts \\ []) do
       GenStage.start_link(__MODULE__, args, opts)
     end
@@ -36,19 +38,23 @@ defmodule BroadwayTest do
       {:producer, %{test_pid: test_pid}}
     end
 
+    @impl true
     def init(_args) do
       {:producer, %{}}
     end
 
+    @impl true
     def handle_demand(_demand, state) do
       {:noreply, [], state}
     end
 
+    @impl true
     def handle_info({:push_messages_async, messages}, state) do
       {:noreply, messages, state}
     end
 
-    def cancel(%{test_pid: test_pid}) do
+    @impl true
+    def prepare_for_draining(%{test_pid: test_pid}) do
       message = wrap_message(:message_during_cancel, test_pid)
       send(self(), {:push_messages_async, [message]})
 
@@ -57,7 +63,8 @@ defmodule BroadwayTest do
       :ok
     end
 
-    def cancel(_state) do
+    @impl true
+    def prepare_for_draining(_state) do
       :ok
     end
 
