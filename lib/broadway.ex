@@ -72,10 +72,6 @@ defmodule Broadway do
             ],
             processors: [
               default: [stages: 2]
-            ],
-            batchers: [
-              sqs: [stages: 2, batch_size: 10],
-              s3: [stages: 1, batch_size: 10]
             ]
           )
         end
@@ -91,6 +87,65 @@ defmodule Broadway do
       ]
 
       Supervisor.start_link(children, strategy: :one_for_one)
+
+  The configuration above defines a pipeline with:
+
+    * 1 producer
+    * 2 processors
+
+  Here is how this pipeline would be represented:
+
+  ```asciidoc
+                       [producer_1]
+                           / \
+                          /   \
+                         /     \
+                        /       \
+               [processor_1] [processor_2]   <- process each message
+  ```
+
+  After the pipeline is defined, you need to implement `c:handle_message/3`,
+  which will be invoked by processors for each message.
+
+  `c:handle_message/3` receives every message as a `Broadway.Message`
+  struct and it must return an updated message.
+
+  ## Batching
+
+  Depending on the scenario, you may want to group processed messages as
+  batches before publishing your data. This is common and especially
+  important when working with services like AWS S3 and SQS that provide
+  specific API for sending and retrieving batches. This can drastically
+  increase throughput and consequently improve the overall performance of
+  your pipeline.
+
+  In order to create batches you need to define the `batchers` option in the
+  configuration:
+
+      defmodule MyBroadway do
+        use Broadway
+
+        def start_link(_opts) do
+          Broadway.start_link(MyBroadway,
+            name: MyBroadwayExample,
+            producers: [
+              default: [
+                module: {Counter, []},
+                stages: 1
+              ]
+            ],
+            processors: [
+              default: [stages: 2]
+            ],
+            batchers: [
+              sqs: [stages: 2, batch_size: 10],
+              s3: [stages: 1, batch_size: 10]
+            ]
+          )
+        end
+
+        ...callbacks...
+      end
 
   The configuration above defines a pipeline with:
 
@@ -123,25 +178,20 @@ defmodule Broadway do
    [consumer_sqs_1] [consumer_sqs_2]  [consumer_s3_1] <- process each batch
   ```
 
-  After the pipeline is defined, you need to implement two callbacks:
-  `c:handle_message/3`, invoked by processors for each message,
-  and `c:handle_batch/4`, invoked by consumers with each batch.
+  Additionally, you'll need to define the `c:handle_batch/4` callback,
+  which will be invoked by consumers for each batch. You can then invoke
+  `Broadway.Message.put_batcher/3` inside `c:handle_message/3` to control
+  to which batcher the message should go to.
 
-  `c:handle_message/3` receives every message as a `Broadway.Message`
-  struct and it must return an updated message. `c:handle_message/3`
-  may also invoke `Broadway.Message.put_batcher/3` to control to which
-  batcher the message should go to.
-
-  The batcher will receive the processor messages and create batches
+  The batcher will receive the processed messages and create batches
   specified by the `batch_size` and `batch_timeout` configuration. The
   goal is to create a batch with at most `batch_size` entries within
-  `batch_timeout` miliseconds. Each message goes into a particular batch,
-  controller by calling `Broadway.Message.put_batch_key/3` in
-  `c:handle_message/3. The default batch key is `:default`. Once a
-  batch is created, it is sent to a separate process that will call
-  `c:handle_batch/4`, passing the batcher, the batch itself (i.e. a
-  list of messages), a `Broadway.BatchInfo` struct and the Broadway
-  context.
+  `batch_timeout` milliseconds. Each message goes into a particular batch,
+  controlled by calling `Broadway.Message.put_batch_key/3` in
+  `c:handle_message/3. Once a batch is created, it is sent to a separate
+  process that will call `c:handle_batch/4`, passing the batcher, the
+  batch itself (i.e. a list of messages), a `Broadway.BatchInfo` struct
+  and the Broadway context.
 
   For example, imagine your producer generates integers as `data`.
   You want to route the odd integers to SQS and the even ones to
@@ -368,7 +418,7 @@ defmodule Broadway do
       keyword list of options. See "Processors options" section below.
       Currently only a single processor is allowed.
 
-    * `:batchers` - Required. Defines a keyword list of named batchers
+    * `:batchers` - Optional. Defines a keyword list of named batchers
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Batchers options" section below.
 

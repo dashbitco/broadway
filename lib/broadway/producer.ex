@@ -3,7 +3,16 @@ defmodule Broadway.Producer do
   use GenStage
   alias Broadway.Message
 
+  @doc """
+  Invoked by the terminator right before Broadway starts draining in-flight
+  messages during shutdown.
+
+  This callback should be implemented by producers that need to do additional
+  work before shutting down. That includes active producers like RabbitMQ that
+  must ask the data provider to stop sending messages.
+  """
   @callback prepare_for_draining(state :: any) :: any
+
   @optional_callbacks prepare_for_draining: 1
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
