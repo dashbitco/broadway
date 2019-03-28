@@ -26,6 +26,8 @@ defmodule BroadwayTest do
   defmodule ManualProducer do
     use GenStage
 
+    @behaviour Broadway.Producer
+
     def start_link(args, opts \\ []) do
       GenStage.start_link(__MODULE__, args, opts)
     end
@@ -36,12 +38,39 @@ defmodule BroadwayTest do
       {:producer, %{test_pid: test_pid}}
     end
 
+    @impl true
     def init(_args) do
       {:producer, %{}}
     end
 
+    @impl true
     def handle_demand(_demand, state) do
       {:noreply, [], state}
+    end
+
+    @impl true
+    def handle_info({:push_messages_async, messages}, state) do
+      {:noreply, messages, state}
+    end
+
+    @impl true
+    def prepare_for_draining(%{test_pid: test_pid}) do
+      message = wrap_message(:message_during_cancel, test_pid)
+      send(self(), {:push_messages_async, [message]})
+
+      message = wrap_message(:message_after_cancel, test_pid)
+      Process.send_after(self(), {:push_messages_async, [message]}, 1)
+      :ok
+    end
+
+    @impl true
+    def prepare_for_draining(_state) do
+      :ok
+    end
+
+    defp wrap_message(message, test_pid) do
+      ack = {CallerAcknowledger, {test_pid, make_ref()}, :ok}
+      %Message{data: message, acknowledger: ack}
     end
   end
 
@@ -1039,7 +1068,7 @@ defmodule BroadwayTest do
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           producers: [
-            default: [module: {ManualProducer, []}]
+            default: [module: {ManualProducer, %{test_pid: self()}}]
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
           batchers: [default: [batch_size: 4]],
@@ -1082,6 +1111,15 @@ defmodule BroadwayTest do
       ref = Broadway.test_messages(broadway, [1, 2])
       Process.exit(broadway, :shutdown)
       assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
+    end
+
+    test "shutting down broadway cancels producers and waits for messages sent during cancellation",
+         %{broadway: broadway} do
+      Process.exit(broadway, :shutdown)
+
+      assert_receive {:ack, _, [%{data: :message_during_cancel}], []}
+      refute_receive {:ack, _, [%{data: :message_after_cancel}], []}
+      assert_receive {:EXIT, ^broadway, :shutdown}
     end
 
     @tag shutdown: 1
