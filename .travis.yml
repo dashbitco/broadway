@@ -6,7 +6,7 @@ script:
 matrix:
   include:
     - elixir: 1.5.3
-      otp_release: 18.3
+      otp_release: 19.3
     - elixir: 1.8.1
       otp_release: 21.2
       env: CHECK_FORMATTED=true

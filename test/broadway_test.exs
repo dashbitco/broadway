@@ -897,7 +897,7 @@ defmodule BroadwayTest do
 
       Broadway.test_messages(broadway, [:kill_batcher, 3])
       assert_receive {:batch_handled, _, ^batcher1}
-      assert_receive {:DOWN, ^ref, _, obj, _}
+      assert_receive {:DOWN, ^ref, _, _, _}
 
       Broadway.test_messages(broadway, [4, 5])
       assert_receive {:batch_handled, _, batcher2} when is_pid(batcher2)
