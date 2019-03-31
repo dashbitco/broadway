@@ -338,7 +338,7 @@ defmodule Broadway do
   acknowledged.
 
   In case of errors in this callback, the error will be logged and that particular
-  message will be immediatelly acknowledged as failed, not proceeding to the next
+  message will be immediately acknowledged as failed, not proceeding to the next
   steps of the pipeline.
   """
   @callback handle_message(processor :: atom, message :: Message.t(), context :: term) ::
@@ -356,7 +356,7 @@ defmodule Broadway do
       about the incoming batch.
     * `context` is the user defined data structure passed to `start_link/2`.
 
-  It muts return a list of batches. Any message in the batch that has not been
+  It must return a list of batches. Any message in the batch that has not been
   explicitly failed will be considered successful and automatically acknowledged.
 
   In case of errors in this callback, the error will be logged and the whole
@@ -425,10 +425,10 @@ defmodule Broadway do
     * `:context` - Optional. A user defined data structure that will
       be passed to `handle_message/3` and `handle_batch/4`.
 
-    * `:shutdown` - Optional. The time in miliseconds given for Broadway to
-      gracefuly shutdown without discarding events. Defaults to `30_000`(ms).
+    * `:shutdown` - Optional. The time in milliseconds given for Broadway to
+      gracefully shutdown without discarding events. Defaults to `30_000`(ms).
 
-    * `:resubscribe_interval` - The interval in miliseconds to attempt to
+    * `:resubscribe_interval` - The interval in milliseconds to attempt to
       subscribe to a producer after it crashes. Defaults to `100`(ms).
 
   ### Producers options
@@ -503,10 +503,10 @@ defmodule Broadway do
   end
 
   @doc """
-  Sends a list of data as messsages to the Broadway pipeline.
+  Sends a list of data as messages to the Broadway pipeline.
 
   This is a convenience used mostly for testing. The given data
-  is automaticaly wrapped in a `Broadway.Message` with
+  is automatically wrapped in a `Broadway.Message` with
   `Broadway.CallerAcknowledger` configured to send a message
   back to the caller once the message has been fully processed.
   It uses `push_messages/2` for dispatching.
