@@ -6,7 +6,7 @@ Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/b
 
 ## Built-in features
 
-Broadway takes the burden of defining concurrent GenStage topologies and provide a simple configuration API that automatically defines concurrent producers, concurrent processing, batch handling, and more, leading to both time and cost efficient ingestion and processing of data.
+Broadway takes the burden of defining concurrent GenStage topologies and provide a simple configuration API that automatically defines concurrent producers, concurrent processing, batch handling, and more, leading to both time and cost efficient ingestion and processing of data. It features:
 
   * Back-pressure
   * Automatic acknowledgements at the end of the pipeline
