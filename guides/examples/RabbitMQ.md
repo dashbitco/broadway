@@ -8,12 +8,12 @@ Queuing Protocol (AMQP).
 
 In order to use Broadway with RabbitMQ, we need to:
 
-  1. Create a queue (or use an existing one)
-  1. Configure our Elixir project to use Broadway
-  1. Define your pipeline configuration
-  1. Implement Broadway callbacks
-  1. Run the Broadway pipeline
-  1. Tuning the configuration (Optional)
+  1. [Create a queue](#create-a-queue) (or use an existing one)
+  1. [Configure our Elixir project to use Broadway](#configure-the-project)
+  1. [Define your pipeline configuration](#define-the-pipeline-configuration)
+  1. [Implement Broadway callbacks](#implement-broadway-callbacks)
+  1. [Run the Broadway pipeline](#run-the-broadway-pipeline)
+  1. [Tuning the configuration](#tuning-the-configuration) (Optional)
 
 In case you want to work with an existing queue, you can skip [step 1](#create-a-queue)
 and jump to [Configure the project](#configure-the-project).
@@ -82,6 +82,8 @@ Assuming we want to consume messages from a queue called
 
     defmodule MyBroadway do
       use Broadway
+
+      alias Broadway.Message
 
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
@@ -164,7 +166,7 @@ all messages received from the queue are just numbers:
 
       def handle_message(_, message, _) do
         message
-        |> Message.update_data(fn data -> data * data end)
+        |> Message.update_data(fn data -> {data, String.to_integer(data) * 2} end)
       end
 
       def handle_batch(_, messages, _, _) do
@@ -205,9 +207,15 @@ in the supervision tree.
 
 You can now test your pipeline by entering an `iex` session:
 
-`iex -S mix`
+    iex -S mix
 
-and then generate some sample messages to be consumed by Broadway with the
+If everything went fine, you should see lots of `info` log messages from the `amqp`
+supervisors. If you think that's too verbose and want to do something
+about it, please take a look at the _"Log related to amqp supervisors are too verbose"_
+subsection in the `amqp`'s  [Troubleshooting](https://hexdocs.pm/amqp/readme.html#troubleshooting)
+documentation.
+
+Finally, let's generate some sample messages to be consumed by Broadway with the
 following code:
 
     {:ok, connection} = AMQP.Connection.open
@@ -218,6 +226,26 @@ following code:
       AMQP.Basic.publish(channel, "", "my_queue", "#{i}")
     end)
     AMQP.Connection.close(connection)
+
+Use should see the output showing the generated batches:
+
+    Got batch: [
+      {"7", 14},
+      {"5", 10},
+      {"8", 16},
+      {"98", 196},
+      {"6", 12},
+      {"97", 194},
+      {"9", 18},
+      {"99", 198},
+      {"10", 20},
+      {"100", 200}
+    ]
+    Got batch: [
+      {"29", 58},
+      {"32", 64},
+      ...
+    ]
 
 ## Tuning the configuration
 

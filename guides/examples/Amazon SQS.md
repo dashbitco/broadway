@@ -78,6 +78,8 @@ Assuming we want to consume messages from a queue called
     defmodule MyBroadway do
       use Broadway
 
+      alias Broadway.Message
+
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
