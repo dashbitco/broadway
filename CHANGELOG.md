@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.0-dev
+## v0.2.0 (2019-04-04)
 
   * `Broadway.Message.put_partition/2` has been renamed to `Broadway.Message.put_batch_key/2`
   * Allow `Broadway.Producer` to `prepare_for_draining/1`
