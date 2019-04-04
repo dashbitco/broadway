@@ -7,7 +7,7 @@ defmodule Broadway.MixProject do
   def project do
     [
       app: :broadway,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.5",
       name: "Broadway",
       description: @description,
