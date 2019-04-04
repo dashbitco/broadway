@@ -243,13 +243,20 @@ defmodule Broadway do
 
   ## Acknowledgements and failures
 
-  At the end of the pipeline, messages are automatically acknowledged
-  to the producer.
+  At the end of the pipeline, messages are automatically acknowledged.
+
+  If there are no batchers, the acknowledgement will be done by processors.
+  The number of messages acknowledged, assuming the pipeline is running
+  at full scale, will be `max_demand - min_demand`. Since the default values
+  are 10 and 5 respectively, we will be acknowledging in groups of 5.
+
+  If there are batchers, the acknowledgement is done by the batchers,
+  using the `batch_size`.
 
   In case of failures, Broadway does its best to keep the failures
-  contained and avoid losing messages. For every failure, a log report
-  will be emitted. Failures are also automatically reported to producers
-  (if they provide such functionality).
+  contained and avoid losing messages. The failed message or batch is
+  acknowledged as failed immediately. For every failure, a log report
+  is also emitted.
 
   Note however, that `Broadway` does not provide any sort of retries
   out of the box. This is left completely as a responsibility of the
