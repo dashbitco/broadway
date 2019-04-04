@@ -180,15 +180,15 @@ defmodule Broadway do
 
   Additionally, you'll need to define the `c:handle_batch/4` callback,
   which will be invoked by consumers for each batch. You can then invoke
-  `Broadway.Message.put_batcher/3` inside `c:handle_message/3` to control
+  `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to control
   to which batcher the message should go to.
 
   The batcher will receive the processed messages and create batches
   specified by the `batch_size` and `batch_timeout` configuration. The
   goal is to create a batch with at most `batch_size` entries within
   `batch_timeout` milliseconds. Each message goes into a particular batch,
-  controlled by calling `Broadway.Message.put_batch_key/3` in
-  `c:handle_message/3. Once a batch is created, it is sent to a separate
+  controlled by calling `Broadway.Message.put_batch_key/2` in
+  `c:handle_message/3`. Once a batch is created, it is sent to a separate
   process that will call `c:handle_batch/4`, passing the batcher, the
   batch itself (i.e. a list of messages), a `Broadway.BatchInfo` struct
   and the Broadway context.
