@@ -18,6 +18,10 @@ In order to use Broadway with RabbitMQ, we need to:
 In case you want to work with an existing queue, you can skip [step 1](#create-a-queue)
 and jump to [Configure the project](#configure-the-project).
 
+> Note: `BroadwayRabbitMQ` does not automatically create any queue. If you
+configure a pipeline with a non-existent queue, the producers will crash,
+bringing down the pipeline.
+
 ## Create a queue
 
 RabbitMQ runs on many operating systems. Please see
@@ -92,9 +96,6 @@ Assuming we want to consume messages from a queue called
             default: [
               module: {BroadwayRabbitmq.Producer,
                 queue: "my_queue",
-                declare: [
-                  durable: true,
-                ],
                 qos: [
                   prefetch_count: 50,
                 ]
@@ -119,13 +120,6 @@ Assuming we want to consume messages from a queue called
 
       ...callbacks...
     end
-
-> Note: You need to configure the `:declare` option with the same
-values provided when you first declared the queue. In our case we need
-to match `durable=true`, otherwise, the broker will not allow the client
-to declare it again in order to consume messages from it. For a full
-list of `declare` options, please see
-[`AMQP.Queue.declare/3`](https://hexdocs.pm/amqp/AMQP.Queue.html#declare/3).
 
 If you're consuming data from an existing broker that requires authorization,
 you'll need to provide your credentials using the `connection` option:
