@@ -94,7 +94,7 @@ Assuming we want to consume messages from a queue called
           name: MyBroadway,
           producers: [
             default: [
-              module: {BroadwayRabbitmq.Producer,
+              module: {BroadwayRabbitMQ.Producer,
                 queue: "my_queue",
                 qos: [
                   prefetch_count: 50,
@@ -127,7 +127,7 @@ you'll need to provide your credentials using the `connection` option:
     ...
     producers: [
       default: [
-        module: {BroadwayRabbitmq.Producer,
+        module: {BroadwayRabbitMQ.Producer,
           queue: "my_queue",
           connection: [
             username: "user",
