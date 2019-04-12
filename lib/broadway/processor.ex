@@ -13,6 +13,7 @@ defmodule Broadway.Processor do
 
   @impl true
   def init(args) do
+    Process.flag(:trap_exit, true)
     processor_config = args[:processor_config]
 
     state = %{

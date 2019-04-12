@@ -346,7 +346,8 @@ defmodule Broadway do
 
   In case of errors in this callback, the error will be logged and that particular
   message will be immediately acknowledged as failed, not proceeding to the next
-  steps of the pipeline.
+  steps of the pipeline. This callback also traps exits, so failures due to broken
+  links between processes do not automatically cascade.
   """
   @callback handle_message(processor :: atom, message :: Message.t(), context :: term) ::
               Message.t()
@@ -367,7 +368,8 @@ defmodule Broadway do
   explicitly failed will be considered successful and automatically acknowledged.
 
   In case of errors in this callback, the error will be logged and the whole
-  batch will be failed.
+  batch will be failed. This callback also traps exits, so failures due to broken
+  links between processes do not automatically cascade.
   """
   @callback handle_batch(
               batcher :: atom,

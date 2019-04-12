@@ -98,7 +98,8 @@ defmodule Broadway.Server do
   defp build_producers_specs(config) do
     %{
       name: broadway_name,
-      producers_config: producers_config
+      producers_config: producers_config,
+      shutdown: shutdown
     } = config
 
     [{key, producer_config} | other_producers] = producers_config
@@ -120,7 +121,8 @@ defmodule Broadway.Server do
 
         %{
           start: {Producer, :start_link, [producer_config, opts]},
-          id: name
+          id: name,
+          shutdown: shutdown
         }
       end
 
@@ -135,7 +137,8 @@ defmodule Broadway.Server do
       context: context,
       batchers_config: batchers_config,
       resubscribe_interval: resubscribe_interval,
-      terminator: terminator
+      terminator: terminator,
+      shutdown: shutdown
     } = config
 
     [{key, processor_config} | other_processors] = processors_config
@@ -185,7 +188,8 @@ defmodule Broadway.Server do
 
         %{
           start: {Processor, :start_link, [args, opts]},
-          id: name
+          id: name,
+          shutdown: shutdown
         }
       end
 
@@ -227,7 +231,7 @@ defmodule Broadway.Server do
   end
 
   defp build_batcher_spec(config, batcher_config, processors) do
-    %{terminator: terminator} = config
+    %{terminator: terminator, shutdown: shutdown} = config
     {key, options} = batcher_config
     name = process_name(config.name, "Batcher", key)
 
@@ -244,7 +248,8 @@ defmodule Broadway.Server do
 
     spec = %{
       start: {Batcher, :start_link, [args, opts]},
-      id: name
+      id: name,
+      shutdown: shutdown
     }
 
     {name, spec}
@@ -255,7 +260,8 @@ defmodule Broadway.Server do
       name: broadway_name,
       module: module,
       context: context,
-      terminator: terminator
+      terminator: terminator,
+      shutdown: shutdown
     } = config
 
     {key, options} = batcher_config
@@ -281,7 +287,8 @@ defmodule Broadway.Server do
 
         %{
           start: {Consumer, :start_link, [args, opts]},
-          id: name
+          id: name,
+          shutdown: shutdown
         }
       end
 
