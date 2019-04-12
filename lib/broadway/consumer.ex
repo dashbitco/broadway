@@ -15,6 +15,8 @@ defmodule Broadway.Consumer do
 
   @impl true
   def init(args) do
+    Process.flag(:trap_exit, true)
+
     state = %{
       module: args[:module],
       context: args[:context]

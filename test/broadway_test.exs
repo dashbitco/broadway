@@ -319,6 +319,7 @@ defmodule BroadwayTest do
           :raise -> raise "Error raised"
           :bad_return -> :oops
           :bad_batcher -> %{message | batcher: :unknown}
+          :broken_link -> Task.async(fn -> raise "oops" end) |> Task.await()
           _ -> message
         end
       end
@@ -424,6 +425,18 @@ defmodule BroadwayTest do
                Broadway.push_messages(broadway, [one, raise, four])
                assert_receive {:ack, _, [%{data: 1}, %{data: 4}], []}
              end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/3 is undefined"
+
+      refute_received {:EXIT, _, ^processor}
+    end
+
+    test "processors do not crash on broken link", %{broadway: broadway, processor: processor} do
+      assert capture_log(fn ->
+               ref = Broadway.test_messages(broadway, [1, :broken_link, 4])
+
+               assert_receive {:ack, ^ref, [], [%{status: {:failed, "due to an unhandled exit"}}]}
+
+               assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
+             end) =~ "** (RuntimeError) oops"
 
       refute_received {:EXIT, _, ^processor}
     end
@@ -956,6 +969,7 @@ defmodule BroadwayTest do
             :fail -> Message.failed(message, "Failed message")
             :raise -> raise "Error raised"
             :bad_return -> :oops
+            :broken_link -> Task.async(fn -> raise "oops" end) |> Task.await()
             _ -> message
           end
         end)
@@ -1047,6 +1061,26 @@ defmodule BroadwayTest do
 
       refute_received {:EXIT, _, ^consumer}
     end
+
+    test "consumers do not crash on broken link",
+         %{broadway: broadway, consumer: consumer} do
+      assert capture_log(fn ->
+               ref = Broadway.test_messages(broadway, [1, 2, :broken_link, 3])
+
+               assert_receive {:ack, ^ref, [],
+                               [
+                                 %{data: 1, status: {:failed, "due to an unhandled exit"}},
+                                 %{data: 2, status: {:failed, "due to an unhandled exit"}},
+                                 %{
+                                   data: :broken_link,
+                                   status: {:failed, "due to an unhandled exit"}
+                                 },
+                                 %{data: 3, status: {:failed, "due to an unhandled exit"}}
+                               ]}
+             end) =~ "** (RuntimeError) oops"
+
+      refute_received {:EXIT, _, ^consumer}
+    end
   end
 
   describe "shutdown" do
@@ -1123,8 +1157,7 @@ defmodule BroadwayTest do
     end
 
     @tag shutdown: 1
-    test "shutting down broadway respects shutdown value",
-         %{broadway: broadway} do
+    test "shutting down broadway respects shutdown value", %{broadway: broadway} do
       Broadway.test_messages(broadway, [:sleep, 1, 2, 3])
       Process.exit(broadway, :shutdown)
       assert_receive {:EXIT, ^broadway, :shutdown}
