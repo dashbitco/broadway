@@ -390,7 +390,7 @@ defmodule Broadway do
         default = %{
           id: unquote(module),
           start: {__MODULE__, :start_link, [arg]},
-          type: :supervisor
+          shutdown: :infinity
         }
 
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))

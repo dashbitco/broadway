@@ -1,6 +1,6 @@
 defmodule Broadway.Server do
   @moduledoc false
-  use GenServer, shutdown: :infinity
+  @behaviour GenServer
 
   alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator}
 
