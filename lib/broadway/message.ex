@@ -16,6 +16,7 @@ defmodule Broadway.Message do
 
   @type t :: %Message{
           data: term,
+          metadata: %{optional(:atom) => term},
           acknowledger: {module, ack_ref :: term, data :: term},
           batcher: atom,
           batch_key: term,
@@ -24,6 +25,7 @@ defmodule Broadway.Message do
 
   @enforce_keys [:data, :acknowledger]
   defstruct data: nil,
+            metadata: %{},
             acknowledger: nil,
             batcher: :default,
             batch_key: :default,
