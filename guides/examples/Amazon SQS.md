@@ -179,6 +179,56 @@ Also, if your Broadway has any dependency (for example, it needs to talk
 to the database), make sure that Broadway is listed *after* its dependencies
 in the supervision tree.
 
+## Retrieving Metadata
+
+By default the following information is added to the `metadata` field in the `%Message{}`
+struct:
+
+  * `message_id` - The message id received when the message was sent to the queue
+  * `receipt_handle` - The receipt handle
+  * `md5_of_body` - An MD5 digest of the message body
+
+You can access any of that information directly while processing the message:
+
+    def handle_message(_, message, _) do
+      receipt = %{
+        id: message.metadata.message_id,
+        receipt_handle: message.metadata.receipt_handle
+      }
+
+      # Do something with the receipt
+    end
+
+If you want to retrieve `attributes` or `message_attributes`, you need to
+configure the `:attributes_names` and `:message_attributes_names` options
+accordingly, otherwise, attributes will not be attached to the response and
+will not be available in the `metadata` field:
+
+    ...
+
+    producers: [
+      default: [
+        module: {BroadwaySQS.Producer,
+          queue_name: "my_queue",
+          # Define which attributes/message_attributes you want to be attached
+          attribute_names: [:approximate_receive_count],
+          message_attribute_names: ["SomeAttribute"],
+        }
+      ]
+    ]
+
+    ...
+
+    def handle_message(_, message, _) do
+      approximate_receive_count = message.metadata.attributes["approximate_receive_count"]
+      some_attribute = message.metadata.message_attributes["SomeAttribute"]
+
+      # Do something with the attributes
+    end
+
+For more information on the `:attributes_names` and `:message_attributes_names`
+options, please see the [BroadwaySQS](https://hexdocs.pm/broadway_sqs/) documentation.
+
 ## Tuning the configuration
 
 Some of the configuration options available for Broadway come already with a
