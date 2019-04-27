@@ -43,7 +43,7 @@ defmodule MyBroadway do
 
   def start_link(_opts) do
     Broadway.start_link(__MODULE__,
-      name: __MODULE__,
+      name: Module.concat(__MODULE__, "Example"),
       producers: [
         sqs: [
           module: {BroadwaySQS.Producer, queue_name: "my_queue"}
