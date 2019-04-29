@@ -473,7 +473,7 @@ defmodule BroadwayTest do
     end
 
     test "no batcher supervisor is initialized", %{broadway_name: broadway_name} do
-      assert Process.whereis(:"#{broadway_name}.BatcherPartitionSupervisor") == nil
+      assert Process.whereis(:"#{broadway_name}.Broadway.BatcherPartitionSupervisor") == nil
     end
 
     test "successful messages are marked as :ok", %{broadway: broadway} do
@@ -1169,31 +1169,31 @@ defmodule BroadwayTest do
   end
 
   defp get_producer(broadway_name, key, index \\ 1) do
-    :"#{broadway_name}.Producer_#{key}_#{index}"
+    :"#{broadway_name}.Broadway.Producer_#{key}_#{index}"
   end
 
   defp get_processor(broadway_name, key, index \\ 1) do
-    :"#{broadway_name}.Processor_#{key}_#{index}"
+    :"#{broadway_name}.Broadway.Processor_#{key}_#{index}"
   end
 
   defp get_batcher(broadway_name, key) do
-    :"#{broadway_name}.Batcher_#{key}"
+    :"#{broadway_name}.Broadway.Batcher_#{key}"
   end
 
   defp get_consumer(broadway_name, key, index \\ 1) do
-    :"#{broadway_name}.Consumer_#{key}_#{index}"
+    :"#{broadway_name}.Broadway.Consumer_#{key}_#{index}"
   end
 
   defp get_n_producers(broadway_name) do
-    Supervisor.count_children(:"#{broadway_name}.ProducerSupervisor").workers
+    Supervisor.count_children(:"#{broadway_name}.Broadway.ProducerSupervisor").workers
   end
 
   defp get_n_processors(broadway_name) do
-    Supervisor.count_children(:"#{broadway_name}.ProcessorSupervisor").workers
+    Supervisor.count_children(:"#{broadway_name}.Broadway.ProcessorSupervisor").workers
   end
 
   defp get_n_consumers(broadway_name, key) do
-    Supervisor.count_children(:"#{broadway_name}.ConsumerSupervisor_#{key}").workers
+    Supervisor.count_children(:"#{broadway_name}.Broadway.ConsumerSupervisor_#{key}").workers
   end
 
   defp async_push_messages(producer, list) do
