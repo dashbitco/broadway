@@ -149,7 +149,7 @@ all messages received from the queue are just numbers:
 
       def handle_batch(_, messages, _, _) do
         list = messages |> Enum.map(fn e -> e.data end)
-        IO.inspect(list, label: "Got batch from SQS")
+        IO.inspect(list, label: "Got batch of finished jobs from processors, sending ACKs to SQS as a batch.")
         messages
       end
     end
