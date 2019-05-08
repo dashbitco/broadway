@@ -224,7 +224,8 @@ defmodule Broadway do
 
         @impl true
         def handle_batch(:sqs, messages, _batch_info, _context) do
-          # Send batch of messages to SQS
+          # Send batch of successful messages as ACKs to SQS
+          # This tells SQS that this list of messages were successfully processed
         end
 
         def handle_batch(:s3, messages, _batch_info, _context) do
