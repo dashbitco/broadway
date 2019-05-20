@@ -131,7 +131,8 @@ module docs as well as `Broadway.start_link/2`.
 
 > Note: Even though batching is optional in Broadway v0.2, we recommend
 > all SQS pipelines to have at least a default batcher, with the default
-> values defined above. That's because batchers will also acknowledge
+> values defined above, unless you are expecting a very low rate of
+> incoming messages. That's because batchers will also acknowledge
 > messages in batches, which is the most cost and time efficient way
 > of doing so on Amazon SQS.
 
