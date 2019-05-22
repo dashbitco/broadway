@@ -257,7 +257,7 @@ Another important option to take into account is the `:prefetch_count`. Note
 that unlike the RabittMQ client that has a default `:prefetch_count` = 0, which
 disables back-pressure, BroadwayRabbitMQ overwrite the default value to `50`
 enabling the back-pressure mechanism. You can see more details in the
-["Back-pressure and :prefetch_count"](https://hexdocs.pm/broadway_rabbitmq/BroadwayRabbitmq.Producer.html#module-back-pressure-and-prefetch_count)
+["Back-pressure and :prefetch_count"](https://hexdocs.pm/broadway_rabbitmq/BroadwayRabbitMQ.Producer.html#module-back-pressure-and-prefetch_count)
 section of the `BroadwayRabbitMQ` documentation.
 
 In order to get a good set of configurations for your pipeline, it's
