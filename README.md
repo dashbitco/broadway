@@ -1,8 +1,10 @@
 # Broadway
 
-Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. It allows developers to consume data efficiently from different sources, such as Amazon SQS, RabbitMQ, and others.
+Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. It allows developers to consume data efficiently from different sources, known as producers, such as Amazon SQS, RabbitMQ, and others.
 
-Documentation can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
+The name Broadway was taken from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, as we hope to be equally renowned by our stages and producers. :)
+
+Documentation, examples, and how tos can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
 ## Built-in features
 
@@ -31,7 +33,16 @@ def deps do
 end
 ```
 
-## A quick example: SQS integration
+## Official Broadway Producers
+
+Currently we officially support two Broadway producers:
+
+  * Amazon SQS: [Source](https://github.com/plataformatec/broadway_sqs) - [Guide](https://hexdocs.pm/broadway/amazon-sqs.html)
+  * RabbitMQ: [Source](https://github.com/plataformatec/broadway_rabbitmq) - [Guide](https://hexdocs.pm/broadway/rabbitmq.html)
+
+More producers are on the way.
+
+### A quick example: SQS integration
 
 Assuming you have added [`broadway_sqs`](https://github.com/plataformatec/broadway_sqs) as a dependency and configured your SQS credentials accordingly, you can consume Amazon SQS events in only 20 LOCs:
 
@@ -76,11 +87,13 @@ end
 
 Once your Broadway module is defined, you just need to add it as a child of your application supervision tree as `{MyBroadway, []}`.
 
-API reference, examples, how tos and more at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
+## Non-official (Off-Broadway) Producers
+
+For those interested in rolling their own Broadway Producers (which we actively encourage!), we recommend using the `OffBroadway` namespace, mirroring the [Off-Broadway theaters](https://en.wikipedia.org/wiki/Off-Broadway). For example, if you want to publish your own integration with Amazon SQS, you can package it as `off_broadway_sqs`, which uses the `OffBroadway.SQS` namespace.
 
 ## Comparison to Flow
 
-You may also be interested in [Flow by Plataformatec](https://github.com/plataformatec/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general and powerful abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway focuses on events and on operational features, such as metrics, automatic acknowledgements, failure handling, and so on.
+You may also be interested in [Flow by Plataformatec](https://github.com/plataformatec/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway focuses on events and on operational features, such as metrics, automatic acknowledgements, failure handling, and so on.
 
 ## License
 
