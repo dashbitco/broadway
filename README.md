@@ -1,6 +1,6 @@
 # Broadway
 
-Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. It allows developers to consume data efficiently from different sources, such as Amazon SQS, RabbitMQ, and others.
+Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. It allows developers to consume data efficiently from different sources, known as producers, such as Amazon SQS, RabbitMQ, and others.
 
 The name Broadway was taken from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, as we hope to be equally renowned by our stages and producers. :)
 
