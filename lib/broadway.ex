@@ -365,7 +365,7 @@ defmodule Broadway do
       about the incoming batch.
     * `context` is the user defined data structure passed to `start_link/2`.
 
-  It must return a list of batches. Any message in the batch that has not been
+  It must return a list of messages. Any message in the batch that has not been
   explicitly failed will be considered successful and automatically acknowledged.
 
   In case of errors in this callback, the error will be logged and the whole
@@ -408,7 +408,7 @@ defmodule Broadway do
 
   ## Options
 
-  In order to set up how the pipeline created by Broadway,
+  In order to set up how the pipeline created by Broadway should work,
   you need to specify the blueprint of the pipeline. You can
   do this by passing a set of options to `start_link/2`.
   Each component of the pipeline has its own set of options.
@@ -418,7 +418,7 @@ defmodule Broadway do
     * `:name` - Required. Used for name registration. All processes/stages
       created will be named using this value as prefix.
 
-    * `:producers` - Required. Defines a keyword list of named producers
+    * `:producers` - Required. A keyword list of named producers
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Producers options" section below.
       Currently only a single producer is allowed.
@@ -428,7 +428,7 @@ defmodule Broadway do
       keyword list of options. See "Processors options" section below.
       Currently only a single processor is allowed.
 
-    * `:batchers` - Optional. Defines a keyword list of named batchers
+    * `:batchers` - Optional. A keyword list of named batchers
       where the key is an atom as identifier and the value is another
       keyword list of options. See "Batchers options" section below.
 
