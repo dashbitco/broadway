@@ -39,11 +39,11 @@ defmodule Broadway.Batcher do
   defoverridable handle_info: 2
 
   @impl true
-  def handle_info({:timeout, timer, partition}, state) do
-    case get_timed_out_batch(partition, timer) do
+  def handle_info({:timeout, timer, batch_key}, state) do
+    case get_timed_out_batch(batch_key, timer) do
       {current, _, _} ->
-        delete_batch(partition)
-        {:noreply, [wrap_for_delivery(partition, current, state)], state}
+        delete_batch(batch_key)
+        {:noreply, [wrap_for_delivery(batch_key, current, state)], state}
 
       :error ->
         {:noreply, [], state}
@@ -58,10 +58,10 @@ defmodule Broadway.Batcher do
       super(:cancel_consumers, state)
     else
       events =
-        for {partition, _} <- batches do
-          {current, _, timer} = delete_batch(partition)
+        for {batch_key, _} <- batches do
+          {current, _, timer} = delete_batch(batch_key)
           cancel_batch_timeout(timer)
-          wrap_for_delivery(partition, current, state)
+          wrap_for_delivery(batch_key, current, state)
         end
 
       GenStage.async_info(self(), :cancel_consumers)
@@ -106,31 +106,31 @@ defmodule Broadway.Batcher do
 
   ## General batch handling
 
-  defp init_or_get_batch(batch_name, state) do
-    if batch = Process.get(batch_name) do
+  defp init_or_get_batch(batch_key, state) do
+    if batch = Process.get(batch_key) do
       batch
     else
       %{batch_size: batch_size, batch_timeout: batch_timeout} = state
-      timer = schedule_batch_timeout(batch_name, batch_timeout)
-      update_all_batches(&Map.put(&1, batch_name, true))
+      timer = schedule_batch_timeout(batch_key, batch_timeout)
+      update_all_batches(&Map.put(&1, batch_key, true))
       {[], batch_size, timer}
     end
   end
 
-  defp get_timed_out_batch(batch_name, timer) do
-    case Process.get(batch_name) do
+  defp get_timed_out_batch(batch_key, timer) do
+    case Process.get(batch_key) do
       {_, _, ^timer} = batch -> batch
       _ -> :error
     end
   end
 
-  defp put_batch(batch_name, {_, _, _} = batch) do
-    Process.put(batch_name, batch)
+  defp put_batch(batch_key, {_, _, _} = batch) do
+    Process.put(batch_key, batch)
   end
 
-  defp delete_batch(batch_name) do
-    update_all_batches(&Map.delete(&1, batch_name))
-    Process.delete(batch_name)
+  defp delete_batch(batch_key) do
+    update_all_batches(&Map.delete(&1, batch_key))
+    Process.delete(batch_key)
   end
 
   defp all_batches do
@@ -141,8 +141,8 @@ defmodule Broadway.Batcher do
     Process.put(@all_batches, fun.(Process.get(@all_batches)))
   end
 
-  defp schedule_batch_timeout(batch_name, batch_timeout) do
-    :erlang.start_timer(batch_timeout, self(), batch_name)
+  defp schedule_batch_timeout(batch_key, batch_timeout) do
+    :erlang.start_timer(batch_timeout, self(), batch_key)
   end
 
   defp cancel_batch_timeout(timer) do
