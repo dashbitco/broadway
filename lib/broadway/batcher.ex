@@ -89,9 +89,9 @@ defmodule Broadway.Batcher do
 
   defp split_counting(batch_key, [%{batch_key: batch_key} = event | events], count, acc)
        when count > 0,
-       do: split_counting(events, count - 1, [event | acc])
+       do: split_counting(batch_key, events, count - 1, [event | acc])
 
-  defp split_counting(events, count, acc), do: {acc, count, events}
+  defp split_counting(_batch_key, events, count, acc), do: {acc, count, events}
 
   defp deliver_or_update_batch(batch_key, current, 0, timer, acc, state) do
     delete_batch(batch_key)
