@@ -91,6 +91,10 @@ Once your Broadway module is defined, you just need to add it as a child of your
 
 For those interested in rolling their own Broadway Producers (which we actively encourage!), we recommend using the `OffBroadway` namespace, mirroring the [Off-Broadway theaters](https://en.wikipedia.org/wiki/Off-Broadway). For example, if you want to publish your own integration with Amazon SQS, you can package it as `off_broadway_sqs`, which uses the `OffBroadway.SQS` namespace.
 
+The following Off-Broadway libraries are available (feel free to send a PR adding your own in alphabetical order):
+
+  * Your library here...
+
 ## Comparison to Flow
 
 You may also be interested in [Flow by Plataformatec](https://github.com/plataformatec/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway focuses on events and on operational features, such as metrics, automatic acknowledgements, failure handling, and so on.
