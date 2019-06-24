@@ -57,10 +57,12 @@ client of your choice (defaults to `:hackney`):
     def deps do
       [
         ...
-        {:broadway_sqs, "~> 0.1.0"},
+        {:broadway_sqs, "~> 0.2.0"},
         {:hackney, "~> 1.9"},
       ]
     end
+
+Don't forget to check for the latest version of dependencies.
 
 ## Define the pipeline configuration
 
