@@ -1,6 +1,6 @@
 # Architecture
 
-Broadway's architecture is built on top GenStage. That means we structure
+Broadway's architecture is built on top of GenStage. That means we structure
 our processing units as independent stages that are responsible for one
 individual task in the pipeline. By implementing the `Broadway` behaviour,
 we define a `GenServer` process that wraps a `Supervisor` to manage and
