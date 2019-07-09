@@ -1,6 +1,6 @@
 # Architecture
 
-Broadway's architecture is built on top GenStage. That means we structure
+Broadway's architecture is built on top of GenStage. That means we structure
 our processing units as independent stages that are responsible for one
 individual task in the pipeline. By implementing the `Broadway` behaviour,
 we define a `GenServer` process that wraps a `Supervisor` to manage and
@@ -42,17 +42,17 @@ of failures thanks to the use of supervisors. Our supervision tree
 is designed as follows:
 
 ```asciidoc
-                        [Broadway GenServer]
-                                 |
-                                 |
-                                 |
-                  [Broadway Pipeline Supervisor]
-                      /   (:rest_for_one)     \
-                     /           |             \
-                    /            |              \
-                   /             |               \
-                  /              |                \
-                 /               |                 \
+                                   [Broadway GenServer]
+                                            |
+                                            |
+                                            |
+                              [Broadway Pipeline Supervisor]
+                             /    /   (:rest_for_one)   \    \
+                           /     |                       |      \
+                         /       |                       |         \
+                       /         |                       |            \
+                     /           |                       |               \
+                   /             |                       |                  \
   [ProducerSupervisor]  [ProcessorSupervisor] [BatcherPartitionSupervisor] [Terminator]
     (:one_for_one)        (:one_for_all)           (:one_for_one)
          / \                    / \                /            \
@@ -66,6 +66,8 @@ is designed as follows:
                                                 /      \
                                           [Batcher] [ConsumerSupervisor]
                                                        (:one_for_all)
+                                                             |
+                                                             |
                                                              |
                                                         [Consumer_1]
 ```
