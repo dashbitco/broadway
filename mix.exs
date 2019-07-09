@@ -40,7 +40,7 @@ defmodule Broadway.MixProject do
       extras: [
         "guides/examples/Amazon SQS.md",
         "guides/examples/RabbitMQ.md",
-        "guides/examples/Custom producers.md",
+        "guides/examples/Custom Producers.md",
         "guides/internals/Architecture.md"
       ],
       groups_for_extras: [
