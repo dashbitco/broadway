@@ -42,17 +42,17 @@ of failures thanks to the use of supervisors. Our supervision tree
 is designed as follows:
 
 ```asciidoc
-                        [Broadway GenServer]
-                                 |
-                                 |
-                                 |
-                  [Broadway Pipeline Supervisor]
-                      /   (:rest_for_one)     \
-                     /           |             \
-                    /            |              \
-                   /             |               \
-                  /              |                \
-                 /               |                 \
+                                   [Broadway GenServer]
+                                            |
+                                            |
+                                            |
+                              [Broadway Pipeline Supervisor]
+                             /    /   (:rest_for_one)   \    \
+                           /     |                       |      \
+                         /       |                       |         \
+                       /         |                       |            \
+                     /           |                       |               \
+                   /             |                       |                  \
   [ProducerSupervisor]  [ProcessorSupervisor] [BatcherPartitionSupervisor] [Terminator]
     (:one_for_one)        (:one_for_all)           (:one_for_one)
          / \                    / \                /            \
@@ -66,6 +66,8 @@ is designed as follows:
                                                 /      \
                                           [Batcher] [ConsumerSupervisor]
                                                        (:one_for_all)
+                                                             |
+                                                             |
                                                              |
                                                         [Consumer_1]
 ```
