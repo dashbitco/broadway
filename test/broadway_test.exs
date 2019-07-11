@@ -32,13 +32,13 @@ defmodule BroadwayTest do
       GenStage.start_link(__MODULE__, args, opts)
     end
 
+    @impl true
     def init(%{test_pid: test_pid}) do
       name = Process.info(self())[:registered_name]
       send(test_pid, {:producer_initialized, name})
       {:producer, %{test_pid: test_pid}}
     end
 
-    @impl true
     def init(_args) do
       {:producer, %{}}
     end
