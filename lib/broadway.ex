@@ -269,7 +269,14 @@ defmodule Broadway do
 
   ## Testing
 
-  Testing Broadway pipelines can be done with `test_messages/2`.
+  Many producers receive data from external systems and hitting the network
+  is usually undesirable when running the tests. One way to solve this issue
+  would be to not start Broadway pipeline in tests. Another way would be to use
+  a different producer in tests, one that doesn't do anything, and that is
+  exactly what `Broadway.EmptyProducer` is for. If the empty producer doesn't
+  produce any work, how to test that consumers are correct? For that, Broadway
+  ships with a `test_messages/2` function.
+
   With `test_messages/2`, you can push some sample data into the
   pipeline and receive a process message when the pipeline
   acknowledges the data you have pushed has been processed.
@@ -523,6 +530,8 @@ defmodule Broadway do
 
   It returns a reference that can be used to identify the ack
   messages.
+
+  See "Testing" section in module documentation for more information.
 
   ## Examples
 
