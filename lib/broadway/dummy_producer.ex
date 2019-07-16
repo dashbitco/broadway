@@ -1,4 +1,4 @@
-defmodule Broadway.EmptyProducer do
+defmodule Broadway.DummyProducer do
   @moduledoc """
   A producer that does nothing, used mostly for testing.
 

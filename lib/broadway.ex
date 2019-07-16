@@ -273,7 +273,7 @@ defmodule Broadway do
   is usually undesirable when running the tests. One way to solve this issue
   would be to not start Broadway pipeline in tests. Another way would be to use
   a different producer in tests, one that doesn't do anything, and that is
-  exactly what `Broadway.EmptyProducer` is for. If the empty producer doesn't
+  exactly what `Broadway.DummyProducer` is for. If the dummy producer doesn't
   produce any work, how to test that consumers are correct? For that, Broadway
   ships with a `test_messages/2` function.
 
