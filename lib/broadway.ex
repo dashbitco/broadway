@@ -297,13 +297,20 @@ defmodule Broadway do
       # Now assert the database side-effects
       ...
 
-  Keep in mind that multiple acknowledgement messages may be sent.
-  For example, if the batcher in the example above has size of 2,
-  then two batches would be created and therefore two ack messages
-  would be sent. Similarly, if any of the messages fail when
-  processed, an acknowledgement of their failure may be sent early
-  on. On the positive side, if you always push just a single test
-  message, then there is always one acknowledgment.
+  When testing pipelines that are using batchers there are additional
+  considerations. By default, the batch is only delivered when either
+  its size or its timeout has been reached, but that is often impractical
+  for testing, you may not necessarily want to send a lot of data or
+  wait a lot of time for the batch to flush. For this reason, when using
+  `test_messages/2`, by default the messages have their `:batching_mode`
+  set to `:flush` which means the batch will be immediately delivered.
+  Depending on the batch size and the batching mode you might get multiple
+  acknowledgment messages. For example, if the batcher in the example above
+  has size of 2, each event when batched would be immediately flushed and
+  so you would get a total of 3 acknowledment messages, one for each event.
+  Similarly, if any of the messages fail when processed, an acknowledgement
+  of their failure may be sent early on. On the positive side, if you always
+  push just a single test message, then there is always one acknowledgment.
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
@@ -533,6 +540,12 @@ defmodule Broadway do
 
   See "Testing" section in module documentation for more information.
 
+  ## Options
+
+  * `:batching_mode` - when set to `:flush`, the batch the message is
+    in is immediately delivered. When set to `:bulk`, batch is
+    delivered when its size or timeout is reached. Defaults to `:flush`.
+
   ## Examples
 
   For example, in your tests, you may do:
@@ -544,10 +557,14 @@ defmodule Broadway do
 
   """
   @spec test_messages(GenServer.server(), data :: [term]) :: reference
-  def test_messages(broadway, data) when is_list(data) do
+  def test_messages(broadway, data, opts \\ []) when is_list(data) and is_list(opts) do
+    batching_mode = Keyword.get(opts, :batching_mode, :flush)
     ref = make_ref()
     ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
-    messages = Enum.map(data, &%Message{data: &1, acknowledger: ack})
+
+    messages =
+      Enum.map(data, &%Message{data: &1, acknowledger: ack, batching_mode: batching_mode})
+
     :ok = push_messages(broadway, messages)
     ref
   end
