@@ -302,7 +302,7 @@ defmodule Broadway do
   its size or its timeout has been reached, but that is often impractical
   for testing, you may not necessarily want to send a lot of data or
   wait a lot of time for the batch to flush. For this reason, when using
-  `test_messages/2`, by default the messages have their `:batching_mode`
+  `test_messages/2`, by default the messages have their `:batch_mode`
   set to `:flush` which means the batch will be immediately delivered.
   Depending on the batch size and the batching mode you might get multiple
   acknowledgment messages. For example, if the batcher in the example above
@@ -542,7 +542,7 @@ defmodule Broadway do
 
   ## Options
 
-  * `:batching_mode` - when set to `:flush`, the batch the message is
+  * `:batch_mode` - when set to `:flush`, the batch the message is
     in is immediately delivered. When set to `:bulk`, batch is
     delivered when its size or timeout is reached. Defaults to `:flush`.
 
@@ -558,12 +558,11 @@ defmodule Broadway do
   """
   @spec test_messages(GenServer.server(), data :: [term]) :: reference
   def test_messages(broadway, data, opts \\ []) when is_list(data) and is_list(opts) do
-    batching_mode = Keyword.get(opts, :batching_mode, :flush)
+    batch_mode = Keyword.get(opts, :batch_mode, :flush)
     ref = make_ref()
     ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
 
-    messages =
-      Enum.map(data, &%Message{data: &1, acknowledger: ack, batching_mode: batching_mode})
+    messages = Enum.map(data, &%Message{data: &1, acknowledger: ack, batch_mode: batch_mode})
 
     :ok = push_messages(broadway, messages)
     ref

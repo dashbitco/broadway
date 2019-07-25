@@ -20,7 +20,7 @@ defmodule Broadway.Message do
           acknowledger: {module, ack_ref :: term, data :: term},
           batcher: atom,
           batch_key: term,
-          batching_mode: :bulk | :flush,
+          batch_mode: :bulk | :flush,
           status: :ok | {:failed, reason :: binary}
         }
 
@@ -30,7 +30,7 @@ defmodule Broadway.Message do
             acknowledger: nil,
             batcher: :default,
             batch_key: :default,
-            batching_mode: :bulk,
+            batch_mode: :bulk,
             status: :ok
 
   @doc """
@@ -74,9 +74,9 @@ defmodule Broadway.Message do
 
   The default mode for messages is `:bulk`.
   """
-  @spec put_batching_mode(message :: Message.t(), mode :: :bulk | :flush) :: Message.t()
-  def put_batching_mode(%Message{} = message, mode) when mode in [:bulk, :flush] do
-    %Message{message | batching_mode: mode}
+  @spec put_batch_mode(message :: Message.t(), mode :: :bulk | :flush) :: Message.t()
+  def put_batch_mode(%Message{} = message, mode) when mode in [:bulk, :flush] do
+    %Message{message | batch_mode: mode}
   end
 
   @doc """
