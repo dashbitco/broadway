@@ -91,7 +91,7 @@ defmodule Broadway.Batcher do
 
   defp split_counting(batch_key, [%{batch_key: batch_key} = event | events], count, flush?, acc)
        when count > 0 do
-    flush? = flush? || event.batch_mode == :flush
+    flush? = flush? or event.batch_mode == :flush
     split_counting(batch_key, events, count - 1, flush?, [event | acc])
   end
 
