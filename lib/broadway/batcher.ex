@@ -81,18 +81,21 @@ defmodule Broadway.Batcher do
 
   defp handle_events_per_batch_key([%{batch_key: batch_key} | _] = events, acc, state) do
     {current, pending_count, timer} = init_or_get_batch(batch_key, state)
-    {current, pending_count, events} = split_counting(batch_key, events, pending_count, current)
 
-    flush? = Enum.any?(current, &(&1.batch_mode == :flush))
+    {current, pending_count, events, flush?} =
+      split_counting(batch_key, events, pending_count, false, current)
+
     acc = deliver_or_update_batch(batch_key, current, pending_count, flush?, timer, acc, state)
     handle_events_per_batch_key(events, acc, state)
   end
 
-  defp split_counting(batch_key, [%{batch_key: batch_key} = event | events], count, acc)
-       when count > 0,
-       do: split_counting(batch_key, events, count - 1, [event | acc])
+  defp split_counting(batch_key, [%{batch_key: batch_key} = event | events], count, flush?, acc)
+       when count > 0 do
+    flush? = flush? || event.batch_mode == :flush
+    split_counting(batch_key, events, count - 1, flush?, [event | acc])
+  end
 
-  defp split_counting(_batch_key, events, count, acc), do: {acc, count, events}
+  defp split_counting(_batch_key, events, count, flush?, acc), do: {acc, count, events, flush?}
 
   defp deliver_or_update_batch(batch_key, current, _pending_count, true, timer, acc, state) do
     deliver_batch(batch_key, current, timer, acc, state)
