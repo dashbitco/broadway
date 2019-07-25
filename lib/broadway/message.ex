@@ -70,7 +70,8 @@ defmodule Broadway.Message do
   the batch size or the batch timeout is reached.
 
   When the mode is `:flush`, the batch that the message is in is delivered
-  immediately.
+  immediately after processing. Note it doesn't mean the batch contains only a single element
+  but rather that all messages receives from the processor are delivered without waiting.
 
   The default mode for messages is `:bulk`.
   """
