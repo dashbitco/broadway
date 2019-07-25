@@ -20,6 +20,7 @@ defmodule Broadway.Message do
           acknowledger: {module, ack_ref :: term, data :: term},
           batcher: atom,
           batch_key: term,
+          batch_mode: :bulk | :flush,
           status: :ok | {:failed, reason :: binary}
         }
 
@@ -29,6 +30,7 @@ defmodule Broadway.Message do
             acknowledger: nil,
             batcher: :default,
             batch_key: :default,
+            batch_mode: :bulk,
             status: :ok
 
   @doc """
@@ -59,6 +61,23 @@ defmodule Broadway.Message do
   @spec put_batch_key(message :: Message.t(), batch_key :: term) :: Message.t()
   def put_batch_key(%Message{} = message, batch_key) do
     %Message{message | batch_key: batch_key}
+  end
+
+  @doc """
+  Sets the batching mode for the message.
+
+  When the mode is `:bulk`, the batch that the message is in is delivered after
+  the batch size or the batch timeout is reached.
+
+  When the mode is `:flush`, the batch that the message is in is delivered
+  immediately after processing. Note it doesn't mean the batch contains only a single element
+  but rather that all messages receives from the processor are delivered without waiting.
+
+  The default mode for messages is `:bulk`.
+  """
+  @spec put_batch_mode(message :: Message.t(), mode :: :bulk | :flush) :: Message.t()
+  def put_batch_mode(%Message{} = message, mode) when mode in [:bulk, :flush] do
+    %Message{message | batch_mode: mode}
   end
 
   @doc """

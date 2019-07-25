@@ -353,7 +353,7 @@ defmodule BroadwayTest do
     end
 
     test "successful messages are marked as :ok", %{broadway: broadway} do
-      ref = Broadway.test_messages(broadway, [1, 2])
+      ref = Broadway.test_messages(broadway, [1, 2], batch_mode: :bulk)
       assert_receive {:batch_handled, [%{status: :ok}, %{status: :ok}]}
       assert_receive {:ack, ^ref, [%{status: :ok}, %{status: :ok}], []}
     end
@@ -364,7 +364,7 @@ defmodule BroadwayTest do
     end
 
     test "failed messages are not forwarded to the batcher", %{broadway: broadway} do
-      ref = Broadway.test_messages(broadway, [1, :fail, :fail, 4])
+      ref = Broadway.test_messages(broadway, [1, :fail, :fail, 4], batch_mode: :bulk)
 
       assert_receive {:batch_handled, [%{data: 1}, %{data: 4}]}
       assert_receive {:ack, ^ref, [%{status: :ok}, %{status: :ok}], []}
@@ -375,7 +375,7 @@ defmodule BroadwayTest do
     test "messages are marked as {:failed, reason} when an error is raised while processing",
          %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               ref = Broadway.test_messages(broadway, [1, :raise, 4])
+               ref = Broadway.test_messages(broadway, [1, :raise, 4], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [%{status: {:failed, "due to an unhandled error"}}]}
@@ -389,7 +389,7 @@ defmodule BroadwayTest do
     test "messages are marked as {:failed, reason} on bad return",
          %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               ref = Broadway.test_messages(broadway, [1, :bad_return, 4])
+               ref = Broadway.test_messages(broadway, [1, :bad_return, 4], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [%{status: {:failed, "due to an unhandled error"}}]}
@@ -404,7 +404,7 @@ defmodule BroadwayTest do
     test "messages are marked as {:failed, reason} on bad batcher",
          %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               ref = Broadway.test_messages(broadway, [1, :bad_batcher, 4])
+               ref = Broadway.test_messages(broadway, [1, :bad_batcher, 4], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [%{status: {:failed, "due to an unhandled error"}}]}
@@ -431,7 +431,7 @@ defmodule BroadwayTest do
 
     test "processors do not crash on broken link", %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               ref = Broadway.test_messages(broadway, [1, :broken_link, 4])
+               ref = Broadway.test_messages(broadway, [1, :broken_link, 4], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [], [%{status: {:failed, "due to an unhandled exit"}}]}
 
@@ -541,7 +541,7 @@ defmodule BroadwayTest do
     end
 
     test "generate batches based on :batch_size", %{broadway: broadway} do
-      Broadway.test_messages(broadway, Enum.to_list(1..40))
+      Broadway.test_messages(broadway, Enum.to_list(1..40), batch_mode: :bulk)
 
       assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd}}
                      when length(messages) == 10
@@ -608,7 +608,7 @@ defmodule BroadwayTest do
     end
 
     test "generate batches based on :batch_size", %{broadway: broadway} do
-      ref = Broadway.test_messages(broadway, Enum.to_list(1..10))
+      ref = Broadway.test_messages(broadway, Enum.to_list(1..10), batch_mode: :bulk)
 
       assert_receive {:ack, ^ref, [%{data: 1, batch_key: :odd}, %{data: 3, batch_key: :odd}], []}
 
@@ -625,6 +625,60 @@ defmodule BroadwayTest do
 
       assert_receive {:ack, ^ref, [%{data: 1, batch_key: :odd}], []}
       assert_receive {:ack, ^ref, [%{data: 2, batch_key: :even}], []}
+    end
+  end
+
+  describe "put_batch_mode" do
+    setup do
+      test_pid = self()
+      broadway_name = new_unique_name()
+
+      handle_message = fn message, _ ->
+        message
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn batcher, batch, batch_info, _ ->
+          send(test_pid, {:batch_handled, batcher, batch_info})
+          batch
+        end
+      }
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: context,
+          producers: [default: [module: {ManualProducer, []}]],
+          processors: [default: []],
+          batchers: [default: [batch_size: 2, batch_timeout: 20]]
+        )
+
+      %{broadway: broadway}
+    end
+
+    test "flush by default", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, 2, 3, 4, 5])
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 1}], []}
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 2}], []}
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 3}], []}
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 4}], []}
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 5}], []}
+    end
+
+    test "bulk", %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [1, 2, 3, 4, 5], batch_mode: :bulk)
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 3}, %{data: 4}], []}
+      assert_receive {:batch_handled, :default, _}
+      assert_receive {:ack, ^ref, [%{data: 5}], []}
     end
   end
 
@@ -832,7 +886,7 @@ defmodule BroadwayTest do
     end
 
     test "only the messages in the crashing processor are lost", %{broadway: broadway} do
-      Broadway.test_messages(broadway, [1, 2, :kill_processor, 3, 4, 5])
+      Broadway.test_messages(broadway, [1, 2, :kill_processor, 3, 4, 5], batch_mode: :bulk)
 
       assert_receive {:message_handled, %{data: 1}}
       assert_receive {:message_handled, %{data: 2}}
@@ -845,7 +899,7 @@ defmodule BroadwayTest do
     end
 
     test "batches are created normally (without the lost messages)", %{broadway: broadway} do
-      Broadway.test_messages(broadway, [1, 2, :kill_processor, 3, 4, 5])
+      Broadway.test_messages(broadway, [1, 2, :kill_processor, 3, 4, 5], batch_mode: :bulk)
 
       assert_receive {:batch_handled, messages}
       values = messages |> Enum.map(& &1.data)
@@ -904,15 +958,15 @@ defmodule BroadwayTest do
     end
 
     test "batcher will be restarted in order to handle other messages", %{broadway: broadway} do
-      Broadway.test_messages(broadway, [1, 2])
+      Broadway.test_messages(broadway, [1, 2], batch_mode: :bulk)
       assert_receive {:batch_handled, _, batcher1} when is_pid(batcher1)
       ref = Process.monitor(batcher1)
 
-      Broadway.test_messages(broadway, [:kill_batcher, 3])
+      Broadway.test_messages(broadway, [:kill_batcher, 3], batch_mode: :bulk)
       assert_receive {:batch_handled, _, ^batcher1}
       assert_receive {:DOWN, ^ref, _, _, _}
 
-      Broadway.test_messages(broadway, [4, 5])
+      Broadway.test_messages(broadway, [4, 5], batch_mode: :bulk)
       assert_receive {:batch_handled, _, batcher2} when is_pid(batcher2)
       assert batcher1 != batcher2
     end
@@ -939,7 +993,8 @@ defmodule BroadwayTest do
     end
 
     test "only the messages in the crashing batcher are lost", %{broadway: broadway} do
-      ref = Broadway.test_messages(broadway, [1, 2, :kill_batcher, 3, 4, 5, 6, 7])
+      ref =
+        Broadway.test_messages(broadway, [1, 2, :kill_batcher, 3, 4, 5, 6, 7], batch_mode: :bulk)
 
       assert_receive {:ack, ^ref, successful, _failed}
       values = Enum.map(successful, & &1.data)
@@ -1014,7 +1069,7 @@ defmodule BroadwayTest do
     test "all messages in the batch are marked as {:failed, reason} when an error is raised",
          %{broadway: broadway, consumer: consumer} do
       assert capture_log(fn ->
-               ref = Broadway.test_messages(broadway, [1, 2, :raise, 3])
+               ref = Broadway.test_messages(broadway, [1, 2, :raise, 3], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [
@@ -1031,7 +1086,7 @@ defmodule BroadwayTest do
     test "all messages in the batch are marked as {:failed, reason} on bad return",
          %{broadway: broadway, consumer: consumer} do
       assert capture_log(fn ->
-               ref = Broadway.test_messages(broadway, [1, 2, :bad_return, 3])
+               ref = Broadway.test_messages(broadway, [1, 2, :bad_return, 3], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [
@@ -1055,7 +1110,7 @@ defmodule BroadwayTest do
 
       assert capture_log(fn ->
                Broadway.push_messages(broadway, [one, two, raise, three])
-               ref = Broadway.test_messages(broadway, [1, 2, 3, 4])
+               ref = Broadway.test_messages(broadway, [1, 2, 3, 4], batch_mode: :bulk)
                assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
              end) =~ "[error] ** (UndefinedFunctionError) function Unknown.ack/3 is undefined"
 
@@ -1065,7 +1120,7 @@ defmodule BroadwayTest do
     test "consumers do not crash on broken link",
          %{broadway: broadway, consumer: consumer} do
       assert capture_log(fn ->
-               ref = Broadway.test_messages(broadway, [1, 2, :broken_link, 3])
+               ref = Broadway.test_messages(broadway, [1, 2, :broken_link, 3], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [
@@ -1142,7 +1197,7 @@ defmodule BroadwayTest do
 
     test "shutting down broadway waits until all events are processed even on incomplete batches",
          %{broadway: broadway} do
-      ref = Broadway.test_messages(broadway, [1, 2])
+      ref = Broadway.test_messages(broadway, [1, 2], batch_mode: :bulk)
       Process.exit(broadway, :shutdown)
       assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
     end
