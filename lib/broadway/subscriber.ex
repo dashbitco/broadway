@@ -41,7 +41,7 @@ defmodule Broadway.Subscriber do
         subscription_options: Keyword.put_new(subscription_options, :cancel, :temporary)
       })
 
-    Enum.each(names, &subscribe(&1, state))
+    names |> Enum.shuffle() |> Enum.each(&subscribe(&1, state))
 
     if type == :consumer do
       {type, state}
