@@ -66,10 +66,10 @@ is designed as follows:
                                                 /      \
                                           [Batcher] [ConsumerSupervisor]
                                                        (:one_for_all)
-                                                             |
-                                                             |
-                                                             |
-                                                        [Consumer_1]
+                                                            /  \
+                                                           /    \
+                                                          /      \
+                                                   [Consumer_1]  ...
 ```
 
 
