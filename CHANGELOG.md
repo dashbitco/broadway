@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.0 (2019-08-05)
+
+  * Add `:batch_mode` to `Broadway.test_messages/3` to control how test messages are flushed
+  * Add `Broadway.DummyProducer` for testing
+  * Append .Broadway to module prefixes to avoid potential naming conflicts
+
 ## v0.3.0 (2019-04-26)
 
   * Add `metadata` field to the `Message` struct so clients can append extra information
