@@ -39,6 +39,7 @@ defmodule Broadway.MixProject do
       extra_section: "Guides",
       extras: [
         "guides/examples/Amazon SQS.md",
+        "guides/examples/Google Cloud PubSub.md",
         "guides/examples/RabbitMQ.md",
         "guides/examples/Custom Producers.md",
         "guides/internals/Architecture.md"
