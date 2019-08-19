@@ -51,12 +51,20 @@ And a new subscription:
     $ gcloud pubsub subscriptions create test-subscription --project test-pubsub --topic test-topic
     Created subscription [projects/test-pubsub/subscriptions/test-subscription].
 
-Finally, we need a [service account](https://cloud.google.com/iam/docs/service-accounts) as well
-as API credentials in order to programatically work with the service. First, let's create the
-service account:
+We also need a [service account](https://cloud.google.com/iam/docs/service-accounts), an IAM
+policy, as well as API credentials in order to programatically work with the service. First, let's
+create the service account:
 
     $ gcloud iam service-accounts create test-account --project test-pubsub
     Created service account [test-account].
+
+Then the policy. For simplicity we add the genreal role `roles/editor`, but make
+
+    $ gcloud projects add-iam-policy-binding test-pubsub \
+        --member serviceAccount:test-account@test-pubsub.iam.gserviceaccount.com \
+        --role roles/editor
+    Updated IAM policy for project [test-pubsub].
+    (...)
 
 And now the credentials:
 
@@ -66,6 +74,11 @@ And now the credentials:
 This command generated a `credentials.json` file which will be useful later. Note, the IAM account
 pattern is `<account>@<project>.iam.gserviceaccount.com`. Run `gcloud iam service-accounts list --project test-pubsub`
 to see all service accounts associated with the given project.
+
+Finally, we need to enable Pub/Sub for our project:
+
+    $ gcloud services enable pubsub --project test-pubsub
+    Operation "operations/xxx" finished successfully.
 
 ## Configure the project
 
@@ -83,15 +96,14 @@ The `--sup` flag instructs Elixir to generate an application with a supervision 
 ### Setting up dependencies
 
 Add `:broadway_cloud_pub_sub` to the list of dependencies in `mix.exs`, along with the Google
-Cloud authentication library of your choice (defaults to `:goth`) and an HTTP client (defaults to
+Cloud authentication library of your choice (defaults to `:goth`):
 `:hackney`):
 
-    def deps do
+    defp deps() do
       [
         ...
-        {:broadway_cloud_pub_sub, "~> 0.3.0"},
-        {:hackney, "~> 1.9"},
-        {:goth, "~> 0.6"}
+        {:broadway_cloud_pub_sub, "~> 0.4.0"},
+        {:goth, "~> 1.0"}
       ]
     end
 
@@ -138,14 +150,6 @@ configuration would be:
       ...callbacks...
     end
 
-
-The final step is to configure credentials. You can set the following environment variable:
-
-    export GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
-
-See [Goth](https://github.com/peburrows/goth) documentation for alternative ways of authenticating
-with the API.
-
 For a full list of options for `BroadwayCloudPubSub.Producer`, please see [the
 documentation](https://hexdocs.pm/broadway_cloud_pub_sub).
 
@@ -161,7 +165,8 @@ For general information about setting up Broadway, see `Broadway` module docs as
 ## Implement Broadway callbacks
 
 In order to process incoming messages, we need to implement the required callbacks. For the sake
-of simplicity, we're considering that all messages received from the queue are just numbers:
+of simplicity, we're considering that all messages received from the queue are strings and our
+processor calls `String.upcase/1` on them:
 
     defmodule MyBroadway do
       use Broadway
@@ -172,7 +177,7 @@ of simplicity, we're considering that all messages received from the queue are j
 
       def handle_message(_, %Message{data: data} = message, _) do
         message
-        |> Message.update_data(fn data -> data * data end)
+        |> Message.update_data(fn data -> String.upcase(data) end)
       end
 
       def handle_batch(_, messages, _, _) do
@@ -200,9 +205,34 @@ as a child to a supervisor as follows:
 
     Supervisor.start_link(children, strategy: :one_for_one)
 
+The final step is to configure credentials. You can set the following environment variable:
+
+    export GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
+
+See [Goth](https://github.com/peburrows/goth) documentation for alternative ways of authenticating
+with the API.
+
 Now the Broadway pipeline should be started when your application starts. Also, if your Broadway
 pipeline has any dependency (for example, it needs to talk to the database), make sure that
 it is listed *after* its dependencies in the supervision tree.
+
+If you followed the previous section about setting the project with `gcloud`, you can now test the
+the pipeline. In one terminal tab start the application:
+
+    $ iex -S mix
+
+And in another tab, send a couple of test messages to Pub/Sub:
+
+    $ gcloud pubsub topics publish  projects/test-pubsub/topics/test-topic --message "test 1"
+    messageIds:
+    - '651428033718119'
+    $ gcloud pubsub topics publish  projects/test-pubsub/topics/test-topic --message "test 2"
+    messageIds:
+    - '651427034966696'
+
+Now, In the first tab, you should see output similar to:
+
+    Got batch of finished jobs from processors, sending ACKs to Pub/Sub as a batch.: ["TEST 1", "TEST 2"]
 
 ## Tuning the configuration
 
