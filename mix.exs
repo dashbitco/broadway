@@ -52,7 +52,7 @@ defmodule Broadway.MixProject do
 
   defp package do
     %{
-      licenses: ["Apache 2"],
+      licenses: ["Apache-2.0"],
       maintainers: ["Marlus Saraiva", "José Valim"],
       links: %{"GitHub" => "https://github.com/plataformatec/broadway"}
     }
