@@ -71,6 +71,8 @@ Add `:broadway_rabbitmq` to the list of dependencies in `mix.exs`:
       ]
     end
 
+Don't forget to check for the latest version of dependencies.
+
 ## Define the pipeline configuration
 
 Broadway is a process-based behaviour and to define a Broadway pipeline,
@@ -158,11 +160,13 @@ all messages received from the queue are just numbers:
 
       ...start_link...
 
+      @impl true
       def handle_message(_, message, _) do
         message
         |> Message.update_data(fn data -> {data, String.to_integer(data) * 2} end)
       end
 
+      @impl true
       def handle_batch(_, messages, _, _) do
         list = messages |> Enum.map(fn e -> e.data end)
         IO.inspect(list, label: "Got batch")

@@ -151,11 +151,13 @@ all messages received from the queue are just numbers:
 
       ...start_link...
 
+      @impl true
       def handle_message(_, %Message{data: data} = message, _) do
         message
         |> Message.update_data(fn data -> data * data end)
       end
 
+      @impl true
       def handle_batch(_, messages, _, _) do
         list = messages |> Enum.map(fn e -> e.data end)
         IO.inspect(list, label: "Got batch of finished jobs from processors, sending ACKs to SQS as a batch.")
