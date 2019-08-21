@@ -35,7 +35,7 @@ end
 
 ## Official Broadway Producers
 
-Currently we officially support two Broadway producers:
+Currently we officially support three Broadway producers:
 
   * Amazon SQS: [Source](https://github.com/plataformatec/broadway_sqs) - [Guide](https://hexdocs.pm/broadway/amazon-sqs.html)
   * Google Cloud Pub/Sub: [Source](https://github.com/plataformatec/broadway_cloud_pub_sub) - [Guide](https://hexdocs.pm/broadway/google-cloud-pubsub.html)
