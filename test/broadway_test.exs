@@ -682,6 +682,73 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "ack_immediately" do
+    test "acks a single message" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        message = Message.ack_immediately(message)
+        send(test_pid, :manually_acked)
+        message
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{handle_message: handle_message},
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: []]
+        )
+
+      ref = Broadway.test_messages(broadway, [1])
+
+      assert_receive {:ack, ^ref, [%Message{data: 1}], []}
+      assert_receive :manually_acked
+      refute_receive {:ack, ^ref, _successful, _failed}
+    end
+
+    test "acks multiple messages" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        Message.put_batcher(message, :default)
+      end
+
+      handle_batch = fn :default, batch, _batch_info, _ ->
+        batch =
+          Enum.map(batch, fn
+            %Message{data: :ok} = message -> message
+            %Message{data: :fail} = message -> Message.failed(message, :manually_failed)
+          end)
+
+        batch = Message.ack_immediately(batch)
+        send(test_pid, :manually_acked)
+        batch
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{handle_message: handle_message, handle_batch: handle_batch},
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: []],
+          batchers: [default: [batch_size: 4, batch_timeout: 1000]]
+        )
+
+      ref = Broadway.test_messages(broadway, [:ok, :ok, :fail, :ok], batch_mode: :bulk)
+
+      assert_receive {:ack, ^ref, [_, _, _], [_]}
+      assert_receive :manually_acked
+      refute_receive {:ack, ^ref, _successful, _failed}
+    end
+  end
+
   describe "transformer" do
     setup tags do
       broadway_name = new_unique_name()

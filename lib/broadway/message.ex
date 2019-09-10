@@ -13,6 +13,7 @@ defmodule Broadway.Message do
   """
 
   alias __MODULE__, as: Message
+  alias Broadway.{Acknowledger, NoopAcknowledger}
 
   @type t :: %Message{
           data: term,
@@ -89,5 +90,35 @@ defmodule Broadway.Message do
   @spec failed(message :: Message.t(), reason :: term) :: Message.t()
   def failed(%Message{} = message, reason) do
     %Message{message | status: {:failed, reason}}
+  end
+
+  @doc """
+  Immediately acknowledges the given message or list of messages.
+
+  This function can be used to acknowledge a message (or list of messages)
+  immediately withouth waiting for the rest of the pipeline.
+
+  Acknowledging a message sets that message's acknowledger to a no-op
+  acknowledger so that it's safe to ack at the end of the pipeline.
+
+  Returns the updated acked message if a message is passed in,
+  or the updated list of acked messages if a list of messages is passed in.
+  """
+  @spec ack_immediately(message :: Message.t()) :: Message.t()
+  @spec ack_immediately(messages :: [Message.t(), ...]) :: [Message.t(), ...]
+  def ack_immediately(message_or_messages)
+
+  def ack_immediately(%Message{} = message) do
+    [message] = ack_immediately([message])
+    message
+  end
+
+  def ack_immediately(messages) when is_list(messages) and messages != [] do
+    {successful, failed} = Enum.split_with(messages, &(&1.status == :ok))
+    _ = Acknowledger.ack_messages(successful, failed)
+
+    for message <- messages do
+      %{message | acknowledger: {NoopAcknowledger, _ack_ref = nil, _data = nil}}
+    end
   end
 end
