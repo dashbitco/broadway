@@ -1,5 +1,10 @@
 defmodule Broadway.NoopAcknowledger do
-  @moduledoc false
+  @moduledoc """
+  An acknowledger that does nothing.
+  
+  Set automatically on messages that have been acked immediately
+  via `Broadway.Message.ack_immediately/1`.
+  """
 
   @behaviour Broadway.Acknowledger
 
