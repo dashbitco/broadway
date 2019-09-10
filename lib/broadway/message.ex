@@ -82,6 +82,21 @@ defmodule Broadway.Message do
   end
 
   @doc """
+  TODO
+  """
+  @spec configure_ack(message :: Message.t(), options :: keyword) :: Message.t()
+  def configure_ack(%Message{} = message, options) when is_list(options) do
+    %{acknowledger: {module, ack_ref, ack_data}} = message
+
+    if function_exported?(module, :configure, 3) do
+      {ack_ref, ack_data} = module.configure(ack_ref, ack_data, options)
+      %{message | acknowledger: {module, ack_ref, ack_data}}
+    else
+      raise "the configure/3 callback is not exported by acknowledger #{inspect(module)}"
+    end
+  end
+
+  @doc """
   Mark a message as failed.
 
   Failed messages are sent directly to the related acknowledger so they're not

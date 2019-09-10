@@ -39,6 +39,14 @@ defmodule Broadway.Acknowledger do
               :ok
 
   @doc """
+  TODO
+  """
+  @callback configure(ack_ref :: {pid, reference}, ack_data :: term, options :: keyword) ::
+              {ack_ref :: {pid, reference}, ack_data :: term}
+
+  @optional_callbacks [configure: 3]
+
+  @doc """
   Acknowledges successful and failed messages grouped by `{acknowledger, ack_ref}`.
   """
   @spec ack_messages([Message.t()], [Message.t()]) :: no_return
