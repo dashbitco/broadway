@@ -682,6 +682,35 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "ack_immediately" do
+    test "generate batches based on :batch_size" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        message = Message.ack_immediately(message)
+        send(test_pid, :manually_acked)
+        message
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{handle_message: handle_message},
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: []]
+        )
+
+      ref = Broadway.test_messages(broadway, [1])
+
+      assert_receive {:ack, ^ref, [%Message{data: 1}], []}
+      assert_receive :manually_acked
+      refute_receive {:ack, ^ref, _successful, _failed}
+    end
+  end
+
   describe "transformer" do
     setup tags do
       broadway_name = new_unique_name()
