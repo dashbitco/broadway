@@ -13,7 +13,7 @@ defmodule Broadway.Message do
   """
 
   alias __MODULE__, as: Message
-  alias Broadway.Acknowledger
+  alias Broadway.{Acknowledger, NoopAcknowledger}
 
   @type t :: %Message{
           data: term,
@@ -118,7 +118,7 @@ defmodule Broadway.Message do
     _ = Acknowledger.ack_messages(successful, failed)
 
     for message <- messages do
-      %{message | acknowledger: {NoopAcknoledger, _ack_ref = nil, _data = nil}}
+      %{message | acknowledger: {NoopAcknowledger, _ack_ref = nil, _data = nil}}
     end
   end
 end
