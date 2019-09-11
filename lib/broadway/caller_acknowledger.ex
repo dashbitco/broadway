@@ -13,6 +13,12 @@ defmodule Broadway.CallerAcknowledger do
   It sends a message in the format:
 
       {:ack, ref, successful_messages, failed_messages}
+
+  If `Broadway.Message.configure_ack/3` is called on a message that
+  uses this acknowledger, then the following message is sent:
+
+      {:configure, ref}
+
   """
 
   @behaviour Broadway.Acknowledger
@@ -20,5 +26,10 @@ defmodule Broadway.CallerAcknowledger do
   @impl true
   def ack({pid, ref}, successful, failed) do
     send(pid, {:ack, ref, successful, failed})
+  end
+
+  @impl true
+  def configure({pid, ref}, _ack_data, _options) do
+    send(pid, {:configure, ref})
   end
 end

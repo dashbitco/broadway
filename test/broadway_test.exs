@@ -23,6 +23,16 @@ defmodule BroadwayTest do
     end
   end
 
+  defmodule AckerWithConfigure do
+    @behaviour Broadway.Acknowledger
+
+    defdelegate ack(ack_ref, successful, failed), to: BroadwayTest.Acker
+
+    def configure(_ack_ref, ack_data, options) do
+      {:ok, Map.replace!(ack_data, :test_pid, Keyword.fetch!(options, :test_pid))}
+    end
+  end
+
   defmodule ManualProducer do
     use GenStage
 
@@ -746,6 +756,66 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [_, _, _], [_]}
       assert_receive :manually_acked
       refute_receive {:ack, ^ref, _successful, _failed}
+    end
+  end
+
+  describe "configure_ack" do
+    test "raises if the acknowledger doesn't implement the configure/3 callback" do
+      broadway_name = new_unique_name()
+
+      handle_message = fn message, _ ->
+        Message.configure_ack(message, test_pid: self())
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{handle_message: handle_message},
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: []]
+        )
+
+      Broadway.push_messages(broadway, [
+        %Message{data: 1, acknowledger: {Acker, nil, %{test_pid: self()}}}
+      ])
+
+      assert_receive {:ack, _successful = [], [failed]}
+      assert failed.status == {:failed, "due to an unhandled error"}
+    end
+
+    test "configures the acknowledger" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      receiver =
+        spawn_link(fn ->
+          receive do
+            message -> send(test_pid, {self(), message})
+          end
+        end)
+
+      handle_message = fn message, _ ->
+        Message.configure_ack(message, test_pid: receiver)
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{handle_message: handle_message},
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: []]
+        )
+
+      Broadway.push_messages(broadway, [
+        %Message{data: 1, acknowledger: {AckerWithConfigure, nil, %{test_pid: test_pid}}}
+      ])
+
+      assert_receive {^receiver, {:ack, [success], _failed = []}}
+      assert {AckerWithConfigure, _ack_ref, %{test_pid: ^receiver}} = success.acknowledger
     end
   end
 

@@ -39,10 +39,15 @@ defmodule Broadway.Acknowledger do
               :ok
 
   @doc """
-  TODO
+  Configures the acknowledger with new `options`.
+
+  Every acknowledger can decide how to incorporate the given `options` into its
+  `ack_data`. The `ack_data` is the current acknowledger's data. The return value
+  of this function is `{:ok, new_ack_data}` where `new_ack_data` is the updated
+  data for the acknowledger.
   """
   @callback configure(ack_ref :: {pid, reference}, ack_data :: term, options :: keyword) ::
-              {ack_ref :: {pid, reference}, ack_data :: term}
+              {:ok, new_ack_data :: term}
 
   @optional_callbacks [configure: 3]
 
