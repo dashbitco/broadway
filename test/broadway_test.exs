@@ -23,16 +23,6 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule AckerWithConfigure do
-    @behaviour Broadway.Acknowledger
-
-    defdelegate ack(ack_ref, successful, failed), to: BroadwayTest.Acker
-
-    def configure(_ack_ref, ack_data, options) do
-      {:ok, Map.replace!(ack_data, :test_pid, Keyword.fetch!(options, :test_pid))}
-    end
-  end
-
   defmodule ManualProducer do
     use GenStage
 
