@@ -17,7 +17,7 @@ defmodule Broadway.CallerAcknowledger do
   If `Broadway.Message.configure_ack/3` is called on a message that
   uses this acknowledger, then the following message is sent:
 
-      {:configure, ref}
+      {:configure, ref, options}
 
   """
 
@@ -29,7 +29,8 @@ defmodule Broadway.CallerAcknowledger do
   end
 
   @impl true
-  def configure({pid, ref}, _ack_data, _options) do
-    send(pid, {:configure, ref})
+  def configure({pid, ref}, ack_data, options) do
+    send(pid, {:configure, ref, options})
+    {:ok, ack_data}
   end
 end

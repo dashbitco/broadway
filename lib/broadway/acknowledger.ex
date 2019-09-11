@@ -35,7 +35,7 @@ defmodule Broadway.Acknowledger do
       could not be processed or published.
 
   """
-  @callback ack(ack_ref :: {pid, reference}, successful :: [Message.t()], failed :: [Message.t()]) ::
+  @callback ack(ack_ref :: term, successful :: [Message.t()], failed :: [Message.t()]) ::
               :ok
 
   @doc """
@@ -45,8 +45,12 @@ defmodule Broadway.Acknowledger do
   `ack_data`. The `ack_data` is the current acknowledger's data. The return value
   of this function is `{:ok, new_ack_data}` where `new_ack_data` is the updated
   data for the acknowledger.
+
+  Note that `options` are different for every acknowledger, as the acknowledger
+  is what specifies what are the supported options. Check the documentation for the
+  acknowledger you're using to see the supported options.
   """
-  @callback configure(ack_ref :: {pid, reference}, ack_data :: term, options :: keyword) ::
+  @callback configure(ack_ref :: term, ack_data :: term, options :: keyword) ::
               {:ok, new_ack_data :: term}
 
   @optional_callbacks [configure: 3]

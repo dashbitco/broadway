@@ -787,17 +787,10 @@ defmodule BroadwayTest do
 
     test "configures the acknowledger" do
       broadway_name = new_unique_name()
-      test_pid = self()
-
-      receiver =
-        spawn_link(fn ->
-          receive do
-            message -> send(test_pid, {self(), message})
-          end
-        end)
+      configure_options = [some_unique_term: make_ref()]
 
       handle_message = fn message, _ ->
-        Message.configure_ack(message, test_pid: receiver)
+        Message.configure_ack(message, configure_options)
       end
 
       {:ok, broadway} =
@@ -810,12 +803,11 @@ defmodule BroadwayTest do
           processors: [default: []]
         )
 
-      Broadway.push_messages(broadway, [
-        %Message{data: 1, acknowledger: {AckerWithConfigure, nil, %{test_pid: test_pid}}}
-      ])
+      ref = Broadway.test_messages(broadway, [1])
 
-      assert_receive {^receiver, {:ack, [success], _failed = []}}
-      assert {AckerWithConfigure, _ack_ref, %{test_pid: ^receiver}} = success.acknowledger
+      assert_receive {:configure, ^ref, ^configure_options}
+      assert_receive {:ack, ^ref, [success], _failed = []}
+      assert success.data == 1
     end
   end
 
