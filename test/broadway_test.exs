@@ -749,6 +749,63 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "configure_ack" do
+    test "raises if the acknowledger doesn't implement the configure/3 callback" do
+      broadway_name = new_unique_name()
+
+      handle_message = fn message, _ ->
+        Message.configure_ack(message, test_pid: self())
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{handle_message: handle_message},
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: []]
+        )
+
+      log =
+        capture_log(fn ->
+          Broadway.push_messages(broadway, [
+            %Message{data: 1, acknowledger: {Acker, nil, %{test_pid: self()}}}
+          ])
+
+          assert_receive {:ack, _successful = [], [failed]}
+          assert failed.status == {:failed, "due to an unhandled error"}
+        end)
+
+      assert log =~ "the configure/3 callback is not defined by acknowledger BroadwayTest.Acker"
+    end
+
+    test "configures the acknowledger" do
+      broadway_name = new_unique_name()
+      configure_options = [some_unique_term: make_ref()]
+
+      handle_message = fn message, _ ->
+        Message.configure_ack(message, configure_options)
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{handle_message: handle_message},
+          producers: [
+            default: [module: {ManualProducer, []}]
+          ],
+          processors: [default: []]
+        )
+
+      ref = Broadway.test_messages(broadway, [1])
+
+      assert_receive {:configure, ^ref, ^configure_options}
+      assert_receive {:ack, ^ref, [success], _failed = []}
+      assert success.data == 1
+    end
+  end
+
   describe "transformer" do
     setup tags do
       broadway_name = new_unique_name()

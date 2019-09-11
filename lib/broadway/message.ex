@@ -82,6 +82,27 @@ defmodule Broadway.Message do
   end
 
   @doc """
+  Configures the acknowledger of this message.
+
+  This function calls the `c:Broadway.Acknowledger.configure/3` callback to
+  change the configuration of the acknowledger for the given `message`.
+
+  This function can only be called if the acknowledger implements the `configure/3`
+  callback. If it doesn't, an error is raised.
+  """
+  @spec configure_ack(message :: Message.t(), options :: keyword) :: Message.t()
+  def configure_ack(%Message{} = message, options) when is_list(options) do
+    %{acknowledger: {module, ack_ref, ack_data}} = message
+
+    if function_exported?(module, :configure, 3) do
+      {:ok, ack_data} = module.configure(ack_ref, ack_data, options)
+      %{message | acknowledger: {module, ack_ref, ack_data}}
+    else
+      raise "the configure/3 callback is not defined by acknowledger #{inspect(module)}"
+    end
+  end
+
+  @doc """
   Mark a message as failed.
 
   Failed messages are sent directly to the related acknowledger so they're not
