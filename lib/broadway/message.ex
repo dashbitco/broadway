@@ -94,12 +94,12 @@ defmodule Broadway.Message do
   def configure_ack(%Message{} = message, options) when is_list(options) do
     %{acknowledger: {module, ack_ref, ack_data}} = message
 
-    # if function_exported?(module, :configure, 3) do
-    {:ok, ack_data} = module.configure(ack_ref, ack_data, options)
-    %{message | acknowledger: {module, ack_ref, ack_data}}
-    # else
-    # raise "the configure/3 callback is not defined by acknowledger #{inspect(module)}"
-    # end
+    if function_exported?(module, :configure, 3) do
+      {:ok, ack_data} = module.configure(ack_ref, ack_data, options)
+      %{message | acknowledger: {module, ack_ref, ack_data}}
+    else
+      raise "the configure/3 callback is not defined by acknowledger #{inspect(module)}"
+    end
   end
 
   @doc """

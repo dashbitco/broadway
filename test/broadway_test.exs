@@ -767,12 +767,17 @@ defmodule BroadwayTest do
           processors: [default: []]
         )
 
-      Broadway.push_messages(broadway, [
-        %Message{data: 1, acknowledger: {Acker, nil, %{test_pid: self()}}}
-      ])
+      log =
+        capture_log(fn ->
+          Broadway.push_messages(broadway, [
+            %Message{data: 1, acknowledger: {Acker, nil, %{test_pid: self()}}}
+          ])
 
-      assert_receive {:ack, _successful = [], [failed]}
-      assert failed.status == {:failed, "due to an unhandled error"}
+          assert_receive {:ack, _successful = [], [failed]}
+          assert failed.status == {:failed, "due to an unhandled error"}
+        end)
+
+      assert log =~ "the configure/3 callback is not defined by acknowledger BroadwayTest.Acker"
     end
 
     test "configures the acknowledger" do
