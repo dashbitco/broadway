@@ -94,7 +94,7 @@ defmodule Broadway.Message do
   def configure_ack(%Message{} = message, options) when is_list(options) do
     %{acknowledger: {module, ack_ref, ack_data}} = message
 
-    if function_exported?(module, :configure, 3) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :configure, 3) do
       {:ok, ack_data} = module.configure(ack_ref, ack_data, options)
       %{message | acknowledger: {module, ack_ref, ack_data}}
     else
