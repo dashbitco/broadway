@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.0-dev
+
+  * Deprecate `:producers` in favor of a single `:producer` key
+
 ## v0.4.0 (2019-08-05)
 
   * Add `:batch_mode` to `Broadway.test_messages/3` to control how test messages are flushed

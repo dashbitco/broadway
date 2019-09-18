@@ -11,10 +11,8 @@ defmodule Broadway.DummyProducerTest do
     {:ok, _} =
       Broadway.start_link(Handler,
         name: c.test,
-        producers: [
-          default: [
-            module: {Broadway.DummyProducer, []}
-          ]
+        producer: [
+          module: {Broadway.DummyProducer, []}
         ],
         processors: [
           default: [

@@ -20,7 +20,7 @@ defmodule Broadway.Server do
        supervisor_pid: supervisor_pid,
        terminator: config.terminator,
        name: opts[:name],
-       producers_names: producers_names(name_prefix(opts[:name]), config.producers_config)
+       producers_names: producer_names(name_prefix(opts[:name]), config.producer_config)
      }}
   end
 
@@ -84,7 +84,7 @@ defmodule Broadway.Server do
       name: opts[:name],
       module: module,
       processors_config: opts[:processors],
-      producers_config: opts[:producers],
+      producer_config: opts[:producer],
       batchers_config: opts[:batchers],
       context: opts[:context],
       terminator: :"#{name_prefix(opts[:name])}.Terminator",
@@ -98,21 +98,15 @@ defmodule Broadway.Server do
   defp build_producers_specs(config) do
     %{
       name: broadway_name,
-      producers_config: producers_config,
+      producer_config: producer_config,
       shutdown: shutdown
     } = config
-
-    [{key, producer_config} | other_producers] = producers_config
-
-    if other_producers != [] do
-      raise "Only one set of producers is allowed for now"
-    end
 
     n_producers = producer_config[:stages]
 
     names =
       for index <- 1..n_producers do
-        producer_name(name_prefix(broadway_name), key, index)
+        producer_name(name_prefix(broadway_name), index)
       end
 
     specs =
@@ -324,13 +318,13 @@ defmodule Broadway.Server do
     :"#{prefix}.#{type}_#{key}"
   end
 
-  defp producer_name(broadway_name, key, index) do
-    process_name(broadway_name, "Producer_#{key}", index)
+  defp producer_name(broadway_name, index) do
+    process_name(broadway_name, "Producer", index)
   end
 
-  defp producers_names(broadway_name, producers_config) do
-    for {key, config} <- producers_config, index <- 1..config[:stages] do
-      producer_name(broadway_name, key, index)
+  defp producer_names(broadway_name, producer_config) do
+    for index <- 1..producer_config[:stages] do
+      producer_name(broadway_name, index)
     end
   end
 

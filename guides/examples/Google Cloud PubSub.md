@@ -128,12 +128,10 @@ configuration would be:
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
-          producers: [
-            default: [
-              module:
-                {BroadwayCloudPubSub.Producer,
-                 subscription: "projects/test-pubsub/subscriptions/test-subscription"}
-            ]
+          producer: [
+            module:
+              {BroadwayCloudPubSub.Producer,
+               subscription: "projects/test-pubsub/subscriptions/test-subscription"}
           ],
           processors: [
             default: []
@@ -251,11 +249,9 @@ each layer of the pipeline. Here's an example on how you could tune them accordi
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
-          producers: [
-            default: [
-              ...
-              stages: 60,
-            ]
+          producer: [
+            ...
+            stages: 60,
           ],
           processors: [
             default: [

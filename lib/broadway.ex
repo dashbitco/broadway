@@ -64,11 +64,9 @@ defmodule Broadway do
         def start_link(_opts) do
           Broadway.start_link(MyBroadway,
             name: MyBroadwayExample,
-            producers: [
-              default: [
-                module: {Counter, []},
-                stages: 1
-              ]
+            producer: [
+              module: {Counter, []},
+              stages: 1
             ],
             processors: [
               default: [stages: 2]
@@ -128,11 +126,9 @@ defmodule Broadway do
         def start_link(_opts) do
           Broadway.start_link(MyBroadway,
             name: MyBroadwayExample,
-            producers: [
-              default: [
-                module: {Counter, []},
-                stages: 1
-              ]
+            producer: [
+              module: {Counter, []},
+              stages: 1
             ],
             processors: [
               default: [stages: 2]
@@ -504,6 +500,33 @@ defmodule Broadway do
 
   """
   def start_link(module, opts) do
+    opts =
+      case Keyword.pop(opts, :producers) do
+        {nil, opts} ->
+          opts
+
+        {[{_key, producer}], opts} ->
+          IO.warn("""
+          :producers key in Broadway.start_link is deprecated.
+
+          Instead of:
+
+              producers: [
+                default: [
+                  ...
+                ]
+              ]
+
+          Do:
+
+              producer: [
+                ...
+              ]
+          """)
+
+          Keyword.put(opts, :producer, producer)
+      end
+
     case Options.validate(opts, configuration_spec()) do
       {:error, message} ->
         raise ArgumentError, "invalid configuration given to Broadway.start_link/2, " <> message
@@ -576,15 +599,13 @@ defmodule Broadway do
       max_seconds: [type: :pos_integer, default: 5],
       resubscribe_interval: [type: :non_neg_integer, default: 100],
       context: [type: :any, default: :context_not_set],
-      producers: [
+      producer: [
         required: true,
         type: :non_empty_keyword_list,
         keys: [
-          *: [
-            module: [required: true, type: :mod_arg],
-            stages: [type: :pos_integer, default: 1],
-            transformer: [type: :mfa, default: nil]
-          ]
+          module: [required: true, type: :mod_arg],
+          stages: [type: :pos_integer, default: 1],
+          transformer: [type: :mfa, default: nil]
         ]
       ],
       processors: [

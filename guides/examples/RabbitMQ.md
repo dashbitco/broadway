@@ -94,16 +94,14 @@ Assuming we want to consume messages from a queue called
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
           name: MyBroadway,
-          producers: [
-            default: [
-              module: {BroadwayRabbitMQ.Producer,
-                queue: "my_queue",
-                qos: [
-                  prefetch_count: 50,
-                ]
-              },
-              stages: 2
-            ]
+          producer: [
+            module: {BroadwayRabbitMQ.Producer,
+              queue: "my_queue",
+              qos: [
+                prefetch_count: 50,
+              ]
+            },
+            stages: 2
           ],
           processors: [
             default: [
@@ -127,17 +125,15 @@ If you're consuming data from an existing broker that requires authorization,
 you'll need to provide your credentials using the `connection` option:
 
     ...
-    producers: [
-      default: [
-        module: {BroadwayRabbitMQ.Producer,
-          queue: "my_queue",
-          connection: [
-            username: "user",
-            password: "password",
-          ]
-          ...
-        }
-      ]
+    producer: [
+      module: {BroadwayRabbitMQ.Producer,
+        queue: "my_queue",
+        connection: [
+          username: "user",
+          password: "password",
+        ]
+        ...
+      }
     ]
     ...
 

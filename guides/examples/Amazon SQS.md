@@ -85,10 +85,8 @@ Assuming we want to consume messages from a queue called
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
-          producers: [
-            default: [
-              module: {BroadwaySQS.Producer, queue_name: "my_queue"}
-            ]
+          producer: [
+            module: {BroadwaySQS.Producer, queue_name: "my_queue"}
           ],
           processors: [
             default: []
@@ -112,16 +110,14 @@ not the case, you will need to pass that information to the client so it
 can properly connect to the AWS servers. Here is how you can do it:
 
     ...
-    producers: [
-      default: [
-        module: {BroadwaySQS.Producer,
-          queue_name: "my_queue",
-          config: [
-            access_key_id: "YOUR_AWS_ACCESS_KEY_ID",
-            secret_access_key: "YOUR_AWS_SECRET_ACCESS_KEY"
-          ]
-        }
-      ]
+    producer: [
+      module: {BroadwaySQS.Producer,
+        queue_name: "my_queue",
+        config: [
+          access_key_id: "YOUR_AWS_ACCESS_KEY_ID",
+          secret_access_key: "YOUR_AWS_SECRET_ACCESS_KEY"
+        ]
+      }
     ]
     ...
 
@@ -209,11 +205,9 @@ your needs.
       def start_link(_opts) do
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
-          producers: [
-            default: [
-              ...
-              stages: 60,
-            ]
+          producer: [
+            ...
+            stages: 60,
           ],
           processors: [
             default: [
