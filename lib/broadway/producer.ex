@@ -4,25 +4,43 @@ defmodule Broadway.Producer do
   alias Broadway.Message
 
   @doc """
+  Invoked once by Broadway during `Broadway.start_link/2`.
+
+  The goal of this task is to manipulate the general topology options,
+  if necessary at all, and introduce any new child specs that will be
+  started before the ProducerSupervisor in Broadwday's supervision tree.
+  """
+  @callback prepare_for_start(module :: atom, options :: keyword) ::
+              {[:supervisor.child_spec | {module, any} | module], options :: keyword}
+
+  @doc """
   Invoked by the terminator right before Broadway starts draining in-flight
   messages during shutdown.
 
   This callback should be implemented by producers that need to do additional
   work before shutting down. That includes active producers like RabbitMQ that
-  must ask the data provider to stop sending messages.
+  must ask the data provider to stop sending messages. It will be invoked for
+  each producer stage.
   """
   @callback prepare_for_draining(state :: any) :: any
 
-  @optional_callbacks prepare_for_draining: 1
+  @optional_callbacks prepare_for_start: 2, prepare_for_draining: 1
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts \\ []) do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
-  @spec push_messages(term, [Message.t()]) :: term
+  @spec push_messages(GenServer.server, [Message.t()]) :: :ok
   def push_messages(producer, messages) do
-    GenStage.call(producer, {:push_messages, messages})
+    GenStage.call(producer, {__MODULE__, :push_messages, messages})
+  end
+
+  @spec drain(GenServer.server) :: :ok
+  def drain(producer) do
+    GenStage.cast(producer, {__MODULE__, :prepare_for_draining})
+    GenStage.demand(producer, :accumulate)
+    GenStage.async_info(producer, {__MODULE__, :cancel_consumers})
   end
 
   @impl true
@@ -78,7 +96,7 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def handle_cast(:prepare_for_draining, state) do
+  def handle_cast({__MODULE__, :prepare_for_draining}, state) do
     %{module: module, module_state: module_state} = state
 
     if function_exported?(module, :prepare_for_draining, 1) do
@@ -89,7 +107,7 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def handle_info(:cancel_consumers, state) do
+  def handle_info({__MODULE__, :cancel_consumers}, state) do
     for from <- state.consumers do
       send(self(), {:"$gen_producer", from, {:cancel, :shutdown}})
     end
@@ -115,7 +133,7 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def handle_call({:push_messages, messages}, _from, state) do
+  def handle_call({__MODULE__, :push_messages, messages}, _from, state) do
     {:reply, :ok, messages, state}
   end
 

@@ -6,23 +6,6 @@ defmodule BroadwayTest do
 
   alias Broadway.{Message, BatchInfo, CallerAcknowledger}
 
-  defmodule Acker do
-    @behaviour Broadway.Acknowledger
-
-    def ack(_ack_ref, successful, failed) do
-      test_pid =
-        case {successful, failed} do
-          {[%Message{acknowledger: {_, _ack_ref, %{test_pid: pid}}} | _], _failed} ->
-            pid
-
-          {_successful, [%Message{acknowledger: {_, _ack_ref, %{test_pid: pid}}} | _]} ->
-            pid
-        end
-
-      send(test_pid, {:ack, successful, failed})
-    end
-  end
-
   defmodule ManualProducer do
     use GenStage
 
@@ -49,17 +32,17 @@ defmodule BroadwayTest do
     end
 
     @impl true
-    def handle_info({:push_messages_async, messages}, state) do
+    def handle_info({:push_messages, messages}, state) do
       {:noreply, messages, state}
     end
 
     @impl true
     def prepare_for_draining(%{test_pid: test_pid}) do
       message = wrap_message(:message_during_cancel, test_pid)
-      send(self(), {:push_messages_async, [message]})
+      send(self(), {:push_messages, [message]})
 
       message = wrap_message(:message_after_cancel, test_pid)
-      Process.send_after(self(), {:push_messages_async, [message]}, 1)
+      Process.send_after(self(), {:push_messages, [message]}, 1)
       :ok
     end
 
@@ -71,23 +54,6 @@ defmodule BroadwayTest do
     defp wrap_message(message, test_pid) do
       ack = {CallerAcknowledger, {test_pid, make_ref()}, :ok}
       %Message{data: message, acknowledger: ack}
-    end
-  end
-
-  defmodule EventProducer do
-    use GenStage
-
-    def start_link(events) do
-      GenStage.start_link(__MODULE__, events)
-    end
-
-    def init(events) do
-      {:producer, events}
-    end
-
-    def handle_demand(demand, events) when demand > 0 do
-      {events, rest} = Enum.split(events, demand)
-      {:noreply, events, rest}
     end
   end
 
@@ -133,7 +99,7 @@ defmodule BroadwayTest do
 
       %Message{
         data: "#{event} transformed",
-        acknowledger: {Acker, :ack_ref, %{id: event, test_pid: test_pid}}
+        acknowledger: {Broadway.CallerAcknowledger, {test_pid, :ref}, :unused}
       }
     end
   end
@@ -272,6 +238,57 @@ defmodule BroadwayTest do
       pid = get_processor(broadway, :default)
       assert :sys.get_state(pid).state.context == :context_not_set
     end
+
+    test "invokes prepare_for_start callback on producers" do
+      defmodule PrepareProducer do
+        @behaviour Broadway.Producer
+
+        def prepare_for_start(Forwarder, opts) do
+          name = opts[:name]
+
+          child_spec = %{
+            id: Agent,
+            start: {Agent, :start_link, [fn -> %{} end, [name: Module.concat(name, "Agent")]]}
+          }
+
+          opts = put_in(opts[:producer][:module], {ManualProducer, []})
+          {[child_spec], opts}
+        end
+      end
+
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        producer: [module: {PrepareProducer, []}],
+        processors: [default: []],
+        batchers: [default: [batch_size: 2]],
+        context: %{test_pid: self()}
+      )
+
+      # This is a message handled by ManualProducer,
+      # meaning the prepare_for_start rewrite worked.
+      send(
+        get_producer(broadway),
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:message_handled, 1}
+      assert_receive {:message_handled, 3}
+      assert_receive {:batch_handled, :default, [%{data: 1}, %{data: 3}]}
+      assert_receive {:ack, :ref, [_, _], []}
+
+      # Now show that the agent was started
+      assert Agent.get(Module.concat(broadway, "Agent"), & &1) == %{}
+
+      # An that is a child of the main supervisor
+      assert [_, _, _, _, {Agent, _, _, _}] =
+               Supervisor.which_children(Module.concat(broadway, "Broadway.Supervisor"))
+    end
   end
 
   test "push_messages/2" do
@@ -281,16 +298,18 @@ defmodule BroadwayTest do
         context: %{test_pid: self()},
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
-        batchers: [default: []]
+        batchers: [default: [batch_size: 2]]
       )
 
     Broadway.push_messages(pid, [
-      %Message{data: 1, acknowledger: {__MODULE__, :ack_ref, 1}},
-      %Message{data: 3, acknowledger: {__MODULE__, :ack_ref, 3}}
+      %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+      %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
     ])
 
     assert_receive {:message_handled, 1}
     assert_receive {:message_handled, 3}
+    assert_receive {:batch_handled, :default, [%{data: 1}, %{data: 3}]}
+    assert_receive {:ack, :ref, [_, _], []}
   end
 
   describe "processor" do
@@ -724,6 +743,14 @@ defmodule BroadwayTest do
   end
 
   describe "configure_ack" do
+    defmodule NonConfigurableAcker do
+      @behaviour Broadway.Acknowledger
+
+      def ack(ack_ref, successful, failed) do
+        send(ack_ref, {:ack, successful, failed})
+      end
+    end
+
     test "raises if the acknowledger doesn't implement the configure/3 callback" do
       broadway_name = new_unique_name()
 
@@ -742,14 +769,15 @@ defmodule BroadwayTest do
       log =
         capture_log(fn ->
           Broadway.push_messages(broadway, [
-            %Message{data: 1, acknowledger: {Acker, nil, %{test_pid: self()}}}
+            %Message{data: 1, acknowledger: {NonConfigurableAcker, self(), :unused}}
           ])
 
           assert_receive {:ack, _successful = [], [failed]}
           assert failed.status == {:failed, "due to an unhandled error"}
         end)
 
-      assert log =~ "the configure/3 callback is not defined by acknowledger BroadwayTest.Acker"
+      assert log =~
+               "the configure/3 callback is not defined by acknowledger BroadwayTest.NonConfigurableAcker"
     end
 
     test "configures the acknowledger" do
@@ -777,7 +805,7 @@ defmodule BroadwayTest do
   end
 
   describe "transformer" do
-    setup tags do
+    setup do
       broadway_name = new_unique_name()
 
       {:ok, _pid} =
@@ -786,7 +814,7 @@ defmodule BroadwayTest do
           resubscribe_interval: 0,
           context: %{test_pid: self()},
           producer: [
-            module: {EventProducer, Map.get(tags, :events, [1, 2, 3])},
+            module: {ManualProducer, []},
             transformer: {Transformer, :transform, test_pid: self()}
           ],
           processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
@@ -794,26 +822,25 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name)
-
       %{producer: producer}
     end
 
-    test "transform all events" do
+    test "transform all events", %{producer: producer} do
+      send(producer, {:push_messages, [1, 2, 3]})
       assert_receive {:message_handled, "1 transformed"}
       assert_receive {:message_handled, "2 transformed"}
       assert_receive {:message_handled, "3 transformed"}
     end
 
-    @tag events: [1, 2, :kill_producer, 4]
-    test "restart the producer if the transformation raises an error", context do
-      %{producer: producer} = context
+    test "restart the producer if the transformation raises an error", %{producer: producer} do
+      send(producer, {:push_messages, [1, 2]})
+      send(producer, {:push_messages, [:kill_producer, 3]})
       ref_producer = Process.monitor(producer)
 
       assert_receive {:message_handled, "1 transformed"}
       assert_receive {:message_handled, "2 transformed"}
       assert_receive {:DOWN, ^ref_producer, _, _, _}
-      assert_receive {:message_handled, "1 transformed"}
-      assert_receive {:message_handled, "2 transformed"}
+      refute_received {:message_handled, "3 transformed"}
     end
   end
 
@@ -1334,7 +1361,11 @@ defmodule BroadwayTest do
   end
 
   defp async_push_messages(producer, list) do
-    send(producer, {:"$gen_call", {self(), make_ref()}, {:push_messages, wrap_messages(list)}})
+    send(
+      producer,
+      {:"$gen_call", {self(), make_ref()},
+       {Broadway.Producer, :push_messages, wrap_messages(list)}}
+    )
   end
 
   defp wrap_messages(list) do

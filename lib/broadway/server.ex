@@ -4,16 +4,15 @@ defmodule Broadway.Server do
 
   alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator}
 
-  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
-  def start_link(module, opts) do
-    GenServer.start_link(__MODULE__, {module, opts}, opts)
+  def start_link(module, child_specs, opts) do
+    GenServer.start_link(__MODULE__, {module, child_specs, opts}, opts)
   end
 
   @impl true
-  def init({module, opts}) do
+  def init({module, child_specs, opts}) do
     Process.flag(:trap_exit, true)
     config = init_config(module, opts)
-    {:ok, supervisor_pid} = start_supervisor(config)
+    {:ok, supervisor_pid} = start_supervisor(child_specs, config)
 
     {:ok,
      %{
@@ -58,7 +57,7 @@ defmodule Broadway.Server do
   defp reason_to_signal(:killed), do: :kill
   defp reason_to_signal(other), do: other
 
-  defp start_supervisor(config) do
+  defp start_supervisor(child_specs, config) do
     {producers_names, producers_specs} = build_producers_specs(config)
     {processors_names, processors_specs} = build_processors_specs(config, producers_names)
 
@@ -76,7 +75,7 @@ defmodule Broadway.Server do
       strategy: :rest_for_one
     ]
 
-    Supervisor.start_link(children, supervisor_opts)
+    Supervisor.start_link(child_specs ++ children, supervisor_opts)
   end
 
   defp init_config(module, opts) do
