@@ -106,21 +106,10 @@ defmodule Broadway.Server do
     names_and_specs =
       for index <- 1..n_producers do
         name = producer_name(name_prefix(broadway_name), index)
-
-        # Inject the topology index only if the producer-specific options are a keyword list.
-        producer_config =
-          update_in(producer_config, [:module, Access.elem(1)], fn producer_specific_opts ->
-            if Keyword.keyword?(producer_specific_opts) do
-              Keyword.put(producer_specific_opts, :broadway_index, index - 1)
-            else
-              producer_specific_opts
-            end
-          end)
-
         opts = [name: name]
 
         spec = %{
-          start: {Producer, :start_link, [producer_config, opts]},
+          start: {Producer, :start_link, [producer_config, index, opts]},
           id: name,
           shutdown: shutdown
         }
