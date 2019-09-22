@@ -11,7 +11,7 @@ defmodule Broadway.Producer do
   started before the ProducerSupervisor in Broadwday's supervision tree.
   """
   @callback prepare_for_start(module :: atom, options :: keyword) ::
-              {[:supervisor.child_spec | {module, any} | module], options :: keyword}
+              {[:supervisor.child_spec() | {module, any} | module], options :: keyword}
 
   @doc """
   Invoked by the terminator right before Broadway starts draining in-flight
@@ -31,12 +31,12 @@ defmodule Broadway.Producer do
     GenStage.start_link(__MODULE__, args, opts)
   end
 
-  @spec push_messages(GenServer.server, [Message.t()]) :: :ok
+  @spec push_messages(GenServer.server(), [Message.t()]) :: :ok
   def push_messages(producer, messages) do
     GenStage.call(producer, {__MODULE__, :push_messages, messages})
   end
 
-  @spec drain(GenServer.server) :: :ok
+  @spec drain(GenServer.server()) :: :ok
   def drain(producer) do
     GenStage.cast(producer, {__MODULE__, :prepare_for_draining})
     GenStage.demand(producer, :accumulate)

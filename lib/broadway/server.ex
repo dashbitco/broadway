@@ -103,23 +103,33 @@ defmodule Broadway.Server do
 
     n_producers = producer_config[:stages]
 
-    names =
+    names_and_specs =
       for index <- 1..n_producers do
-        producer_name(name_prefix(broadway_name), index)
-      end
+        name = producer_name(name_prefix(broadway_name), index)
 
-    specs =
-      for name <- names do
+        # Inject the topology index only if the producer-specific options are a keyword list.
+        producer_config =
+          update_in(producer_config, [:module, Access.elem(1)], fn producer_specific_opts ->
+            if Keyword.keyword?(producer_specific_opts) do
+              Keyword.put(producer_specific_opts, :broadway_topology_index, index - 1)
+            else
+              producer_specific_opts
+            end
+          end)
+
         opts = [name: name]
 
-        %{
+        spec = %{
           start: {Producer, :start_link, [producer_config, opts]},
           id: name,
           shutdown: shutdown
         }
+
+        {name, spec}
       end
 
-    {names, specs}
+    # We want to return {names, specs} here.
+    Enum.unzip(names_and_specs)
   end
 
   defp build_processors_specs(config, producers) do
