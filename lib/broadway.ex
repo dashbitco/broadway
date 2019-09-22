@@ -461,7 +461,7 @@ defmodule Broadway do
       be passed to the `init/1` callback of the producer. Pay attention that
       this producer must emit events that are `Broadway.Message` structs.
       It's recommended that `arg` is a keyword list. In fact, if `arg` is
-      a keyword list, a `:broadway_topology_index` option is injected into
+      a keyword list, a `:broadway_index` option is injected into
       such keyword list: this index can be used to customize the behaviour
       of a producer based on its index (for example, having even producers
       connect to some server while odd producers connect to another).

@@ -111,7 +111,7 @@ defmodule Broadway.Server do
         producer_config =
           update_in(producer_config, [:module, Access.elem(1)], fn producer_specific_opts ->
             if Keyword.keyword?(producer_specific_opts) do
-              Keyword.put(producer_specific_opts, :broadway_topology_index, index - 1)
+              Keyword.put(producer_specific_opts, :broadway_index, index - 1)
             else
               producer_specific_opts
             end

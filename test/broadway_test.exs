@@ -290,7 +290,7 @@ defmodule BroadwayTest do
                Supervisor.which_children(Module.concat(broadway, "Broadway.Supervisor"))
     end
 
-    test "injects the :broadway_topology_index option when the producer config is a kw list" do
+    test "injects the :broadway_index option when the producer config is a kw list" do
       defmodule ProducerWithTopologyIndex do
         @behaviour Broadway.Producer
 
@@ -311,7 +311,7 @@ defmodule BroadwayTest do
       )
 
       assert_receive {:init_called, opts}
-      assert opts[:broadway_topology_index] == 0
+      assert opts[:broadway_index] == 0
 
       # If the producer config is not a kw list, the index is not injected.
 
@@ -322,7 +322,7 @@ defmodule BroadwayTest do
       )
 
       assert_receive {:init_called, map}
-      refute Map.has_key?(map, :broadway_topology_index)
+      refute Map.has_key?(map, :broadway_index)
     end
   end
 
