@@ -289,6 +289,41 @@ defmodule BroadwayTest do
       assert [_, _, _, _, {Agent, _, _, _}] =
                Supervisor.which_children(Module.concat(broadway, "Broadway.Supervisor"))
     end
+
+    test "injects the :broadway_index option when the producer config is a kw list" do
+      defmodule ProducerWithTopologyIndex do
+        @behaviour Broadway.Producer
+
+        def init(opts) do
+          send(opts[:test_pid], {:init_called, opts})
+          {:producer, opts}
+        end
+
+        def handle_demand(_demand, state) do
+          {:noreply, [], state}
+        end
+      end
+
+      Broadway.start_link(Forwarder,
+        name: new_unique_name(),
+        producer: [module: {ProducerWithTopologyIndex, [test_pid: self()]}],
+        processors: [default: []]
+      )
+
+      assert_receive {:init_called, opts}
+      assert opts[:broadway_index] == 0
+
+      # If the producer config is not a kw list, the index is not injected.
+
+      Broadway.start_link(Forwarder,
+        name: new_unique_name(),
+        producer: [module: {ProducerWithTopologyIndex, %{test_pid: self()}}],
+        processors: [default: []]
+      )
+
+      assert_receive {:init_called, map}
+      refute Map.has_key?(map, :broadway_index)
+    end
   end
 
   test "push_messages/2" do

@@ -103,23 +103,22 @@ defmodule Broadway.Server do
 
     n_producers = producer_config[:stages]
 
-    names =
+    names_and_specs =
       for index <- 1..n_producers do
-        producer_name(name_prefix(broadway_name), index)
-      end
-
-    specs =
-      for name <- names do
+        name = producer_name(name_prefix(broadway_name), index)
         opts = [name: name]
 
-        %{
-          start: {Producer, :start_link, [producer_config, opts]},
+        spec = %{
+          start: {Producer, :start_link, [producer_config, index, opts]},
           id: name,
           shutdown: shutdown
         }
+
+        {name, spec}
       end
 
-    {names, specs}
+    # We want to return {names, specs} here.
+    Enum.unzip(names_and_specs)
   end
 
   defp build_processors_specs(config, producers) do

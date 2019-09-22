@@ -71,7 +71,7 @@ defmodule Broadway.ProducerTest do
 
   test "init with bad return" do
     args = %{module: {ProducerWithBadReturn, []}}
-    assert Producer.init(args) == {:stop, {:bad_return_value, {:consumer, nil}}}
+    assert Producer.init({args, _index = 0}) == {:stop, {:bad_return_value, {:consumer, nil}}}
   end
 
   describe "wrap handle_demand" do
