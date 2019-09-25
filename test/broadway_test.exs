@@ -857,7 +857,7 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name)
-      %{producer: producer}
+      %{producer: producer, broadway: broadway_name}
     end
 
     test "transform all events", %{producer: producer} do
@@ -876,6 +876,18 @@ defmodule BroadwayTest do
       assert_receive {:message_handled, "2 transformed"}
       assert_receive {:DOWN, ^ref_producer, _, _, _}
       refute_received {:message_handled, "3 transformed"}
+    end
+
+    test "applies transform on Broadway.test_messages/2", %{broadway: name} do
+      Broadway.test_messages(name, [1, 2])
+
+      assert_receive {:message_handled, 1}
+      assert_receive {:message_handled, 2}
+
+      Broadway.test_messages(name, [1, 2], transform: true)
+
+      assert_receive {:message_handled, %{data: "1 transformed"}}
+      assert_receive {:message_handled, %{data: "2 transformed"}}
     end
   end
 

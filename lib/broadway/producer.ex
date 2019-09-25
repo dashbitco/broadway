@@ -36,6 +36,11 @@ defmodule Broadway.Producer do
     GenStage.call(producer, {__MODULE__, :push_messages, messages})
   end
 
+  @spec transformer(GenServer.server()) :: nil | {atom, atom, Keyword.t()}
+  def transformer(producer) do
+    GenStage.call(producer, :transformer)
+  end
+
   @spec drain(GenServer.server()) :: :ok
   def drain(producer) do
     GenStage.cast(producer, {__MODULE__, :prepare_for_draining})
@@ -143,6 +148,11 @@ defmodule Broadway.Producer do
   @impl true
   def handle_call({__MODULE__, :push_messages, messages}, _from, state) do
     {:reply, :ok, messages, state}
+  end
+
+  def handle_call(:transformer, _from, state) do
+    %{transformer: transformer} = state
+    {:reply, transformer, [], state}
   end
 
   @impl true

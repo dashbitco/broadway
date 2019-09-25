@@ -603,7 +603,20 @@ defmodule Broadway do
     ref = make_ref()
     ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
 
-    messages = Enum.map(data, &%Message{data: &1, acknowledger: ack, batch_mode: batch_mode})
+    transformer =
+      if opts[:transform] do
+        case broadway
+             |> Server.get_random_producer()
+             |> Producer.transformer() do
+          nil -> & &1
+          {m, f, a} -> fn message -> apply(m, f, [message, a]) end
+        end
+      else
+        & &1
+      end
+
+    messages =
+      Enum.map(data, &%Message{data: transformer.(&1), acknowledger: ack, batch_mode: batch_mode})
 
     :ok = push_messages(broadway, messages)
     ref
