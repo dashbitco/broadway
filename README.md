@@ -57,7 +57,7 @@ defmodule MyBroadway do
     Broadway.start_link(__MODULE__,
       name: __MODULE__,
       producer: [
-        module: {BroadwaySQS.Producer, queue_name: "my_queue"}
+        module: {BroadwaySQS.Producer, queue_url: "https://us-east-2.queue.amazonaws.com/100000000001/my_queue"}
       ],
       processors: [
         default: [stages: 50]

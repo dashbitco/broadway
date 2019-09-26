@@ -86,7 +86,7 @@ Assuming we want to consume messages from a queue called
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
           producer: [
-            module: {BroadwaySQS.Producer, queue_name: "my_queue"}
+            module: {BroadwaySQS.Producer, queue_url: "https://us-east-2.queue.amazonaws.com/100000000001/my_queue"}
           ],
           processors: [
             default: []
@@ -112,7 +112,7 @@ can properly connect to the AWS servers. Here is how you can do it:
     ...
     producer: [
       module: {BroadwaySQS.Producer,
-        queue_name: "my_queue",
+        queue_url: "https://us-east-2.queue.amazonaws.com/100000000001/my_queue",
         config: [
           access_key_id: "YOUR_AWS_ACCESS_KEY_ID",
           secret_access_key: "YOUR_AWS_SECRET_ACCESS_KEY"
