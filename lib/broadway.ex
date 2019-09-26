@@ -472,6 +472,10 @@ defmodule Broadway do
        that translates a produced GenStage event into a `%Broadway.Message{}`.
        The tuple format should be `{mod, fun, opts}` and the function should have
        the following spec `(event :: term, opts :: term) :: Broadway.Message.t`
+       This function must be used sparingly and exclusively to convert regular
+       messages into `Broadway.Message`. That's because a failure in the
+       `:transformer` callback will cause the whole producer to terminate,
+       possibly leaving unacknowledged messages along the way.
 
   ### Processors options
 
