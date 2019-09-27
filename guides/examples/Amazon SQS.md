@@ -86,7 +86,7 @@ Assuming we want to consume messages from a queue called
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
           producer: [
-            module: {BroadwaySQS.Producer, queue_url: "https://us-east-2.queue.amazonaws.com/100000000001/my_queue"}
+            module: {BroadwaySQS.Producer, queue_name: "https://us-east-2.queue.amazonaws.com/100000000001/my_queue"}
           ],
           processors: [
             default: []
