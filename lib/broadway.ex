@@ -273,40 +273,39 @@ defmodule Broadway do
   produce any work, how to test that consumers are correct? For that, Broadway
   ships with a `test_messages/2` function.
 
-  With `test_messages/2`, you can push some sample data into the
-  pipeline and receive a process message when the pipeline
-  acknowledges the data you have pushed has been processed.
-  This is very useful as a synchronization mechanism. Because
-  many pipelines end-up working with side-effects, you can use
-  the test message acknowledgment to guarantee the message has
-  been processed and therefore side-effects should be visible.
+  With `test_messages/2`, you can push some sample data into the pipeline and
+  receive a process message when the pipeline acknowledges the data you have
+  pushed has been processed. This is very useful as a synchronization mechanism.
+  Because many pipelines end-up working with side-effects, you can use the
+  test message acknowledgment to guarantee the message has been processed and
+  therefore side-effects should be visible.
 
-  For example, if you have a pipeline named `MyApp.Broadway` that
-  writes to the database on every message, you could test it as:
+  For example, if you have a pipeline named `MyApp.Broadway` that writes to
+  the database on every message, you could test it as:
 
       # Push 3 messages with the data field set to 1, 2, and 3 respectively
       ref = Broadway.test_messages(MyApp.Broadway, [1, 2, 3])
 
       # Assert that the messages have been consumed
-      assert_receive {:ack, ^ref, [_, _, _] = _successful, failed}
+      assert_receive {:ack, ^ref, [_, _, _] = _successful, failed}, 1000
 
       # Now assert the database side-effects
       ...
 
-  When testing pipelines that are using batchers there are additional
-  considerations. By default, the batch is only delivered when either
-  its size or its timeout has been reached, but that is often impractical
-  for testing, you may not necessarily want to send a lot of data or
-  wait a lot of time for the batch to flush. For this reason, when using
-  `test_messages/2`, by default the messages have their `:batch_mode`
-  set to `:flush` which means the batch will be immediately delivered.
-  Depending on the batch size and the batching mode you might get multiple
-  acknowledgment messages. For example, if the batcher in the example above
-  has size of 2, each event when batched would be immediately flushed and
-  so you would get a total of 3 acknowledment messages, one for each event.
-  Similarly, if any of the messages fail when processed, an acknowledgement
-  of their failure may be sent early on. On the positive side, if you always
-  push just a single test message, then there is always one acknowledgment.
+  Also note how we have increased the `assert_receive` timeout to 1000ms.
+  The default timeout is 100ms, which may not be enough for some pipelines.
+  You may also increase the `assert_receive` timeout for the whole suite
+  in your `test/test_helper.exs`:
+
+      ExUnit.configure(assert_receive_timeout: 2000)
+
+  When testing pipelines with batchers there are additional considerations.
+  By default, the batch is only delivered when either its size or its timeout
+  has been reached, but that is often impractical for testing, you may not
+  necessarily want to send a lot of data or wait a lot of time for the batch
+  to flush. For this reason, when using `test_messages/2`, the messages have
+  their `:batch_mode` set to `:flush`, causing the batch to be delivered
+  immediately, without waiting for the batch size or the timeout.
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
