@@ -8,6 +8,12 @@ defmodule Broadway.Server do
     GenServer.start_link(__MODULE__, {module, child_specs, opts}, opts)
   end
 
+  def producer_names(server) do
+    GenServer.call(server, :producer_names)
+  end
+
+  ## Callbacks
+
   @impl true
   def init({module, child_specs, opts}) do
     Process.flag(:trap_exit, true)
@@ -33,9 +39,8 @@ defmodule Broadway.Server do
   end
 
   @impl true
-  def handle_call(:get_random_producer, _from, state) do
-    producer = Enum.random(state.producers_names)
-    {:reply, producer, state}
+  def handle_call(:producer_names, _from, state) do
+    {:reply, state.producers_names, state}
   end
 
   @impl true
@@ -47,11 +52,6 @@ defmodule Broadway.Server do
     receive do
       {:DOWN, ^ref, _, _, _} -> :ok
     end
-  end
-
-  @spec get_random_producer(GenServer.server()) :: term
-  def get_random_producer(server) do
-    GenServer.call(server, :get_random_producer)
   end
 
   defp reason_to_signal(:killed), do: :kill

@@ -558,6 +558,20 @@ defmodule Broadway do
   end
 
   @doc """
+  Returns the names of producers.
+
+  ## Examples
+
+      iex> Broadway.producer_names(MyBroadway)
+      [MyBroadway.Producer_0, MyBroadway.Producer_1, ..., MyBroadway.Producer_7]
+
+  """
+  @spec producer_names(GenServer.server()) :: [atom()]
+  def producer_names(broadway) do
+    Server.producer_names(broadway)
+  end
+
+  @doc """
   Sends a list of `Broadway.Message`s to the Broadway pipeline.
 
   The producer is randomly chosen among all sets of producers/stages.
@@ -566,7 +580,8 @@ defmodule Broadway do
   @spec push_messages(GenServer.server(), messages :: [Message.t()]) :: :ok
   def push_messages(broadway, messages) when is_list(messages) do
     broadway
-    |> Server.get_random_producer()
+    |> producer_names()
+    |> Enum.random()
     |> Producer.push_messages(messages)
   end
 

@@ -150,6 +150,7 @@ defmodule BroadwayTest do
       )
 
       assert get_n_producers(broadway) == 1
+      assert length(Broadway.producer_names(broadway)) == 1
     end
 
     test "set number of producers" do
@@ -164,6 +165,7 @@ defmodule BroadwayTest do
       )
 
       assert get_n_producers(broadway) == 3
+      assert length(Broadway.producer_names(broadway)) == 3
     end
 
     test "default number of processors is schedulers_online * 2" do
