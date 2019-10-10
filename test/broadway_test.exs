@@ -37,6 +37,16 @@ defmodule BroadwayTest do
     end
 
     @impl true
+    def handle_cast({:push_messages, messages}, state) do
+      {:noreply, messages, state}
+    end
+
+    @impl true
+    def handle_call({:push_messages, messages}, _from, state) do
+      {:reply, :reply, messages, state}
+    end
+
+    @impl true
     def prepare_for_draining(%{test_pid: test_pid}) do
       message = wrap_message(:message_during_cancel, test_pid)
       send(self(), {:push_messages, [message]})
@@ -862,8 +872,22 @@ defmodule BroadwayTest do
       %{producer: producer}
     end
 
-    test "transform all events", %{producer: producer} do
+    test "transform all events on info", %{producer: producer} do
       send(producer, {:push_messages, [1, 2, 3]})
+      assert_receive {:message_handled, "1 transformed"}
+      assert_receive {:message_handled, "2 transformed"}
+      assert_receive {:message_handled, "3 transformed"}
+    end
+
+    test "transform all events on call", %{producer: producer} do
+      assert GenStage.call(producer, {:push_messages, [1, 2, 3]}) == :reply
+      assert_receive {:message_handled, "1 transformed"}
+      assert_receive {:message_handled, "2 transformed"}
+      assert_receive {:message_handled, "3 transformed"}
+    end
+
+    test "transform all events on cast", %{producer: producer} do
+      assert GenStage.cast(producer, {:push_messages, [1, 2, 3]}) == :ok
       assert_receive {:message_handled, "1 transformed"}
       assert_receive {:message_handled, "2 transformed"}
       assert_receive {:message_handled, "3 transformed"}

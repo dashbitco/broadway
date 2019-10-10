@@ -104,6 +104,33 @@ defmodule Broadway.Producer do
   end
 
   @impl true
+  def handle_call({__MODULE__, :push_messages, messages}, _from, state) do
+    {:reply, :ok, messages, state}
+  end
+
+  def handle_call(message, from, state) do
+    %{module: module, module_state: module_state} = state
+
+    message
+    |> module.handle_call(from, module_state)
+    |> case do
+      {:reply, reply, events, new_module_state} ->
+        messages = transform_events(events, state.transformer)
+        {:reply, reply, messages, %{state | module_state: new_module_state}}
+
+      {:reply, reply, events, new_module_state, :hibernate} ->
+        messages = transform_events(events, state.transformer)
+        {:reply, reply, messages, %{state | module_state: new_module_state}, :hibernate}
+
+      {:stop, reason, reply, new_module_state} ->
+        {:stop, reason, reply, %{state | module_state: new_module_state}}
+
+      other ->
+        handle_no_reply(other, state)
+    end
+  end
+
+  @impl true
   def handle_cast({__MODULE__, :prepare_for_draining}, state) do
     %{module: module, module_state: module_state} = state
 
@@ -112,6 +139,14 @@ defmodule Broadway.Producer do
     end
 
     {:noreply, [], state}
+  end
+
+  def handle_cast(message, state) do
+    %{module: module, module_state: module_state} = state
+
+    message
+    |> module.handle_cast(module_state)
+    |> handle_no_reply(state)
   end
 
   @impl true
@@ -124,9 +159,24 @@ defmodule Broadway.Producer do
   end
 
   def handle_info(message, state) do
-    %{module: module, transformer: transformer, module_state: module_state} = state
+    %{module: module, module_state: module_state} = state
 
-    case module.handle_info(message, module_state) do
+    message
+    |> module.handle_info(module_state)
+    |> handle_no_reply(state)
+  end
+
+  @impl true
+  def terminate(reason, %{module: module, module_state: module_state}) do
+    if function_exported?(module, :terminate, 2) do
+      module.terminate(reason, module_state)
+    else
+      :ok
+    end
+  end
+
+  defp handle_no_reply(reply, %{transformer: transformer} = state) do
+    case reply do
       {:noreply, events, new_module_state} when is_list(events) ->
         messages = transform_events(events, transformer)
         {:noreply, messages, %{state | module_state: new_module_state}}
@@ -137,20 +187,6 @@ defmodule Broadway.Producer do
 
       {:stop, reason, new_module_state} ->
         {:stop, reason, %{state | module_state: new_module_state}}
-    end
-  end
-
-  @impl true
-  def handle_call({__MODULE__, :push_messages, messages}, _from, state) do
-    {:reply, :ok, messages, state}
-  end
-
-  @impl true
-  def terminate(reason, %{module: module, module_state: module_state}) do
-    if function_exported?(module, :terminate, 2) do
-      module.terminate(reason, module_state)
-    else
-      :ok
     end
   end
 
