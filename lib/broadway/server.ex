@@ -98,22 +98,33 @@ defmodule Broadway.Server do
     %{
       name: broadway_name,
       producer_config: producer_config,
+      processors_config: processors_config,
+      batchers_config: batchers_config,
       shutdown: shutdown
     } = config
 
     n_producers = producer_config[:stages]
+    [{processors_name, processor_config} | _other_processors] = processors_config
+    n_processors = processor_config[:stages]
+    processors_partition_by = processor_config[:partition_by]
+
+    args = producer_config ++ [
+      broadway_name: broadway_name,
+      n_processors: n_processors,
+      processors_partition_by: processors_partition_by,
+      processors_name: processors_name,
+      batchers_names: Keyword.keys(batchers_config)
+    ]
 
     names_and_specs =
       for index <- 1..n_producers do
         name = producer_name(name_prefix(broadway_name), index)
         opts = [name: name]
-
         spec = %{
-          start: {Producer, :start_link, [producer_config, index, opts]},
+          start: {Producer, :start_link, [args, index, opts]},
           id: name,
           shutdown: shutdown
         }
-
         {name, spec}
       end
 
@@ -175,11 +186,11 @@ defmodule Broadway.Server do
     ]
 
     specs =
-      for name <- names do
+      for {name, index} <- Enum.with_index(names) do
         opts = [name: name]
 
         %{
-          start: {Processor, :start_link, [args, opts]},
+          start: {Processor, :start_link, [args ++ [broadway_index: index], opts]},
           id: name,
           shutdown: shutdown
         }
@@ -233,7 +244,9 @@ defmodule Broadway.Server do
         resubscribe: :never,
         terminator: terminator,
         batcher: key,
-        processors: processors
+        processors: processors,
+        partition_by: options[:partition_by],
+        n_consumers: options[:stages]
       ] ++ options
 
     opts = [name: name]
@@ -274,11 +287,11 @@ defmodule Broadway.Server do
     ]
 
     specs =
-      for name <- names do
+      for {name, index} <- Enum.with_index(names) do
         opts = [name: name]
 
         %{
-          start: {Consumer, :start_link, [args, opts]},
+          start: {Consumer, :start_link, [args ++ [broadway_index: index], opts]},
           id: name,
           shutdown: shutdown
         }

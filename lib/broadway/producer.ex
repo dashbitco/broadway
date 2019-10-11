@@ -47,11 +47,20 @@ defmodule Broadway.Producer do
   def init({args, index}) do
     {module, arg} = args[:module]
     transformer = args[:transformer]
+    n_processors = args[:n_processors]
+    processors_partition_by = args[:processors_partition_by]
+    processors_name = args[:processors_name]
+    batchers_names = args[:batchers_names]
+    broadway_name = args[:broadway_name]
 
     # Inject the topology index only if the args are a keyword list.
     arg =
       if Keyword.keyword?(arg) do
-        Keyword.put(arg, :broadway_index, index - 1)
+        arg
+        |> Keyword.put(:broadway_index, index - 1)
+        |> Keyword.put(:processors_name, processors_name)
+        |> Keyword.put(:batchers_names, batchers_names)
+        |> Keyword.put(:broadway_name, broadway_name)
       else
         arg
       end
@@ -63,9 +72,19 @@ defmodule Broadway.Producer do
       consumers: []
     }
 
+    # TODO: raise if the returned dispatcher is different from the one we need
     case module.init(arg) do
       {:producer, module_state} ->
-        {:producer, %{state | module_state: module_state}}
+        case processors_partition_by do
+          nil ->
+            {:producer, %{state | module_state: module_state}}
+          func ->
+            hash_func = fn msg -> {msg, rem(func.(msg), n_processors)} end
+            dispatcher_opts = [partitions: 0..n_processors-1, hash: hash_func]
+            dispatcher = {GenStage.PartitionDispatcher, dispatcher_opts}
+
+            {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}
+        end
 
       {:producer, module_state, options} ->
         {:producer, %{state | module_state: module_state}, options}

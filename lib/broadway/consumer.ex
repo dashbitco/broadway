@@ -22,9 +22,12 @@ defmodule Broadway.Consumer do
       context: args[:context]
     }
 
+    broadway_index = args[:broadway_index]
+    partition_options = [partition: broadway_index]
+
     Broadway.Subscriber.init(
       [args[:batcher]],
-      @subscription_options,
+      @subscription_options ++ partition_options,
       state,
       args
     )

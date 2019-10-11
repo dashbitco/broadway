@@ -15,6 +15,7 @@ defmodule Broadway.Processor do
   def init(args) do
     Process.flag(:trap_exit, true)
     processor_config = args[:processor_config]
+    broadway_index = args[:broadway_index]
 
     state = %{
       module: args[:module],
@@ -23,9 +24,12 @@ defmodule Broadway.Processor do
       partitions: args[:partitions]
     }
 
+    subscription_options = Keyword.take(processor_config, [:min_demand, :max_demand])
+    partition_options = [partition: broadway_index]
+
     Broadway.Subscriber.init(
       args[:producers],
-      Keyword.take(processor_config, [:min_demand, :max_demand]),
+      subscription_options ++ partition_options,
       state,
       args
     )

@@ -15,6 +15,7 @@ defmodule Broadway.Batcher do
   def init(args) do
     Process.put(@all_batches, %{})
     batcher = args[:batcher]
+    partition_by = args[:partition_by]
 
     state = %{
       batcher: batcher,
@@ -22,11 +23,26 @@ defmodule Broadway.Batcher do
       batch_timeout: args[:batch_timeout]
     }
 
+    n_consumers = args[:n_consumers]
+    dispatcher_args =
+      case partition_by do
+        nil ->
+          []
+        func ->
+          hash_func = fn {[msg|_], _info} = payload ->
+            {payload, rem(func.(msg), n_consumers)}
+          end
+          dispatcher_opts = [partitions: 0..n_consumers-1, hash: hash_func]
+          dispatcher = {GenStage.PartitionDispatcher, dispatcher_opts}
+
+          [dispatcher: dispatcher]
+      end
+
     Broadway.Subscriber.init(
       args[:processors],
       [partition: batcher, max_demand: args[:batch_size]],
       state,
-      args
+      args ++ dispatcher_args
     )
   end
 
