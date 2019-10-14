@@ -108,23 +108,27 @@ defmodule Broadway.Server do
     n_processors = processor_config[:stages]
     processors_partition_by = processor_config[:partition_by]
 
-    args = producer_config ++ [
-      broadway_name: broadway_name,
-      n_processors: n_processors,
-      processors_partition_by: processors_partition_by,
-      processors_name: processors_name,
-      batchers_names: Keyword.keys(batchers_config)
-    ]
+    args =
+      producer_config ++
+        [
+          broadway_name: broadway_name,
+          n_processors: n_processors,
+          processors_partition_by: processors_partition_by,
+          processors_name: processors_name,
+          batchers_names: Keyword.keys(batchers_config)
+        ]
 
     names_and_specs =
       for index <- 1..n_producers do
         name = producer_name(name_prefix(broadway_name), index)
         opts = [name: name]
+
         spec = %{
           start: {Producer, :start_link, [args, index, opts]},
           id: name,
           shutdown: shutdown
         }
+
         {name, spec}
       end
 

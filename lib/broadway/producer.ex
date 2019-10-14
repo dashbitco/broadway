@@ -78,9 +78,10 @@ defmodule Broadway.Producer do
         case processors_partition_by do
           nil ->
             {:producer, %{state | module_state: module_state}}
+
           func ->
             hash_func = fn msg -> {msg, rem(func.(msg), n_processors)} end
-            dispatcher_opts = [partitions: 0..n_processors-1, hash: hash_func]
+            dispatcher_opts = [partitions: 0..(n_processors - 1), hash: hash_func]
             dispatcher = {GenStage.PartitionDispatcher, dispatcher_opts}
 
             {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}

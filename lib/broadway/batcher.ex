@@ -24,15 +24,18 @@ defmodule Broadway.Batcher do
     }
 
     n_consumers = args[:n_consumers]
+
     dispatcher_args =
       case partition_by do
         nil ->
           []
+
         func ->
-          hash_func = fn {[msg|_], _info} = payload ->
+          hash_func = fn {[msg | _], _info} = payload ->
             {payload, rem(func.(msg), n_consumers)}
           end
-          dispatcher_opts = [partitions: 0..n_consumers-1, hash: hash_func]
+
+          dispatcher_opts = [partitions: 0..(n_consumers - 1), hash: hash_func]
           dispatcher = {GenStage.PartitionDispatcher, dispatcher_opts}
 
           [dispatcher: dispatcher]
