@@ -40,7 +40,7 @@ defmodule Broadway.Batcher do
 
     Broadway.Subscriber.init(
       args[:processors],
-      [partition: batcher, max_demand: args[:batch_size]],
+      [max_demand: args[:batch_size]],
       state,
       [dispatcher: dispatcher] ++ args
     )

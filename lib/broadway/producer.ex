@@ -9,6 +9,8 @@ defmodule Broadway.Producer do
   The goal of this task is to manipulate the general topology options,
   if necessary at all, and introduce any new child specs that will be
   started before the ProducerSupervisor in Broadwday's supervision tree.
+
+  The options include the all of Broadway topology options.
   """
   @callback prepare_for_start(module :: atom, options :: keyword) ::
               {[:supervisor.child_spec() | {module, any} | module], options :: keyword}
@@ -47,20 +49,12 @@ defmodule Broadway.Producer do
   def init({args, index}) do
     {module, arg} = args[:module]
     transformer = args[:transformer]
-    n_processors = args[:n_processors]
-    processors_partition_by = args[:processors_partition_by]
-    processors_name = args[:processors_name]
-    batchers_names = args[:batchers_names]
-    broadway_name = args[:broadway_name]
+    dispatcher = args[:dispatcher]
 
     # Inject the topology index only if the args are a keyword list.
     arg =
       if Keyword.keyword?(arg) do
-        arg
-        |> Keyword.put(:broadway_index, index)
-        |> Keyword.put(:processors_name, processors_name)
-        |> Keyword.put(:batchers_names, batchers_names)
-        |> Keyword.put(:broadway_name, broadway_name)
+        Keyword.put(arg, :broadway, Keyword.put(args[:broadway], :index, index))
       else
         arg
       end
@@ -72,23 +66,17 @@ defmodule Broadway.Producer do
       consumers: []
     }
 
-    # TODO: raise if the returned dispatcher is different from the one we need
     case module.init(arg) do
       {:producer, module_state} ->
-        case processors_partition_by do
-          nil ->
-            {:producer, %{state | module_state: module_state}}
-
-          func ->
-            hash_func = fn msg -> {msg, rem(func.(msg), n_processors)} end
-            dispatcher_opts = [partitions: 0..(n_processors - 1), hash: hash_func]
-            dispatcher = {GenStage.PartitionDispatcher, dispatcher_opts}
-
-            {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}
-        end
+        {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}
 
       {:producer, module_state, options} ->
-        {:producer, %{state | module_state: module_state}, options}
+        if options[:dispatcher] && options[:dispatcher] != dispatcher do
+          raise "#{inspect(module)} is setting dispatcher to #{inspect(options[:dispatcher])}, " <>
+                  "which is different from dispatcher #{inspect(dispatcher)} expected by Broadway"
+        end
+
+        {:producer, %{state | module_state: module_state}, [dispather: dispatcher] ++ options}
 
       return_value ->
         {:stop, {:bad_return_value, return_value}}

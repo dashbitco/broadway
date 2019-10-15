@@ -30,6 +30,12 @@ defmodule Broadway.Subscriber do
     type = Keyword.fetch!(options, :type)
     terminator = Keyword.fetch!(options, :terminator)
     resubscribe = Keyword.fetch!(options, :resubscribe)
+    partition = Keyword.fetch!(options, :partition)
+
+    subscription_options =
+      subscription_options
+      |> Keyword.put(:partition, partition)
+      |> Keyword.put_new(:cancel, :temporary)
 
     state =
       Map.merge(state, %{
@@ -38,7 +44,7 @@ defmodule Broadway.Subscriber do
         resubscribe: resubscribe,
         producers: %{},
         consumers: [],
-        subscription_options: Keyword.put_new(subscription_options, :cancel, :temporary)
+        subscription_options: subscription_options
       })
 
     names |> Enum.shuffle() |> Enum.each(&subscribe(&1, state))

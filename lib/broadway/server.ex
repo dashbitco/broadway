@@ -18,7 +18,7 @@ defmodule Broadway.Server do
   def init({module, child_specs, opts}) do
     Process.flag(:trap_exit, true)
     config = init_config(module, opts)
-    {:ok, supervisor_pid} = start_supervisor(child_specs, config)
+    {:ok, supervisor_pid} = start_supervisor(child_specs, config, opts)
 
     {:ok,
      %{
@@ -57,8 +57,8 @@ defmodule Broadway.Server do
   defp reason_to_signal(:killed), do: :kill
   defp reason_to_signal(other), do: other
 
-  defp start_supervisor(child_specs, config) do
-    {producers_names, producers_specs} = build_producers_specs(config)
+  defp start_supervisor(child_specs, config, opts) do
+    {producers_names, producers_specs} = build_producers_specs(config, opts)
     {processors_names, processors_specs} = build_processors_specs(config, producers_names)
 
     children =
@@ -94,7 +94,7 @@ defmodule Broadway.Server do
     }
   end
 
-  defp build_producers_specs(config) do
+  defp build_producers_specs(config, opts) do
     %{
       name: broadway_name,
       producer_config: producer_config,
@@ -105,26 +105,27 @@ defmodule Broadway.Server do
 
     n_producers = producer_config[:stages]
     [{processors_name, processor_config} | _other_processors] = processors_config
-    n_processors = processor_config[:stages]
-    processors_partition_by = processor_config[:partition_by]
 
-    args =
-      producer_config ++
-        [
-          broadway_name: broadway_name,
-          n_processors: n_processors,
-          processors_partition_by: processors_partition_by,
-          processors_name: processors_name,
-          batchers_names: Keyword.keys(batchers_config)
-        ]
+    # The partition of the producer depends on the processor, so we handle it here.
+    dispatcher =
+      case processor_config[:partition_by] do
+        nil ->
+          GenStage.DemandDispatcher
+
+        func ->
+          n_processors = processor_config[:stages]
+          hash_func = fn msg -> {msg, rem(func.(msg), n_processors)} end
+          {GenStage.PartitionDispatcher, partitions: 0..(n_processors - 1), hash: hash_func}
+      end
+
+    args = [broadway: opts, dispatcher: dispatcher] ++ producer_config
 
     names_and_specs =
       for index <- 0..n_producers-1 do
         name = producer_name(name_prefix(broadway_name), index)
-        opts = [name: name]
 
         spec = %{
-          start: {Producer, :start_link, [args, index, opts]},
+          start: {Producer, :start_link, [args, index, [name: name]]},
           id: name,
           shutdown: shutdown
         }
@@ -161,19 +162,20 @@ defmodule Broadway.Server do
         process_name(name_prefix(broadway_name), "Processor_#{key}", index)
       end
 
-    partitions = Keyword.keys(batchers_config)
-
-    {type, dispatcher} =
-      case partitions do
+    # The partition of the processor depends on the next processor or the batcher,
+    # so we handle it here.
+    {type, dispatcher, batchers} =
+      case Keyword.keys(batchers_config) do
         [] ->
-          {:consumer, nil}
+          {:consumer, nil, :none}
 
-        [_] ->
-          {:producer_consumer, GenStage.DemandDispatcher}
+        [_] = batchers ->
+          {:producer_consumer, GenStage.DemandDispatcher, batchers}
 
-        [_ | _] ->
+        [_ | _] = batchers ->
           {:producer_consumer,
-           {GenStage.PartitionDispatcher, partitions: partitions, hash: &{&1, &1.batcher}}}
+           {GenStage.PartitionDispatcher, partitions: batchers, hash: &{&1, &1.batcher}},
+           batchers}
       end
 
     args = [
@@ -186,7 +188,7 @@ defmodule Broadway.Server do
       processor_key: key,
       processor_config: processor_config,
       producers: producers,
-      partitions: partitions
+      batchers: batchers
     ]
 
     specs =
@@ -194,7 +196,7 @@ defmodule Broadway.Server do
         opts = [name: name]
 
         %{
-          start: {Processor, :start_link, [args ++ [broadway_index: index], opts]},
+          start: {Processor, :start_link, [[partition: index] ++ args, opts]},
           id: name,
           shutdown: shutdown
         }
@@ -248,7 +250,10 @@ defmodule Broadway.Server do
         resubscribe: :never,
         terminator: terminator,
         batcher: key,
+        partition: key,
         processors: processors,
+        # Partitioning is handled inside the batcher since the batcher
+        # needs to associate the partition with the batcher key.
         partition_by: options[:partition_by],
         stages: options[:stages]
       ] ++ options
@@ -295,7 +300,7 @@ defmodule Broadway.Server do
         opts = [name: name]
 
         %{
-          start: {Consumer, :start_link, [args ++ [broadway_index: index], opts]},
+          start: {Consumer, :start_link, [[partition: index] ++ args, opts]},
           id: name,
           shutdown: shutdown
         }

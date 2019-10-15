@@ -10,7 +10,8 @@ defmodule Broadway.ProcessorTest do
         terminator: __MODULE__,
         resubscribe: :never,
         processor_config: [min_demand: 3, max_demand: 6],
-        producers: [:sample]
+        producers: [:sample],
+        partition: 0
       )
 
     assert state.subscription_options[:min_demand] == 3

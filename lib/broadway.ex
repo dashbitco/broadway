@@ -460,10 +460,12 @@ defmodule Broadway do
       be passed to the `init/1` callback of the producer. Pay attention that
       this producer must emit events that are `Broadway.Message` structs.
       It's recommended that `arg` is a keyword list. In fact, if `arg` is
-      a keyword list, a `:broadway_index` option is injected into
-      such keyword list: this index can be used to customize the behaviour
-      of a producer based on its index (for example, having even producers
-      connect to some server while odd producers connect to another).
+      a keyword list, a `:broadway` option is injected into such keyword list
+      containing the configuration for the complete Broadway topology with the
+      addition of an `:index` key, telling the index of the producer in its
+      supervision tree (starting from 0). This allows a features such having
+      even producers connect to some server while odd producers connect to
+      another.
     * `:stages` - Optional. The number of stages that will be
       created by Broadway. Use this option to control the concurrency
       level of each set of producers. The default value is `1`.
