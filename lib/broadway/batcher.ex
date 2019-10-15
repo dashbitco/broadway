@@ -14,29 +14,25 @@ defmodule Broadway.Batcher do
   @impl true
   def init(args) do
     Process.put(@all_batches, %{})
-    batcher = args[:batcher]
-    partition_by = args[:partition_by]
 
-    state = %{
-      batcher: batcher,
-      batch_size: args[:batch_size],
-      batch_timeout: args[:batch_timeout]
-    }
-
-    dispatcher =
-      case partition_by do
+    {dispatcher, partition_by} =
+      case args[:partition_by] do
         nil ->
-          GenStage.DemandDispatcher
+          {GenStage.DemandDispatcher, nil}
 
         func ->
           stages = args[:stages]
-
-          hash_func = fn {[msg | _], _info} = payload ->
-            {payload, rem(func.(msg), stages)}
-          end
-
-          {GenStage.PartitionDispatcher, partitions: 0..(stages - 1), hash: hash_func}
+          hash_fun = fn {_, %{partition: partition}} = payload -> {payload, partition} end
+          dispatcher = {GenStage.PartitionDispatcher, partitions: 0..(stages - 1), hash: hash_fun}
+          {dispatcher, fn msg -> rem(func.(msg), stages) end}
       end
+
+    state = %{
+      batcher: args[:batcher],
+      batch_size: args[:batch_size],
+      batch_timeout: args[:batch_timeout],
+      partition_by: partition_by
+    }
 
     Broadway.Subscriber.init(
       args[:processors],
@@ -95,23 +91,28 @@ defmodule Broadway.Batcher do
     Enum.reverse(acc)
   end
 
-  defp handle_events_per_batch_key([%{batch_key: batch_key} | _] = events, acc, state) do
+  defp handle_events_per_batch_key([event | _] = events, acc, state) do
+    %{partition_by: partition_by} = state
+    batch_key = batch_key(event, partition_by)
     {current, pending_count, timer} = init_or_get_batch(batch_key, state)
 
     {current, pending_count, events, flush?} =
-      split_counting(batch_key, events, pending_count, false, current)
+      split_counting(batch_key, events, pending_count, false, current, partition_by)
 
     acc = deliver_or_update_batch(batch_key, current, pending_count, flush?, timer, acc, state)
     handle_events_per_batch_key(events, acc, state)
   end
 
-  defp split_counting(batch_key, [%{batch_key: batch_key} = event | events], count, flush?, acc)
-       when count > 0 do
-    flush? = flush? or event.batch_mode == :flush
-    split_counting(batch_key, events, count - 1, flush?, [event | acc])
+  defp split_counting(batch_key, events, count, flush?, acc, partition_by) do
+    with [event | events] when count > 0 <- events,
+         ^batch_key <- batch_key(event, partition_by) do
+      flush? = flush? or event.batch_mode == :flush
+      split_counting(batch_key, events, count - 1, flush?, [event | acc], partition_by)
+    else
+      _ ->
+        {acc, count, events, flush?}
+    end
   end
-
-  defp split_counting(_batch_key, events, count, flush?, acc), do: {acc, count, events, flush?}
 
   defp deliver_or_update_batch(batch_key, current, _pending_count, true, timer, acc, state) do
     deliver_batch(batch_key, current, timer, acc, state)
@@ -133,6 +134,14 @@ defmodule Broadway.Batcher do
   end
 
   ## General batch handling
+
+  @compile {:inline, batch_key: 2}
+
+  defp batch_key(%{batch_key: batch_key}, nil),
+    do: batch_key
+
+  defp batch_key(%{batch_key: batch_key} = event, partition_by),
+    do: {batch_key, partition_by.(event)}
 
   defp init_or_get_batch(batch_key, state) do
     if batch = Process.get(batch_key) do
@@ -187,12 +196,19 @@ defmodule Broadway.Batcher do
     end
   end
 
-  defp wrap_for_delivery(batch_key, reversed_events, state) do
-    %{batcher: batcher} = state
+  defp wrap_for_delivery(batch_key, reversed_events, %{batcher: batcher, partition_by: nil}) do
+    wrap_for_delivery(batcher, batch_key, nil, reversed_events)
+  end
 
+  defp wrap_for_delivery({batch_key, partition}, reversed_events, %{batcher: batcher}) do
+    wrap_for_delivery(batcher, batch_key, partition, reversed_events)
+  end
+
+  defp wrap_for_delivery(batcher, batch_key, partition, reversed_events) do
     batch_info = %BatchInfo{
       batcher: batcher,
-      batch_key: batch_key
+      batch_key: batch_key,
+      partition: partition
     }
 
     {Enum.reverse(reversed_events), batch_info}

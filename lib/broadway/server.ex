@@ -99,12 +99,11 @@ defmodule Broadway.Server do
       name: broadway_name,
       producer_config: producer_config,
       processors_config: processors_config,
-      batchers_config: batchers_config,
       shutdown: shutdown
     } = config
 
     n_producers = producer_config[:stages]
-    [{processors_name, processor_config} | _other_processors] = processors_config
+    [{_, processor_config} | _other_processors] = processors_config
 
     # The partition of the producer depends on the processor, so we handle it here.
     dispatcher =
