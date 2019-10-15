@@ -9,19 +9,19 @@ own our pipeline.
 ## The pipeline model
 
 ```asciidoc
-                                   [producers]   <- pulls data from SQS, RabbitMQ, etc.
-                                        |
-                                        |   (demand dispatcher)
-                                        |
-   handle_message/3 runs here ->   [processors]
-                                       / \
-                                      /   \   (partition dispatcher)
-                                     /     \
-                               [batcher]   [batcher]   <- one for each batcher key
-                                   |           |
-                                   |           |   (demand dispatcher)
-                                   |           |
-handle_batch/4 runs here ->   [consumers]  [consumers]
+                                       [producers]   <- pulls data from SQS, RabbitMQ, etc.
+                                            |
+                                            |   (demand dispatcher)
+                                            |
+       handle_message/3 runs here ->   [processors]
+                                           / \
+                                          /   \   (partition dispatcher)
+                                         /     \
+                                   [batcher]   [batcher]   <- one for each batcher key
+                                       |           |
+                                       |           |   (demand dispatcher)
+                                       |           |
+handle_batch/4 runs here -> [batch processor][batch processor]
 ```
 
 ## Internal stages
@@ -99,13 +99,13 @@ a terminator process is activated, which starts the following steps:
   2. It tells all producers to no longer accept demand, flush all
      current events, and then shutdown
 
-  3. It then monitors and waits for a confirmation message from consumers.
-     At this point, the terminator is effectively blocking the supervisor
-     until all events have been processed
+  3. It then monitors and waits for a confirmation message from batch
+     processors. At this point, the terminator is effectively blocking
+     the supervisor until all events have been processed
 
 This triggers a cascade effect where processors notice all of its producers
-have been cancelled, causing them to flush their own events and cancels their
-own consumers, and so on and so on. This happens until consumers notice all
-of their producers have been cancelled, effectively notifying the terminator
-to shutdown, allowing the outer most supervisor to go on and fully terminate
-all stages, which at this point have flushed all events.
+have been cancelled, causing them to flush their own events and cancels the
+stages downstream, and so on and so on. This happens until batch processors
+notice all of their producers have been cancelled, effectively notifying the
+terminator to shutdown, allowing the outer most supervisor to go on and fully
+terminate all stages, which at this point have flushed all events.

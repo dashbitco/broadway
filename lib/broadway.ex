@@ -147,8 +147,8 @@ defmodule Broadway do
 
     * 1 producer
     * 2 processors
-    * 1 batcher named `:sqs` with 2 consumers
-    * 1 batcher named `:s3` with 1 consumer
+    * 1 batcher named `:sqs` with 2 batch processors
+    * 1 batcher named `:s3` with 1 batch processors
 
   Here is how this pipeline would be represented:
 
@@ -171,13 +171,13 @@ defmodule Broadway do
                  /  \                  \
                 /    \                  \
                /      \                  \
-   [consumer_sqs_1] [consumer_sqs_2]  [consumer_s3_1] <- process each batch
+     [batch_sqs_1] [batch_sqs_2]    [batch_s3_1] <- process each batch
   ```
 
   Additionally, you'll need to define the `c:handle_batch/4` callback,
-  which will be invoked by consumers for each batch. You can then invoke
-  `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to control
-  to which batcher the message should go to.
+  which will be invoked by batch processors for each batch. You can then
+  invoke `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to
+  control to which batcher the message should go to.
 
   The batcher will receive the processed messages and create batches
   specified by the `batch_size` and `batch_timeout` configuration. The
@@ -270,7 +270,7 @@ defmodule Broadway do
   would be to not start Broadway pipeline in tests. Another way would be to use
   a different producer in tests, one that doesn't do anything, and that is
   exactly what `Broadway.DummyProducer` is for. If the dummy producer doesn't
-  produce any work, how to test that consumers are correct? For that, Broadway
+  produce any work, how to test that the pipeline is correct? For that, Broadway
   ships with a `test_messages/2` function.
 
   With `test_messages/2`, you can push some sample data into the pipeline and
@@ -317,7 +317,7 @@ defmodule Broadway do
   messages with a given property are always forwarded to the same stage.
 
   In order to provide partitioning throughout the whole pipeline,
-  `:partition_by` must be set on each processor and batcher consumer
+  `:partition_by` must be set on each processor and batch processor
   in the pipeline:
 
       defmodule MyBroadway do
@@ -346,7 +346,7 @@ defmodule Broadway do
 
   In the example above, we are partioning the pipeline by `user_id`.
   This means any message with the same `user_id` will be handled by
-  the same processor and batcher consumer.
+  the same processor and batch processor.
 
   The `partition` function must return a non-negative integer,
   starting at zero, which is routed to a stage by using the `remainder`
@@ -565,7 +565,7 @@ defmodule Broadway do
 
     * `:stages` - Optional. The number of stages that will be created by
       Broadway. Use this option to control the concurrency level.
-      Note that this only sets the numbers of consumers for
+      Note that this only sets the numbers of batch processors for
       each batcher group, not the number of batchers. The number of
       batchers will always be one for each batcher key defined.
       The default value is `1`.
@@ -580,7 +580,7 @@ defmodule Broadway do
       (1 second).
 
     * `:partition_by` - Optional. A function that controls how data is
-      partitioned across the given batch consumer stages. It receives a
+      partitioned across the given batch processor stages. It receives a
       `Broadway.Message` and it must return a non-negative integer, starting
       with zero, that will be mapped to one of the existing processors.
       See "Ordering and Partitioning" in the module docs for more information.
