@@ -57,7 +57,7 @@ defmodule Broadway.Producer do
     arg =
       if Keyword.keyword?(arg) do
         arg
-        |> Keyword.put(:broadway_index, index - 1)
+        |> Keyword.put(:broadway_index, index)
         |> Keyword.put(:processors_name, processors_name)
         |> Keyword.put(:batchers_names, batchers_names)
         |> Keyword.put(:broadway_name, broadway_name)

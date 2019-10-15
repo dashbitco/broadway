@@ -119,7 +119,7 @@ defmodule Broadway.Server do
         ]
 
     names_and_specs =
-      for index <- 1..n_producers do
+      for index <- 0..n_producers-1 do
         name = producer_name(name_prefix(broadway_name), index)
         opts = [name: name]
 
@@ -157,7 +157,7 @@ defmodule Broadway.Server do
     n_processors = processor_config[:stages]
 
     names =
-      for index <- 1..n_processors do
+      for index <- 0..n_processors-1 do
         process_name(name_prefix(broadway_name), "Processor_#{key}", index)
       end
 
@@ -250,7 +250,7 @@ defmodule Broadway.Server do
         batcher: key,
         processors: processors,
         partition_by: options[:partition_by],
-        n_consumers: options[:stages]
+        stages: options[:stages]
       ] ++ options
 
     opts = [name: name]
@@ -277,7 +277,7 @@ defmodule Broadway.Server do
     n_consumers = options[:stages]
 
     names =
-      for index <- 1..n_consumers do
+      for index <- 0..n_consumers-1 do
         process_name(name_prefix(broadway_name), "Consumer_#{key}", index)
       end
 
@@ -338,7 +338,7 @@ defmodule Broadway.Server do
   end
 
   defp producer_names(broadway_name, producer_config) do
-    for index <- 1..producer_config[:stages] do
+    for index <- 0..producer_config[:stages]-1 do
       producer_name(broadway_name, index)
     end
   end

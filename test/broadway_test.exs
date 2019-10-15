@@ -514,7 +514,6 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name)
-
       %{broadway_name: broadway_name, broadway: broadway, producer: producer}
     end
 
@@ -1393,11 +1392,11 @@ defmodule BroadwayTest do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
-  defp get_producer(broadway_name, index \\ 1) do
+  defp get_producer(broadway_name, index \\ 0) do
     :"#{broadway_name}.Broadway.Producer_#{index}"
   end
 
-  defp get_processor(broadway_name, key, index \\ 1) do
+  defp get_processor(broadway_name, key, index \\ 0) do
     :"#{broadway_name}.Broadway.Processor_#{key}_#{index}"
   end
 
@@ -1405,7 +1404,7 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Broadway.Batcher_#{key}"
   end
 
-  defp get_consumer(broadway_name, key, index \\ 1) do
+  defp get_consumer(broadway_name, key, index \\ 0) do
     :"#{broadway_name}.Broadway.Consumer_#{key}_#{index}"
   end
 
