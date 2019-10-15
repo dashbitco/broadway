@@ -141,7 +141,7 @@ defmodule Broadway.Batcher do
     do: batch_key
 
   defp batch_key(%{batch_key: batch_key} = event, partition_by),
-    do: {batch_key, partition_by.(event)}
+    do: [batch_key | partition_by.(event)]
 
   defp init_or_get_batch(batch_key, state) do
     if batch = Process.get(batch_key) do
@@ -200,7 +200,7 @@ defmodule Broadway.Batcher do
     wrap_for_delivery(batcher, batch_key, nil, reversed_events)
   end
 
-  defp wrap_for_delivery({batch_key, partition}, reversed_events, %{batcher: batcher}) do
+  defp wrap_for_delivery([batch_key | partition], reversed_events, %{batcher: batcher}) do
     wrap_for_delivery(batcher, batch_key, partition, reversed_events)
   end
 
