@@ -134,7 +134,7 @@ defmodule Broadway.Options do
     expected = "expected #{inspect(key)} to be a function of arity #{arity}, "
 
     if is_function(value) do
-      case Function.info(value, :arity) do
+      case :erlang.fun_info(value, :arity) do
         {:arity, ^arity} ->
           :ok
 
