@@ -43,6 +43,17 @@ defmodule Broadway.OptionsTest do
   end
 
   describe "type validation" do
+    test "invalid type" do
+      spec = [stages: [type: :foo]]
+      opts = [stages: 1]
+
+      assert Options.validate(opts, spec) ==
+               {:error,
+                "invalid option type :foo, available types: :any, :keyword_list, " <>
+                  ":non_empty_keyword_list, :atom, :non_neg_integer, :pos_integer, :mfa, " <>
+                  ":mod_arg, {:fun, arity}"}
+    end
+
     test "valid positive integer" do
       spec = [stages: [type: :pos_integer]]
       opts = [stages: 1]
@@ -156,6 +167,34 @@ defmodule Broadway.OptionsTest do
       assert Options.validate(opts, spec) == {
                :error,
                ~s(expected :producer to be a tuple {Mod, Arg}, got: {"not_a_module", []})
+             }
+    end
+
+    test "valid {:fun, arity}" do
+      spec = [partition_by: [type: {:fun, 1}]]
+
+      opts = [partition_by: fn x -> x end]
+      assert Options.validate(opts, spec) == {:ok, opts}
+
+      opts = [partition_by: &:erlang.phash2/1]
+      assert Options.validate(opts, spec) == {:ok, opts}
+    end
+
+    test "invalid {:fun, arity}" do
+      spec = [partition_by: [type: {:fun, 1}]]
+
+      opts = [partition_by: :not_a_fun]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :partition_by to be a function of arity 1, got: :not_a_fun)
+             }
+
+      opts = [partition_by: fn x, y -> x * y end]
+
+      assert Options.validate(opts, spec) == {
+               :error,
+               ~s(expected :partition_by to be a function of arity 1, got: function of arity 2)
              }
     end
   end

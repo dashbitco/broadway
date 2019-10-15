@@ -1,7 +1,7 @@
 defmodule Broadway.Options do
   @moduledoc false
 
-  @types [
+  @basic_types [
     :any,
     :keyword_list,
     :non_empty_keyword_list,
@@ -130,16 +130,32 @@ defmodule Broadway.Options do
     {:error, "expected #{inspect(key)} to be a tuple {Mod, Arg}, got: #{inspect(value)}"}
   end
 
+  defp validate_type({:fun, arity}, key, value) when is_integer(arity) and arity >= 0 do
+    expected = "expected #{inspect(key)} to be a function of arity #{arity}, "
+
+    if is_function(value) do
+      case Function.info(value, :arity) do
+        {:arity, ^arity} ->
+          :ok
+
+        {:arity, fun_arity} ->
+          {:error, expected <> "got: function of arity #{inspect(fun_arity)}"}
+      end
+    else
+      {:error, expected <> "got: #{inspect(value)}"}
+    end
+  end
+
   defp validate_type(nil, key, value) do
     validate_type(:any, key, value)
   end
 
-  defp validate_type(type, _key, _value) when type in @types do
+  defp validate_type(type, _key, _value) when type in @basic_types do
     :ok
   end
 
   defp validate_type(type, _key, _value) do
-    {:error, "invalid option type #{inspect(type)}, available types: #{inspect(@types)}"}
+    {:error, "invalid option type #{inspect(type)}, available types: #{available_types()}"}
   end
 
   defp tagged_tuple?({key, _value}) when is_atom(key), do: true
@@ -157,5 +173,10 @@ defmodule Broadway.Options do
       spec_opts ->
         Enum.map(opts, fn {k, _} -> {k, [type: :keyword_list, keys: spec_opts]} end)
     end
+  end
+
+  defp available_types() do
+    types = Enum.map(@basic_types, &inspect/1) ++ ["{:fun, arity}"]
+    Enum.join(types, ", ")
   end
 end

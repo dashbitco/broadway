@@ -731,8 +731,7 @@ defmodule Broadway do
             stages: [type: :pos_integer, default: System.schedulers_online() * 2],
             min_demand: [type: :non_neg_integer],
             max_demand: [type: :non_neg_integer, default: 10],
-            # TODO: Create type :fun
-            partition_by: [type: :any]
+            partition_by: [type: {:fun, 1}]
           ]
         ]
       ],
@@ -743,7 +742,8 @@ defmodule Broadway do
           *: [
             stages: [type: :pos_integer, default: 1],
             batch_size: [type: :pos_integer, default: 100],
-            batch_timeout: [type: :pos_integer, default: 1000]
+            batch_timeout: [type: :pos_integer, default: 1000],
+            partition_by: [type: {:fun, 1}]
           ]
         ]
       ]
