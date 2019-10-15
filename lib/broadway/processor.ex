@@ -23,11 +23,9 @@ defmodule Broadway.Processor do
       batchers: args[:batchers]
     }
 
-    subscription_options = Keyword.take(processor_config, [:min_demand, :max_demand])
-
     Broadway.Subscriber.init(
       args[:producers],
-      subscription_options,
+      Keyword.take(processor_config, [:min_demand, :max_demand]),
       state,
       args
     )
