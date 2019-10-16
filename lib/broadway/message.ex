@@ -17,7 +17,7 @@ defmodule Broadway.Message do
 
   @type t :: %Message{
           data: term,
-          metadata: %{optional(:atom) => term},
+          metadata: %{optional(atom) => term},
           acknowledger: {module, ack_ref :: term, data :: term},
           batcher: atom,
           batch_key: term,
