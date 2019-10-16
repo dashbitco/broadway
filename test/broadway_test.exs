@@ -675,6 +675,93 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "partition_by" do
+    setup do
+      test_pid = self()
+      broadway_name = new_unique_name()
+
+      context = %{
+        handle_message: fn message, _ ->
+          Process.sleep(round(:random.uniform() * 20))
+          send(test_pid, {:message_handled, message.data, self()})
+          message
+        end,
+        handle_batch: fn _batcher, batch, _batch_info, _ ->
+          Process.sleep(round(:random.uniform() * 20))
+          send(test_pid, {:batch_handled, Enum.map(batch, & &1.data), self()})
+          batch
+        end
+      }
+
+      partition_by = fn msg -> msg.data end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: context,
+          producer: [module: {ManualProducer, []}],
+          processors: [
+            default: [
+              stages: 2,
+              partition_by: partition_by
+            ]
+          ],
+          batchers: [
+            default: [
+              stages: 2,
+              batch_size: 2,
+              batch_timeout: 80,
+              partition_by: partition_by
+            ]
+          ]
+        )
+
+      %{broadway: broadway}
+    end
+
+    test "messages of the same partition are processed in order by the same processor",
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(1..8), batch_mode: :bulk)
+
+      assert_receive {:message_handled, 1, processor_1}
+      assert_receive {:message_handled, data, ^processor_1}
+      assert data == 3
+      assert_receive {:message_handled, data, ^processor_1}
+      assert data == 5
+      assert_receive {:message_handled, data, ^processor_1}
+      assert data == 7
+
+      assert_receive {:message_handled, 2, processor_2}
+      assert_receive {:message_handled, data, ^processor_2}
+      assert data == 4
+      assert_receive {:message_handled, data, ^processor_2}
+      assert data == 6
+      assert_receive {:message_handled, data, ^processor_2}
+      assert data == 8
+
+      assert processor_1 != processor_2
+    end
+
+    test "messages of the same partition are processed in order by the same batch processor",
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(1..12), batch_mode: :bulk)
+
+      assert_receive {:batch_handled, [1, 3], batch_processor_1}
+      assert_receive {:batch_handled, data, ^batch_processor_1}
+      assert data == [5, 7]
+      assert_receive {:batch_handled, data, ^batch_processor_1}
+      assert data == [9, 11]
+
+      assert_receive {:batch_handled, [2, 4], batch_processor_2}
+      assert_receive {:batch_handled, data, ^batch_processor_2}
+      assert data == [6, 8]
+      assert_receive {:batch_handled, data, ^batch_processor_2}
+      assert data == [10, 12]
+
+      assert batch_processor_1 != batch_processor_2
+    end
+  end
+
   describe "put_batch_mode" do
     setup do
       test_pid = self()
