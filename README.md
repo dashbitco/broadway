@@ -92,7 +92,7 @@ For those interested in rolling their own Broadway Producers (which we actively 
 
 The following Off-Broadway libraries are available (feel free to send a PR adding your own in alphabetical order):
 
-  * Your library here...
+  * Redis: [Source](https://github.com/amokan/off_broadway_redis) - [Guide](https://hexdocs.pm/off_broadway_redis/)
 
 ## Comparison to Flow
 
