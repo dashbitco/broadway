@@ -676,12 +676,19 @@ defmodule BroadwayTest do
   end
 
   describe "partition_by" do
-    setup do
+    setup tags do
       test_pid = self()
       broadway_name = new_unique_name()
 
       context = %{
         handle_message: fn message, _ ->
+          message =
+            if message.data >= 20 do
+              Message.put_batch_key(message, :over_twenty)
+            else
+              message
+            end
+
           Process.sleep(round(:random.uniform() * 20))
           send(test_pid, {:message_handled, message.data, self()})
           message
@@ -709,7 +716,7 @@ defmodule BroadwayTest do
           batchers: [
             default: [
               stages: 2,
-              batch_size: 2,
+              batch_size: Map.get(tags, :batch_size, 2),
               batch_timeout: 80,
               partition_by: partition_by
             ]
@@ -759,6 +766,18 @@ defmodule BroadwayTest do
       assert data == [10, 12]
 
       assert batch_processor_1 != batch_processor_2
+    end
+
+    @tag batch_size: 4
+    test "messages of the same partition are processed in order with batch key",
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(16..23), batch_mode: :bulk)
+
+      # Without the batch key, we would have two batches of 4 elements
+      assert_receive {:batch_handled, [16, 18], _}
+      assert_receive {:batch_handled, [17, 19], _}
+      assert_receive {:batch_handled, [20, 22], _}
+      assert_receive {:batch_handled, [21, 23], _}
     end
   end
 
