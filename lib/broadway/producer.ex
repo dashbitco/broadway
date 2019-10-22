@@ -76,7 +76,7 @@ defmodule Broadway.Producer do
                   "which is different from dispatcher #{inspect(dispatcher)} expected by Broadway"
         end
 
-        {:producer, %{state | module_state: module_state}, [dispather: dispatcher] ++ options}
+        {:producer, %{state | module_state: module_state}, [dispatcher: dispatcher] ++ options}
 
       return_value ->
         {:stop, {:bad_return_value, return_value}}

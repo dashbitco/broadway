@@ -19,7 +19,7 @@ defmodule BroadwayTest do
     def init(%{test_pid: test_pid}) do
       name = Process.info(self())[:registered_name]
       send(test_pid, {:producer_initialized, name})
-      {:producer, %{test_pid: test_pid}}
+      {:producer, %{test_pid: test_pid}, []}
     end
 
     def init(_args) do
