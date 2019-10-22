@@ -380,7 +380,7 @@ defmodule BroadwayTest do
 
       handle_batch = fn _, batch, _, _ ->
         send(test_pid, {:batch_handled, batch})
-        batch
+        Enum.reject(batch, & &1.data == :discard_in_batcher)
       end
 
       context = %{
@@ -464,6 +464,18 @@ defmodule BroadwayTest do
                assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~
                "[error] ** (RuntimeError) message was set to unknown batcher :unknown. The known batchers are [:default]"
+
+      refute_received {:EXIT, _, ^processor}
+    end
+
+    test "messages are logged on incorrect batcher count",
+         %{broadway: broadway, processor: processor} do
+      assert capture_log(fn ->
+               ref = Broadway.test_messages(broadway, [1, :discard_in_batcher, 4], batch_mode: :bulk)
+               assert_receive {:ack, ^ref, [%{data: 1}], []}
+               assert_receive {:ack, ^ref, [%{data: 4}], []}
+             end) =~
+               "BroadwayTest.CustomHandlers.handle_batch/4 received 2 messages and returned only 1"
 
       refute_received {:EXIT, _, ^processor}
     end
@@ -590,22 +602,22 @@ defmodule BroadwayTest do
     test "generate batches based on :batch_size", %{broadway: broadway} do
       Broadway.test_messages(broadway, Enum.to_list(1..40), batch_mode: :bulk)
 
-      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd}}
+      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd, size: 10}}
                      when length(messages) == 10
 
-      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd}}
+      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd, size: 10}}
                      when length(messages) == 10
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
                      when length(messages) == 5
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
                      when length(messages) == 5
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
                      when length(messages) == 5
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even}}
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
                      when length(messages) == 5
 
       refute_receive {:batch_handled, _, _}
@@ -662,8 +674,8 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [%{data: 2, batch_key: :even}, %{data: 4, batch_key: :even}],
                       []}
 
-      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :odd}}
-      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :even}}
+      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :odd, size: 2}}
+      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :even, size: 2}}
     end
 
     test "generate batches with the remaining messages after :batch_timeout is reached",

@@ -53,9 +53,9 @@ defmodule Broadway.Batcher do
   @impl true
   def handle_info({:timeout, timer, batch_key}, state) do
     case get_timed_out_batch(batch_key, timer) do
-      {current, _, _} ->
+      {current, pending_count, _} ->
         delete_batch(batch_key)
-        {:noreply, [wrap_for_delivery(batch_key, current, state)], state}
+        {:noreply, [wrap_for_delivery(batch_key, current, pending_count, state)], state}
 
       :error ->
         {:noreply, [], state}
@@ -71,9 +71,9 @@ defmodule Broadway.Batcher do
     else
       events =
         for {batch_key, _} <- batches do
-          {current, _, timer} = delete_batch(batch_key)
+          {current, pending_count, timer} = delete_batch(batch_key)
           cancel_batch_timeout(timer)
-          wrap_for_delivery(batch_key, current, state)
+          wrap_for_delivery(batch_key, current, pending_count, state)
         end
 
       GenStage.async_info(self(), :cancel_consumers)
@@ -114,12 +114,12 @@ defmodule Broadway.Batcher do
     end
   end
 
-  defp deliver_or_update_batch(batch_key, current, _pending_count, true, timer, acc, state) do
-    deliver_batch(batch_key, current, timer, acc, state)
+  defp deliver_or_update_batch(batch_key, current, pending_count, true, timer, acc, state) do
+    deliver_batch(batch_key, current, pending_count, timer, acc, state)
   end
 
   defp deliver_or_update_batch(batch_key, current, 0, _flush?, timer, acc, state) do
-    deliver_batch(batch_key, current, timer, acc, state)
+    deliver_batch(batch_key, current, 0, timer, acc, state)
   end
 
   defp deliver_or_update_batch(batch_key, current, pending_count, _flush?, timer, acc, _state) do
@@ -127,10 +127,10 @@ defmodule Broadway.Batcher do
     acc
   end
 
-  defp deliver_batch(batch_key, current, timer, acc, state) do
+  defp deliver_batch(batch_key, current, pending_count, timer, acc, state) do
     delete_batch(batch_key)
     cancel_batch_timeout(timer)
-    [wrap_for_delivery(batch_key, current, state) | acc]
+    [wrap_for_delivery(batch_key, current, pending_count, state) | acc]
   end
 
   ## General batch handling
@@ -196,19 +196,22 @@ defmodule Broadway.Batcher do
     end
   end
 
-  defp wrap_for_delivery(batch_key, reversed_events, %{batcher: batcher, partition_by: nil}) do
-    wrap_for_delivery(batcher, batch_key, nil, reversed_events)
+  defp wrap_for_delivery(batch_key, reversed_events, pending, %{partition_by: nil} = state) do
+    wrap_for_delivery(batch_key, nil, reversed_events, pending, state)
   end
 
-  defp wrap_for_delivery([batch_key | partition], reversed_events, %{batcher: batcher}) do
-    wrap_for_delivery(batcher, batch_key, partition, reversed_events)
+  defp wrap_for_delivery([batch_key | partition], reversed_events, pending, state) do
+    wrap_for_delivery(batch_key, partition, reversed_events, pending, state)
   end
 
-  defp wrap_for_delivery(batcher, batch_key, partition, reversed_events) do
+  defp wrap_for_delivery(batch_key, partition, reversed_events, pending, state) do
+    %{batcher: batcher, batch_size: batch_size} = state
+
     batch_info = %BatchInfo{
       batcher: batcher,
       batch_key: batch_key,
-      partition: partition
+      partition: partition,
+      size: batch_size - pending
     }
 
     {Enum.reverse(reversed_events), batch_info}

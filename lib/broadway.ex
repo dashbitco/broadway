@@ -434,8 +434,9 @@ defmodule Broadway do
       about the incoming batch.
     * `context` is the user defined data structure passed to `start_link/2`.
 
-  It must return a list of messages. Any message in the batch that has not been
-  explicitly failed will be considered successful and automatically acknowledged.
+  It must return an updated list of messages. All messages received must be returned,
+  otherwise an error will be logged. All messages after this step will be acknowledged
+  acccording to their status.
 
   In case of errors in this callback, the error will be logged and the whole
   batch will be failed. This callback also traps exits, so failures due to broken
