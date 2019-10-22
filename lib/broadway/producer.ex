@@ -9,6 +9,8 @@ defmodule Broadway.Producer do
   The goal of this task is to manipulate the general topology options,
   if necessary at all, and introduce any new child specs that will be
   started before the ProducerSupervisor in Broadwday's supervision tree.
+
+  The options include the all of Broadway topology options.
   """
   @callback prepare_for_start(module :: atom, options :: keyword) ::
               {[:supervisor.child_spec() | {module, any} | module], options :: keyword}
@@ -47,11 +49,12 @@ defmodule Broadway.Producer do
   def init({args, index}) do
     {module, arg} = args[:module]
     transformer = args[:transformer]
+    dispatcher = args[:dispatcher]
 
     # Inject the topology index only if the args are a keyword list.
     arg =
       if Keyword.keyword?(arg) do
-        Keyword.put(arg, :broadway_index, index - 1)
+        Keyword.put(arg, :broadway, Keyword.put(args[:broadway], :index, index))
       else
         arg
       end
@@ -65,10 +68,15 @@ defmodule Broadway.Producer do
 
     case module.init(arg) do
       {:producer, module_state} ->
-        {:producer, %{state | module_state: module_state}}
+        {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}
 
       {:producer, module_state, options} ->
-        {:producer, %{state | module_state: module_state}, options}
+        if options[:dispatcher] && options[:dispatcher] != dispatcher do
+          raise "#{inspect(module)} is setting dispatcher to #{inspect(options[:dispatcher])}, " <>
+                  "which is different from dispatcher #{inspect(dispatcher)} expected by Broadway"
+        end
+
+        {:producer, %{state | module_state: module_state}, [dispather: dispatcher] ++ options}
 
       return_value ->
         {:stop, {:bad_return_value, return_value}}

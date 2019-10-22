@@ -147,8 +147,8 @@ defmodule Broadway do
 
     * 1 producer
     * 2 processors
-    * 1 batcher named `:sqs` with 2 consumers
-    * 1 batcher named `:s3` with 1 consumer
+    * 1 batcher named `:sqs` with 2 batch processors
+    * 1 batcher named `:s3` with 1 batch processors
 
   Here is how this pipeline would be represented:
 
@@ -171,13 +171,13 @@ defmodule Broadway do
                  /  \                  \
                 /    \                  \
                /      \                  \
-   [consumer_sqs_1] [consumer_sqs_2]  [consumer_s3_1] <- process each batch
+     [batch_sqs_1] [batch_sqs_2]    [batch_s3_1] <- process each batch
   ```
 
   Additionally, you'll need to define the `c:handle_batch/4` callback,
-  which will be invoked by consumers for each batch. You can then invoke
-  `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to control
-  to which batcher the message should go to.
+  which will be invoked by batch processors for each batch. You can then
+  invoke `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to
+  control to which batcher the message should go to.
 
   The batcher will receive the processed messages and create batches
   specified by the `batch_size` and `batch_timeout` configuration. The
@@ -270,7 +270,7 @@ defmodule Broadway do
   would be to not start Broadway pipeline in tests. Another way would be to use
   a different producer in tests, one that doesn't do anything, and that is
   exactly what `Broadway.DummyProducer` is for. If the dummy producer doesn't
-  produce any work, how to test that consumers are correct? For that, Broadway
+  produce any work, how to test that the pipeline is correct? For that, Broadway
   ships with a `test_messages/2` function.
 
   With `test_messages/2`, you can push some sample data into the pipeline and
@@ -306,6 +306,66 @@ defmodule Broadway do
   to flush. For this reason, when using `test_messages/2`, the messages have
   their `:batch_mode` set to `:flush`, causing the batch to be delivered
   immediately, without waiting for the batch size or the timeout.
+
+  ## Ordering and partitioning
+
+  By default, Broadway processes all messages and batches concurrently,
+  which means ordering is not guaranteed. Some producers may impose some
+  ordering (for instance, Apache Kafka), but if the ordering comes from a
+  business requirement, you will have to impose the ordering yourself.
+  This can be done with the `:partition_by` option, which enforces that
+  messages with a given property are always forwarded to the same stage.
+
+  In order to provide partitioning throughout the whole pipeline,
+  `:partition_by` must be set on each processor and batch processor
+  in the pipeline:
+
+      defmodule MyBroadway do
+        use Broadway
+
+        def start_link(_opts) do
+          Broadway.start_link(MyBroadway,
+            name: MyBroadwayExample,
+            producer: [
+              module: {Counter, []},
+              stages: 1
+            ],
+            processors: [
+              default: [stages: 2, partition_by: &partition/1]
+            ],
+            batchers: [
+              sqs: [stages: 2, batch_size: 10, partition_by: &partition/1],
+              s3: [stages: 1, batch_size: 10, partition_by: &partition/1]
+            ]
+          )
+        end
+
+        defp partition(msg) do
+          msg.data.user_id
+        end
+
+  In the example above, we are partioning the pipeline by `user_id`.
+  This means any message with the same `user_id` will be handled by
+  the same processor and batch processor.
+
+  The `partition` function must return a non-negative integer,
+  starting at zero, which is routed to a stage by using the `remainder`
+  option.
+
+  If the data you want to partition by is not an integer, you can
+  explicitly hash it by calling `:erlang.phash2/1`. However, note
+  that `hash` does not guarantee an equal distribution of events
+  across partitions. So some partitions may be more overloaded than
+  others, slowing down the whole pipeline.
+
+  Also, beware of the error semantics when using partitioning. If
+  you require ordering and a message fails, the partition will
+  continue processing messages. Depending on the type of processing,
+  the end result may be inconsistent. If your producer supports
+  retrying, the failed message may be retried later, also out of
+  order. Those issues happens regardless of Broadway and solutions
+  to said problems almost always need to be addressed outside of
+  Broadway too.
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
@@ -460,13 +520,17 @@ defmodule Broadway do
       be passed to the `init/1` callback of the producer. Pay attention that
       this producer must emit events that are `Broadway.Message` structs.
       It's recommended that `arg` is a keyword list. In fact, if `arg` is
-      a keyword list, a `:broadway_index` option is injected into
-      such keyword list: this index can be used to customize the behaviour
-      of a producer based on its index (for example, having even producers
-      connect to some server while odd producers connect to another).
+      a keyword list, a `:broadway` option is injected into such keyword list
+      containing the configuration for the complete Broadway topology with the
+      addition of an `:index` key, telling the index of the producer in its
+      supervision tree (starting from 0). This allows a features such having
+      even producers connect to some server while odd producers connect to
+      another.
+
     * `:stages` - Optional. The number of stages that will be
       created by Broadway. Use this option to control the concurrency
       level of each set of producers. The default value is `1`.
+
     * `:transformer` - Optional. A tuple representing a transformer
        that translates a produced GenStage event into a `%Broadway.Message{}`.
        The tuple format should be `{mod, fun, opts}` and the function should have
@@ -483,16 +547,25 @@ defmodule Broadway do
     * `:stages` - Optional. The number of stages that will be created
       by Broadway. Use this option to control the concurrency level
       of the processors. The default value is `System.schedulers_online() * 2`.
+
     * `:min_demand` - Optional. Set the minimum demand of all processors
       stages. Default value is `5`.
+
     * `:max_demand` - Optional. Set the maximum demand of all processors
       stages. Default value is `10`.
+
+    * `:partition_by` - Optional. A function that controls how data is
+      partitioned across the given processor stages. It receives a
+      `Broadway.Message` and it must return a non-negative integer,
+      starting with zero, that will be mapped to one of the existing
+      processors. See "Ordering and Partitioning" in the module docs
+      for more information.
 
   ### Batchers options
 
     * `:stages` - Optional. The number of stages that will be created by
       Broadway. Use this option to control the concurrency level.
-      Note that this only sets the numbers of consumers for
+      Note that this only sets the numbers of batch processors for
       each batcher group, not the number of batchers. The number of
       batchers will always be one for each batcher key defined.
       The default value is `1`.
@@ -505,6 +578,12 @@ defmodule Broadway do
       is reached, a new batch is generated and sent downstream, no matter
       if the `:batch_size` has been reached or not. Default value is `1000`
       (1 second).
+
+    * `:partition_by` - Optional. A function that controls how data is
+      partitioned across the given batch processor stages. It receives a
+      `Broadway.Message` and it must return a non-negative integer, starting
+      with zero, that will be mapped to one of the existing processors.
+      See "Ordering and Partitioning" in the module docs for more information.
 
   """
   def start_link(module, opts) do
@@ -651,7 +730,8 @@ defmodule Broadway do
           *: [
             stages: [type: :pos_integer, default: System.schedulers_online() * 2],
             min_demand: [type: :non_neg_integer],
-            max_demand: [type: :non_neg_integer, default: 10]
+            max_demand: [type: :non_neg_integer, default: 10],
+            partition_by: [type: {:fun, 1}]
           ]
         ]
       ],
@@ -662,7 +742,8 @@ defmodule Broadway do
           *: [
             stages: [type: :pos_integer, default: 1],
             batch_size: [type: :pos_integer, default: 100],
-            batch_timeout: [type: :pos_integer, default: 1000]
+            batch_timeout: [type: :pos_integer, default: 1000],
+            partition_by: [type: {:fun, 1}]
           ]
         ]
       ]

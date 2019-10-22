@@ -302,7 +302,7 @@ defmodule BroadwayTest do
                Supervisor.which_children(Module.concat(broadway, "Broadway.Supervisor"))
     end
 
-    test "injects the :broadway_index option when the producer config is a kw list" do
+    test "injects the :broadway option when the producer config is a kw list" do
       defmodule ProducerWithTopologyIndex do
         @behaviour Broadway.Producer
 
@@ -316,14 +316,18 @@ defmodule BroadwayTest do
         end
       end
 
+      name = new_unique_name()
+
       Broadway.start_link(Forwarder,
-        name: new_unique_name(),
+        name: name,
         producer: [module: {ProducerWithTopologyIndex, [test_pid: self()]}],
         processors: [default: []]
       )
 
       assert_receive {:init_called, opts}
-      assert opts[:broadway_index] == 0
+      assert opts[:broadway][:name] == name
+      assert opts[:broadway][:index] == 0
+      assert length(opts[:broadway][:processors]) == 1
 
       # If the producer config is not a kw list, the index is not injected.
 
@@ -334,7 +338,7 @@ defmodule BroadwayTest do
       )
 
       assert_receive {:init_called, map}
-      refute Map.has_key?(map, :broadway_index)
+      refute Map.has_key?(map, :broadway)
     end
   end
 
@@ -514,7 +518,6 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name)
-
       %{broadway_name: broadway_name, broadway: broadway, producer: producer}
     end
 
@@ -669,6 +672,112 @@ defmodule BroadwayTest do
 
       assert_receive {:ack, ^ref, [%{data: 1, batch_key: :odd}], []}
       assert_receive {:ack, ^ref, [%{data: 2, batch_key: :even}], []}
+    end
+  end
+
+  describe "partition_by" do
+    setup tags do
+      test_pid = self()
+      broadway_name = new_unique_name()
+
+      context = %{
+        handle_message: fn message, _ ->
+          message =
+            if message.data >= 20 do
+              Message.put_batch_key(message, :over_twenty)
+            else
+              message
+            end
+
+          Process.sleep(round(:random.uniform() * 20))
+          send(test_pid, {:message_handled, message.data, self()})
+          message
+        end,
+        handle_batch: fn _batcher, batch, _batch_info, _ ->
+          Process.sleep(round(:random.uniform() * 20))
+          send(test_pid, {:batch_handled, Enum.map(batch, & &1.data), self()})
+          batch
+        end
+      }
+
+      partition_by = fn msg -> msg.data end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: context,
+          producer: [module: {ManualProducer, []}],
+          processors: [
+            default: [
+              stages: 2,
+              partition_by: partition_by
+            ]
+          ],
+          batchers: [
+            default: [
+              stages: 2,
+              batch_size: Map.get(tags, :batch_size, 2),
+              batch_timeout: 80,
+              partition_by: partition_by
+            ]
+          ]
+        )
+
+      %{broadway: broadway}
+    end
+
+    test "messages of the same partition are processed in order by the same processor",
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(1..8), batch_mode: :bulk)
+
+      assert_receive {:message_handled, 1, processor_1}
+      assert_receive {:message_handled, data, ^processor_1}
+      assert data == 3
+      assert_receive {:message_handled, data, ^processor_1}
+      assert data == 5
+      assert_receive {:message_handled, data, ^processor_1}
+      assert data == 7
+
+      assert_receive {:message_handled, 2, processor_2}
+      assert_receive {:message_handled, data, ^processor_2}
+      assert data == 4
+      assert_receive {:message_handled, data, ^processor_2}
+      assert data == 6
+      assert_receive {:message_handled, data, ^processor_2}
+      assert data == 8
+
+      assert processor_1 != processor_2
+    end
+
+    test "messages of the same partition are processed in order by the same batch processor",
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(1..12), batch_mode: :bulk)
+
+      assert_receive {:batch_handled, [1, 3], batch_processor_1}
+      assert_receive {:batch_handled, data, ^batch_processor_1}
+      assert data == [5, 7]
+      assert_receive {:batch_handled, data, ^batch_processor_1}
+      assert data == [9, 11]
+
+      assert_receive {:batch_handled, [2, 4], batch_processor_2}
+      assert_receive {:batch_handled, data, ^batch_processor_2}
+      assert data == [6, 8]
+      assert_receive {:batch_handled, data, ^batch_processor_2}
+      assert data == [10, 12]
+
+      assert batch_processor_1 != batch_processor_2
+    end
+
+    @tag batch_size: 4
+    test "messages of the same partition are processed in order with batch key",
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(16..23), batch_mode: :bulk)
+
+      # Without the batch key, we would have two batches of 4 elements
+      assert_receive {:batch_handled, [16, 18], _}
+      assert_receive {:batch_handled, [17, 19], _}
+      assert_receive {:batch_handled, [20, 22], _}
+      assert_receive {:batch_handled, [21, 23], _}
     end
   end
 
@@ -1393,11 +1502,11 @@ defmodule BroadwayTest do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
-  defp get_producer(broadway_name, index \\ 1) do
+  defp get_producer(broadway_name, index \\ 0) do
     :"#{broadway_name}.Broadway.Producer_#{index}"
   end
 
-  defp get_processor(broadway_name, key, index \\ 1) do
+  defp get_processor(broadway_name, key, index \\ 0) do
     :"#{broadway_name}.Broadway.Processor_#{key}_#{index}"
   end
 
@@ -1405,7 +1514,7 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Broadway.Batcher_#{key}"
   end
 
-  defp get_consumer(broadway_name, key, index \\ 1) do
+  defp get_consumer(broadway_name, key, index \\ 0) do
     :"#{broadway_name}.Broadway.Consumer_#{key}_#{index}"
   end
 

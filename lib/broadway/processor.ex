@@ -20,7 +20,7 @@ defmodule Broadway.Processor do
       module: args[:module],
       context: args[:context],
       processor_key: args[:processor_key],
-      partitions: args[:partitions]
+      batchers: args[:batchers]
     }
 
     Broadway.Subscriber.init(
@@ -59,12 +59,12 @@ defmodule Broadway.Processor do
       module: module,
       context: context,
       processor_key: processor_key,
-      partitions: partitions
+      batchers: batchers
     } = state
 
     try do
       module.handle_message(processor_key, message, context)
-      |> validate_message(partitions)
+      |> validate_message(batchers)
     catch
       kind, error ->
         Logger.error(Exception.format(kind, error, System.stacktrace()))
@@ -83,20 +83,16 @@ defmodule Broadway.Processor do
     {Enum.reverse(successful), Enum.reverse(failed)}
   end
 
-  defp validate_message(%Message{} = message, []) do
-    message
-  end
-
-  defp validate_message(%Message{batcher: batcher} = message, partitions) do
-    if batcher not in partitions do
+  defp validate_message(%Message{batcher: batcher} = message, batchers) do
+    if batchers != :none and batcher not in batchers do
       raise "message was set to unknown batcher #{inspect(batcher)}. " <>
-              "The known batchers are #{inspect(partitions)}"
+              "The known batchers are #{inspect(batchers)}"
     end
 
     message
   end
 
-  defp validate_message(message, _partitions) do
+  defp validate_message(message, _batchers) do
     raise "expected a Broadway.Message from handle_message/3, got #{inspect(message)}"
   end
 end

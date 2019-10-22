@@ -12,7 +12,8 @@ defmodule Broadway.BatcherTest do
         batcher: :default,
         processors: [:some_processor],
         batch_size: 123,
-        batch_timeout: 1000
+        batch_timeout: 1000,
+        partition: 0
       )
 
     assert state.subscription_options[:max_demand] == 123
