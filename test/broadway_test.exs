@@ -1045,8 +1045,6 @@ defmodule BroadwayTest do
   end
 
   describe "handle_failed in the processor" do
-    @describetag :focus
-
     test "is called when a message is failed by the user" do
       broadway_name = new_unique_name()
       test_pid = self()
@@ -1135,6 +1133,111 @@ defmodule BroadwayTest do
                assert failed.data == :fail
                assert failed.status == {:failed, "due to unhandled error in handle_failed"}
              end) =~ "(RuntimeError) error in handle_failed"
+    end
+  end
+
+  describe "handle_failed in the batcher" do
+    test "is called for messages that are failed by the user" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_batch = fn _, messages, _, _ ->
+        Enum.map(messages, fn
+          %{data: :fail} = message -> Message.failed(message, :failed)
+          message -> message
+        end)
+      end
+
+      handle_failed = fn messages, _context ->
+        send(test_pid, {:handle_failed_called, messages})
+        Enum.map(messages, &Message.update_data(&1, fn _ -> :updated end))
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlerWithHandleFailed,
+          name: broadway_name,
+          context: %{
+            handle_message: fn message, _context -> message end,
+            handle_batch: handle_batch,
+            handle_failed: handle_failed
+          },
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []],
+          batchers: [default: []]
+        )
+
+      ref = Broadway.test_messages(broadway, [1, :fail, :fail, 2])
+
+      assert_receive {:handle_failed_called, messages}
+      assert [%Message{data: :fail}, %Message{data: :fail}] = messages
+
+      assert_receive {:ack, ^ref, successful, failed}
+      assert [%{data: 1}, %{data: 2}] = successful
+      assert [%{data: :updated}, %{data: :updated}] = failed
+    end
+
+    test "is called for the whole batch if handle_batch crashes" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_batch = fn _, _, _, _ ->
+        raise "handle_batch failed"
+      end
+
+      handle_failed = fn messages, _context ->
+        send(test_pid, {:handle_failed_called, messages})
+        Enum.map(messages, &Message.update_data(&1, fn _ -> :updated end))
+      end
+
+      assert capture_log(fn ->
+               {:ok, broadway} =
+                 Broadway.start_link(CustomHandlerWithHandleFailed,
+                   name: broadway_name,
+                   context: %{
+                     handle_message: fn message, _context -> message end,
+                     handle_batch: handle_batch,
+                     handle_failed: handle_failed
+                   },
+                   producer: [module: {ManualProducer, []}],
+                   processors: [default: []],
+                   batchers: [default: []]
+                 )
+
+               ref = Broadway.test_messages(broadway, [1, 2])
+
+               assert_receive {:handle_failed_called, [_, _]}
+
+               assert_receive {:ack, ^ref, _successful = [], failed}
+               assert [%{data: :updated}, %{data: :updated}] = failed
+             end) =~ "handle_batch failed"
+    end
+
+    test "is wrapped in try/catch to contain failures" do
+      broadway_name = new_unique_name()
+
+      handle_batch = fn _, messages, _, _ ->
+        Enum.map(messages, &Message.failed(&1, :failed))
+      end
+
+      assert capture_log(fn ->
+               {:ok, broadway} =
+                 Broadway.start_link(CustomHandlerWithHandleFailed,
+                   name: broadway_name,
+                   context: %{
+                     handle_message: fn message, _context -> message end,
+                     handle_batch: handle_batch,
+                     handle_failed: fn _, _ -> raise "handle_failed failed" end
+                   },
+                   producer: [module: {ManualProducer, []}],
+                   processors: [default: []],
+                   batchers: [default: []]
+                 )
+
+               ref = Broadway.test_messages(broadway, [1, 2])
+
+               assert_receive {:ack, ^ref, _successful = [], failed}
+               assert [%{data: 1}, %{data: 2}] = failed
+             end) =~ "(RuntimeError) handle_failed failed"
     end
   end
 
