@@ -41,9 +41,11 @@ defmodule Broadway.Consumer do
     failed_messages = maybe_handle_failed_messages(failed_messages, state, size)
 
     if returned != size do
-      Logger.error "#{inspect state.module}.handle_batch/4 received #{size} messages and " <>
-                     "returned only #{returned}. All messages given to handle_batch/4 " <>
-                     "must be returned"
+      Logger.error(
+        "#{inspect(state.module)}.handle_batch/4 received #{size} messages and " <>
+          "returned only #{returned}. All messages given to handle_batch/4 " <>
+          "must be returned"
+      )
     end
 
     try do
@@ -76,9 +78,11 @@ defmodule Broadway.Consumer do
       returned_size = length(messages)
 
       if returned_size != size do
-        Logger.error "#{inspect module}.handle_failed/2 received #{size} messages and " <>
-                        "returned only #{returned_size}. All messages given to handle_failed/2 " <>
-                        "must be returned"
+        Logger.error(
+          "#{inspect(module)}.handle_failed/2 received #{size} messages and " <>
+            "returned only #{returned_size}. All messages given to handle_failed/2 " <>
+            "must be returned"
+        )
       end
 
       messages
