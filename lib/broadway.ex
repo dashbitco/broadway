@@ -255,7 +255,7 @@ defmodule Broadway do
   acknowledged as failed immediately. For every failure, a log report
   is also emitted. If your Broadway module also defines the
   `c:handle_failed/2` callback, that callback will be invoked with
-  all the failed messages.
+  all the failed messages before they get acknowledged.
 
   Note however, that `Broadway` does not provide any sort of retries
   out of the box. This is left completely as a responsibility of the
@@ -468,7 +468,10 @@ defmodule Broadway do
   in a centralized place to configure how to ack the message based on the failure
   reason.
 
-  This callback is optional.
+  This callback is optional. If present, it's called **before** the messages
+  are acknowledged according to the producer. This gives you a chance to do something
+  with the message before it's acknowledged, such as storing it in an external
+  persistence layer or similar.
 
   This callback is also invoked if `c:handle_message/3` or `c:handle_batch/4`
   crash or raise an error. If this callback crashes or raises an error,
