@@ -69,9 +69,11 @@ defmodule Broadway.Processor do
       kind, error ->
         Logger.error(Exception.format(kind, error, System.stacktrace()))
         message = Message.failed(message, "due to an unhandled #{kind}")
+        message = maybe_handle_failed_message(message, module, context)
         handle_messages(messages, successful, [message | failed], state)
     else
       %{status: {:failed, _}} = message ->
+        message = maybe_handle_failed_message(message, module, context)
         handle_messages(messages, successful, [message | failed], state)
 
       message ->
@@ -81,6 +83,33 @@ defmodule Broadway.Processor do
 
   defp handle_messages([], successful, failed, _state) do
     {Enum.reverse(successful), Enum.reverse(failed)}
+  end
+
+  defp maybe_handle_failed_message(message, module, context) do
+    if function_exported?(module, :handle_failed, 2) do
+      handle_failed_message(message, module, context)
+    else
+      message
+    end
+  end
+
+  defp handle_failed_message(message, module, context) do
+    module.handle_failed([message], context)
+  catch
+    kind, error ->
+      Logger.error(Exception.format(kind, error, System.stacktrace()))
+      Message.failed(message, "due to unhandled #{kind} in handle_failed")
+  else
+    [message] ->
+      message
+
+    _other ->
+      Logger.error(
+        "#{inspect(module)}.handle_failed/2 got one message and should return one message, " <>
+          "ignoring its return value"
+      )
+
+      message
   end
 
   defp validate_message(%Message{batcher: batcher} = message, batchers) do

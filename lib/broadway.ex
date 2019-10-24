@@ -449,7 +449,13 @@ defmodule Broadway do
               context :: term
             ) :: [Message.t()]
 
-  @optional_callbacks handle_batch: 4
+  @doc """
+  TODO: write docs
+  """
+  if Version.match?(System.version(), ">= 1.7.0"), do: @doc(since: "0.5.0")
+  @callback handle_failed(messages :: [Message.t()], context :: term) :: [Message.t()]
+
+  @optional_callbacks handle_batch: 4, handle_failed: 2
 
   @doc false
   defmacro __using__(opts) do
