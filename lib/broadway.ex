@@ -699,14 +699,14 @@ defmodule Broadway do
   end
 
   defp carry_over_one(opts, key, keys) do
-    update_in opts[key], fn value -> Keyword.merge(Keyword.take(opts, keys), value) end
+    update_in(opts[key], fn value -> Keyword.merge(Keyword.take(opts, keys), value) end)
   end
 
   defp carry_over_many(opts, key, keys) do
-    update_in opts[key], fn list ->
+    update_in(opts[key], fn list ->
       defaults = Keyword.take(opts, keys)
       for {k, v} <- list, do: {k, Keyword.merge(defaults, v)}
-    end
+    end)
   end
 
   defp prepare_for_start(module, opts) do
