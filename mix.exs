@@ -53,14 +53,12 @@ defmodule Broadway.MixProject do
         #
         # Broadway
         # Broadway.Message
+        # Broadway.BatchInfo
 
         Acknowledgement: [
           Broadway.Acknowledger,
           Broadway.CallerAcknowledger,
           Broadway.NoopAcknowledger
-        ],
-        Batching: [
-          Broadway.BatchInfo
         ],
         Producers: [
           Broadway.DummyProducer,
