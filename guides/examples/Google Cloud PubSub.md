@@ -4,21 +4,21 @@ Cloud Pub/Sub is a fully-managed real-time messaging service provided by Google.
 
 ## Getting Started
 
-In order to use Broadway with Cloud Pub/Sub we need to:
+In order to use Broadway with Cloud Pub/Sub you need to:
 
-  1. Setup Cloud Pub/Sub project
-  1. Configure our Elixir project to use Broadway
+  1. Setup a Cloud Pub/Sub project
+  1. Configure your Elixir project to use Broadway
   1. Define your pipeline configuration
   1. Implement Broadway callbacks
   1. Run the Broadway pipeline
-  1. Tuning the configuration (Optional)
+  1. Tune the configuration (Optional)
 
 If you are just getting familiar with Google Pub/Sub, refer to [the documentation](https://cloud.google.com/pubsub/docs/)
-to get started. Instead of testing against a live environemnt, you may also consider using the
+to get started. Instead of testing against a live environment, you may also consider using the
 [emulator](https://cloud.google.com/pubsub/docs/emulator) to simulate integrating with Cloud
 Pub/Sub.
 
-If you have an existing project, topic, subcription, and credentials, you can skip [step
+If you have an existing project, topic, subscription, and credentials, you can skip [step
 1](#setup-cloud-pub-sub-project) and jump to [Configure the project](#configure-the-project)
 section.
 
@@ -46,19 +46,23 @@ A new topic:
     gcloud pubsub topics create test-topic --project test-pubsub
     Created topic [projects/test-pubsub/topics/test-topic].
 
+> Note: If you run this command immediately after creating a new Google Cloud project, you may receive an error indicating that your project's organization policy is still being provisioned. Just wait a couple minutes and try again.
+
 And a new subscription:
 
     gcloud pubsub subscriptions create test-subscription --project test-pubsub --topic test-topic
     Created subscription [projects/test-pubsub/subscriptions/test-subscription].
 
 We also need a [service account](https://cloud.google.com/iam/docs/service-accounts), an IAM
-policy, as well as API credentials in order to programatically work with the service. First, let's
+policy, as well as API credentials in order to programmatically work with the service. First, let's
 create the service account:
 
     gcloud iam service-accounts create test-account --project test-pubsub
     Created service account [test-account].
 
-Then the policy. For simplicity we add the genreal role `roles/editor`, but make
+Then the policy. For simplicity we add the general role `roles/editor`, but make sure to
+examine the [available roles](https://cloud.google.com/iam/docs/understanding-roles#pubsub-roles)
+and choose the one that best suits your use case:
 
     gcloud projects add-iam-policy-binding test-pubsub \
         --member serviceAccount:test-account@test-pubsub.iam.gserviceaccount.com \
@@ -97,7 +101,6 @@ The `--sup` flag instructs Elixir to generate an application with a supervision 
 
 Add `:broadway_cloud_pub_sub` to the list of dependencies in `mix.exs`, along with the Google
 Cloud authentication library of your choice (defaults to `:goth`):
-`:hackney`):
 
     defp deps() do
       [
@@ -139,7 +142,7 @@ configuration would be:
           batchers: [
             default: [
               batch_size: 10,
-              batch_timeout: 2000
+              batch_timeout: 2_000
             ]
           ]
         )
@@ -154,7 +157,7 @@ documentation](https://hexdocs.pm/broadway_cloud_pub_sub).
 For general information about setting up Broadway, see `Broadway` module docs as well as
 `Broadway.start_link/2`.
 
-> Note: Even though batching is optional in Broadway v0.2, we recommend all Cloud Pub/Sub
+> Note: Even though batching is optional since Broadway v0.2, we recommend all Cloud Pub/Sub
 > pipelines to have at least a default batcher, with the default values defined above, unless you
 > are expecting a very low rate of incoming messages. That's because batchers will also
 > acknowledge messages in batches, which is the most cost and time efficient way of doing so on
