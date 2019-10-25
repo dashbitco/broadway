@@ -55,9 +55,7 @@ defmodule Broadway.Acknowledger do
 
   @optional_callbacks [configure: 3]
 
-  @doc """
-  Acknowledges successful and failed messages grouped by `{acknowledger, ack_ref}`.
-  """
+  @doc false
   @spec ack_messages([Message.t()], [Message.t()]) :: no_return
   def ack_messages(successful, failed) do
     %{}
