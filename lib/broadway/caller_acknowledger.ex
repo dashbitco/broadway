@@ -14,7 +14,7 @@ defmodule Broadway.CallerAcknowledger do
 
       {:ack, ref, successful_messages, failed_messages}
 
-  If `Broadway.Message.configure_ack/3` is called on a message that
+  If `Broadway.Message.configure_ack/2` is called on a message that
   uses this acknowledger, then the following message is sent:
 
       {:configure, ref, options}
