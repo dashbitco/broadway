@@ -46,7 +46,7 @@ defmodule Broadway do
       by calling `Broadway.Message.put_batch_key/2`.
 
     * Ordering and Partitioning - Broadway allows developers to partition
-      messages across workers, guarenteeing messages within the same partition
+      messages across workers, guaranteeing messages within the same partition
       are processed in order. For example, if you want to guarantee all events
       tied to a given `user_id` are processed in order and not concurrently,
       you can set the `:partition_by` option. See "Ordering and partitioning".
@@ -699,14 +699,14 @@ defmodule Broadway do
   end
 
   defp carry_over_one(opts, key, keys) do
-    update_in opts[key], fn value -> Keyword.merge(Keyword.take(opts, keys), value) end
+    update_in(opts[key], fn value -> Keyword.merge(Keyword.take(opts, keys), value) end)
   end
 
   defp carry_over_many(opts, key, keys) do
-    update_in opts[key], fn list ->
+    update_in(opts[key], fn list ->
       defaults = Keyword.take(opts, keys)
       for {k, v} <- list, do: {k, Keyword.merge(defaults, v)}
-    end
+    end)
   end
 
   defp prepare_for_start(module, opts) do
