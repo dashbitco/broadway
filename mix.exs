@@ -47,6 +47,25 @@ defmodule Broadway.MixProject do
       groups_for_extras: [
         Examples: Path.wildcard("guides/examples/*.md"),
         Internals: Path.wildcard("guides/internals/*.md")
+      ],
+      groups_for_modules: [
+        # Ungrouped Modules:
+        #
+        # Broadway
+        # Broadway.Message
+
+        Acknowledgement: [
+          Broadway.Acknowledger,
+          Broadway.CallerAcknowledger,
+          Broadway.NoopAcknowledger
+        ],
+        Batching: [
+          Broadway.BatchInfo
+        ],
+        Producers: [
+          Broadway.DummyProducer,
+          Broadway.TermStorage
+        ]
       ]
     ]
   end
