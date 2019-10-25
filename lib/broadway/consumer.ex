@@ -58,7 +58,9 @@ defmodule Broadway.Consumer do
       Acknowledger.ack_messages(successful_messages, failed_messages)
     catch
       kind, reason ->
-        Logger.error(Exception.format(kind, reason, System.stacktrace()))
+        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+          crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+        )
     end
 
     {:noreply, [], state}
@@ -72,10 +74,13 @@ defmodule Broadway.Consumer do
       |> split_by_status([], [], 0)
     catch
       kind, reason ->
-        stacktrace = System.stacktrace()
-        reason = Exception.normalize(kind, reason, stacktrace)
-        Logger.error(Exception.format(kind, reason, stacktrace))
-        messages = Enum.map(messages, &%{&1 | status: {kind, reason, stacktrace}})
+        reason = Exception.normalize(kind, reason, __STACKTRACE__)
+
+        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+          crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+        )
+
+        messages = Enum.map(messages, &%{&1 | status: {kind, reason, __STACKTRACE__}})
         {[], messages, batch_info.size}
     end
   end

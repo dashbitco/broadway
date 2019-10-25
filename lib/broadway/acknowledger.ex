@@ -81,6 +81,12 @@ defmodule Broadway.Acknowledger do
     acknowledger.ack(ack_ref, Enum.reverse(successful), Enum.reverse(failed))
   end
 
+  @doc false
+  # Builds a crash reason used in Logger reporting.
+  def crash_reason(:throw, reason, stack), do: {{:nocatch, reason}, stack}
+  def crash_reason(:error, reason, stack), do: {reason, stack}
+  def crash_reason(:exit, reason, stack), do: {reason, stack}
+
   # Used by the processor and the batcher to maybe call c:handle_failed/2
   # on failed messages.
   @doc false
@@ -96,7 +102,10 @@ defmodule Broadway.Acknowledger do
     module.handle_failed(messages, context)
   catch
     kind, reason ->
-      Logger.error(Exception.format(kind, reason, System.stacktrace()))
+      Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+        crash_reason: crash_reason(kind, reason, __STACKTRACE__)
+      )
+
       messages
   else
     messages when is_list(messages) ->

@@ -55,8 +55,10 @@ defmodule Broadway.Processor do
     try do
       Acknowledger.ack_messages(successful_messages_to_ack, failed_messages)
     catch
-      kind, error ->
-        Logger.error(Exception.format(kind, error, System.stacktrace()))
+      kind, reason ->
+        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+          crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+        )
     end
 
     {:noreply, successful_messages_to_forward, state}
@@ -75,10 +77,13 @@ defmodule Broadway.Processor do
       |> validate_message(batchers)
     catch
       kind, reason ->
-        stacktrace = System.stacktrace()
-        reason = Exception.normalize(kind, reason, stacktrace)
-        Logger.error(Exception.format(kind, reason, stacktrace))
-        message = %{message | status: {kind, reason, stacktrace}}
+        reason = Exception.normalize(kind, reason, __STACKTRACE__)
+
+        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+          crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+        )
+
+        message = %{message | status: {kind, reason, __STACKTRACE__}}
         handle_messages(messages, successful, [message | failed], state)
     else
       %{status: :ok} = message ->
