@@ -22,7 +22,10 @@ defmodule Broadway.Message do
           batcher: atom,
           batch_key: term,
           batch_mode: :bulk | :flush,
-          status: :ok | {:failed, reason :: binary}
+          status:
+            :ok
+            | {:failed, reason :: binary}
+            | {:throw | :error | :exit, term, Exception.stacktrace()}
         }
 
   @enforce_keys [:data, :acknowledger]

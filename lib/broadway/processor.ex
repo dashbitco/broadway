@@ -74,16 +74,18 @@ defmodule Broadway.Processor do
       module.handle_message(processor_key, message, context)
       |> validate_message(batchers)
     catch
-      kind, error ->
-        Logger.error(Exception.format(kind, error, System.stacktrace()))
-        message = Message.failed(message, "due to an unhandled #{kind}")
+      kind, reason ->
+        stacktrace = System.stacktrace()
+        reason = Exception.normalize(kind, reason, stacktrace)
+        Logger.error(Exception.format(kind, reason, stacktrace))
+        message = %{message | status: {kind, reason, stacktrace}}
         handle_messages(messages, successful, [message | failed], state)
     else
+      %{status: :ok} = message ->
+        handle_messages(messages, [message | successful], failed, state)
+
       %{status: {:failed, _}} = message ->
         handle_messages(messages, successful, [message | failed], state)
-
-      message ->
-        handle_messages(messages, [message | successful], failed, state)
     end
   end
 

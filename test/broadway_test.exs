@@ -440,28 +440,22 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, _, [%{status: {:failed, "Failed message"}}]}
     end
 
-    test "messages are marked as {:failed, reason} when an error is raised while processing",
+    test "messages are marked as {kind, reason, stack} when an error is raised while processing",
          %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
                ref = Broadway.test_messages(broadway, [1, :raise, 4], batch_mode: :bulk)
-
-               assert_receive {:ack, ^ref, [],
-                               [%{status: {:failed, "due to an unhandled error"}}]}
-
+               assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
                assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~ "[error] ** (RuntimeError) Error raised"
 
       refute_received {:EXIT, _, ^processor}
     end
 
-    test "messages are marked as {:failed, reason} on bad return",
+    test "messages are marked as {kind, reason, stack} on bad return",
          %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
                ref = Broadway.test_messages(broadway, [1, :bad_return, 4], batch_mode: :bulk)
-
-               assert_receive {:ack, ^ref, [],
-                               [%{status: {:failed, "due to an unhandled error"}}]}
-
+               assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
                assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~
                "[error] ** (RuntimeError) expected a Broadway.Message from handle_message/3, got :oops"
@@ -469,14 +463,11 @@ defmodule BroadwayTest do
       refute_received {:EXIT, _, ^processor}
     end
 
-    test "messages are marked as {:failed, reason} on bad batcher",
+    test "messages are marked as {kind, reason, stack} on bad batcher",
          %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
                ref = Broadway.test_messages(broadway, [1, :bad_batcher, 4], batch_mode: :bulk)
-
-               assert_receive {:ack, ^ref, [],
-                               [%{status: {:failed, "due to an unhandled error"}}]}
-
+               assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
                assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~
                "[error] ** (RuntimeError) message was set to unknown batcher :unknown. The known batchers are [:default]"
@@ -514,9 +505,7 @@ defmodule BroadwayTest do
     test "processors do not crash on broken link", %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
                ref = Broadway.test_messages(broadway, [1, :broken_link, 4], batch_mode: :bulk)
-
-               assert_receive {:ack, ^ref, [], [%{status: {:failed, "due to an unhandled exit"}}]}
-
+               assert_receive {:ack, ^ref, [], [%{status: {:exit, _, _}}]}
                assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], []}
              end) =~ "** (RuntimeError) oops"
 
@@ -958,8 +947,7 @@ defmodule BroadwayTest do
             %Message{data: 1, acknowledger: {NonConfigurableAcker, self(), :unused}}
           ])
 
-          assert_receive {:ack, _successful = [], [failed]}
-          assert failed.status == {:failed, "due to an unhandled error"}
+          assert_receive {:ack, _successful = [], [%{status: {:error, _, _}}]}
         end)
 
       assert log =~
@@ -1128,10 +1116,7 @@ defmodule BroadwayTest do
 
       assert capture_log(fn ->
                ref = Broadway.test_messages(broadway, [:fail])
-
-               assert_receive {:ack, ^ref, _successful = [], [failed]}
-               assert failed.data == :fail
-               assert failed.status == {:failed, "due to an unhandled error in handle_failed/2"}
+               assert_receive {:ack, ^ref, [], [%{data: :fail, status: {:failed, _}}]}
              end) =~ "(RuntimeError) error in handle_failed"
     end
   end
@@ -1574,37 +1559,34 @@ defmodule BroadwayTest do
       assert_receive {:ack, :ack_ref_2, [%{data: 4}], [%{data: :fail}]}
     end
 
-    test "all messages in the batch are marked as {:failed, reason} when an error is raised",
+    test "all messages in the batch are marked as {kind, reason, stack} when an error is raised",
          %{broadway: broadway, consumer: consumer} do
       assert capture_log(fn ->
                ref = Broadway.test_messages(broadway, [1, 2, :raise, 3], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [
-                                 %{data: 1, status: {:failed, "due to an unhandled error"}},
-                                 %{data: 2, status: {:failed, "due to an unhandled error"}},
-                                 %{data: :raise, status: {:failed, "due to an unhandled error"}},
-                                 %{data: 3, status: {:failed, "due to an unhandled error"}}
+                                 %{data: 1, status: {:error, _, _}},
+                                 %{data: 2, status: {:error, _, _}},
+                                 %{data: :raise, status: {:error, _, _}},
+                                 %{data: 3, status: {:error, _, _}}
                                ]}
              end) =~ "[error] ** (RuntimeError) Error raised"
 
       refute_received {:EXIT, _, ^consumer}
     end
 
-    test "all messages in the batch are marked as {:failed, reason} on bad return",
+    test "all messages in the batch are marked as {kind, reason, stack} on bad return",
          %{broadway: broadway, consumer: consumer} do
       assert capture_log(fn ->
                ref = Broadway.test_messages(broadway, [1, 2, :bad_return, 3], batch_mode: :bulk)
 
                assert_receive {:ack, ^ref, [],
                                [
-                                 %{data: 1, status: {:failed, "due to an unhandled error"}},
-                                 %{data: 2, status: {:failed, "due to an unhandled error"}},
-                                 %{
-                                   data: :bad_return,
-                                   status: {:failed, "due to an unhandled error"}
-                                 },
-                                 %{data: 3, status: {:failed, "due to an unhandled error"}}
+                                 %{data: 1, status: {:error, _, _}},
+                                 %{data: 2, status: {:error, _, _}},
+                                 %{data: :bad_return, status: {:error, _, _}},
+                                 %{data: 3, status: {:error, _, _}}
                                ]}
              end) =~ "[error]"
 
@@ -1632,13 +1614,10 @@ defmodule BroadwayTest do
 
                assert_receive {:ack, ^ref, [],
                                [
-                                 %{data: 1, status: {:failed, "due to an unhandled exit"}},
-                                 %{data: 2, status: {:failed, "due to an unhandled exit"}},
-                                 %{
-                                   data: :broken_link,
-                                   status: {:failed, "due to an unhandled exit"}
-                                 },
-                                 %{data: 3, status: {:failed, "due to an unhandled exit"}}
+                                 %{data: 1, status: {:exit, _, _}},
+                                 %{data: 2, status: {:exit, _, _}},
+                                 %{data: :broken_link, status: {:exit, _, _}},
+                                 %{data: 3, status: {:exit, _, _}}
                                ]}
              end) =~ "** (RuntimeError) oops"
 

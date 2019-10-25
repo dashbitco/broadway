@@ -97,8 +97,7 @@ defmodule Broadway.Acknowledger do
   catch
     kind, reason ->
       Logger.error(Exception.format(kind, reason, System.stacktrace()))
-      failed = "due to an unhandled #{kind} in handle_failed/2"
-      Enum.map(messages, &Message.failed(&1, failed))
+      messages
   else
     messages when is_list(messages) ->
       returned_size = length(messages)

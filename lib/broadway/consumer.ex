@@ -72,9 +72,11 @@ defmodule Broadway.Consumer do
       |> split_by_status([], [], 0)
     catch
       kind, reason ->
-        Logger.error(Exception.format(kind, reason, System.stacktrace()))
-        failed = "due to an unhandled #{kind}"
-        {[], Enum.map(messages, &Message.failed(&1, failed)), batch_info.size}
+        stacktrace = System.stacktrace()
+        reason = Exception.normalize(kind, reason, stacktrace)
+        Logger.error(Exception.format(kind, reason, stacktrace))
+        messages = Enum.map(messages, &%{&1 | status: {kind, reason, stacktrace}})
+        {[], messages, batch_info.size}
     end
   end
 
