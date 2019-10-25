@@ -5,6 +5,7 @@
   * Deprecate `:producers` in favor of a single `:producer` key
   * Add `Broadway.Message.configure_ack/3`
   * Add `Broadway.Message.ack_immediately/1`
+  * Add the `c:Broadway.handle_failed/2` callback
 
 ## v0.4.0 (2019-08-05)
 

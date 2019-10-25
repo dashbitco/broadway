@@ -38,10 +38,20 @@ defmodule Broadway.Consumer do
     {successful_messages, failed_messages, returned} =
       handle_batch(batcher, messages, batch_info, state)
 
+    failed_messages =
+      Acknowledger.maybe_handle_failed_messages(
+        failed_messages,
+        state.module,
+        state.context,
+        size
+      )
+
     if returned != size do
-      Logger.error "#{inspect state.module}.handle_batch/4 received #{size} messages and " <>
-                     "returned only #{returned}. All messages given to handle_batch/4 " <>
-                     "must be returned"
+      Logger.error(
+        "#{inspect(state.module)}.handle_batch/4 received #{size} messages and " <>
+          "returned only #{returned}. All messages given to handle_batch/4 " <>
+          "must be returned"
+      )
     end
 
     try do

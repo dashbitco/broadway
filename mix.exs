@@ -8,7 +8,7 @@ defmodule Broadway.MixProject do
     [
       app: :broadway,
       version: @version,
-      elixir: "~> 1.5",
+      elixir: "~> 1.7",
       name: "Broadway",
       description: @description,
       deps: deps(),

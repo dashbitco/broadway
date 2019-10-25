@@ -253,7 +253,9 @@ defmodule Broadway do
   In case of failures, Broadway does its best to keep the failures
   contained and avoid losing messages. The failed message or batch is
   acknowledged as failed immediately. For every failure, a log report
-  is also emitted.
+  is also emitted. If your Broadway module also defines the
+  `c:handle_failed/2` callback, that callback will be invoked with
+  all the failed messages before they get acknowledged.
 
   Note however, that `Broadway` does not provide any sort of retries
   out of the box. This is left completely as a responsibility of the
@@ -449,7 +451,36 @@ defmodule Broadway do
               context :: term
             ) :: [Message.t()]
 
-  @optional_callbacks handle_batch: 4
+  @doc """
+  Invoked for failed messages (if defined).
+
+  It expects:
+
+    * `messages` is the list of messages that failed. If a message is failed in
+      `c:handle_message/3`, this will be a list with a single message in it. If
+      some messages are failed in `c:handle_batch/4`, this will be the list of
+      failed messages.
+
+    * `context` is the user-defined data structure passed to `start_link/2`.
+
+  This callback must return the same messages given to it, possibly updated.
+  For example, you could update the message data or use `Broadway.Message.configure_ack/2`
+  in a centralized place to configure how to ack the message based on the failure
+  reason.
+
+  This callback is optional. If present, it's called **before** the messages
+  are acknowledged according to the producer. This gives you a chance to do something
+  with the message before it's acknowledged, such as storing it in an external
+  persistence layer or similar.
+
+  This callback is also invoked if `c:handle_message/3` or `c:handle_batch/4`
+  crash or raise an error. If this callback crashes or raises an error,
+  the messages are failed internall by Broadway to avoid crashing the process.
+  """
+  @doc since: "0.5.0"
+  @callback handle_failed(messages :: [Message.t()], context :: term) :: [Message.t()]
+
+  @optional_callbacks handle_batch: 4, handle_failed: 2
 
   @doc false
   defmacro __using__(opts) do

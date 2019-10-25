@@ -44,6 +44,14 @@ defmodule Broadway.Processor do
           {successful_messages, []}
       end
 
+    failed_messages =
+      Acknowledger.maybe_handle_failed_messages(
+        failed_messages,
+        state.module,
+        state.context,
+        length(failed_messages)
+      )
+
     try do
       Acknowledger.ack_messages(successful_messages_to_ack, failed_messages)
     catch

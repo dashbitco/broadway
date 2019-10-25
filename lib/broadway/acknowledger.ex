@@ -17,6 +17,8 @@ defmodule Broadway.Acknowledger do
 
   alias Broadway.Message
 
+  require Logger
+
   @doc """
   Invoked to acknowledge successful and failed messages.
 
@@ -77,5 +79,46 @@ defmodule Broadway.Acknowledger do
     successful = Process.delete({ack_info, :successful}) || []
     failed = Process.delete({ack_info, :failed}) || []
     acknowledger.ack(ack_ref, Enum.reverse(successful), Enum.reverse(failed))
+  end
+
+  # Used by the processor and the batcher to maybe call c:handle_failed/2
+  # on failed messages.
+  @doc false
+  def maybe_handle_failed_messages(messages, module, context, size) do
+    if function_exported?(module, :handle_failed, 2) and messages != [] do
+      handle_failed_messages(messages, module, context, size)
+    else
+      messages
+    end
+  end
+
+  defp handle_failed_messages(messages, module, context, size) do
+    module.handle_failed(messages, context)
+  catch
+    kind, reason ->
+      Logger.error(Exception.format(kind, reason, System.stacktrace()))
+      failed = "due to an unhandled #{kind} in handle_failed/2"
+      Enum.map(messages, &Message.failed(&1, failed))
+  else
+    messages when is_list(messages) ->
+      returned_size = length(messages)
+
+      if returned_size != size do
+        Logger.error(
+          "#{inspect(module)}.handle_failed/2 received #{size} messages and " <>
+            "returned only #{returned_size}. All messages given to handle_failed/2 " <>
+            "must be returned"
+        )
+      end
+
+      messages
+
+    _other ->
+      Logger.error(
+        "#{inspect(module)}.handle_failed/2 didn't return a list of messages, " <>
+          "so ignoring its return value"
+      )
+
+      messages
   end
 end
