@@ -1131,7 +1131,7 @@ defmodule BroadwayTest do
 
                assert_receive {:ack, ^ref, _successful = [], [failed]}
                assert failed.data == :fail
-               assert failed.status == {:failed, "due to unhandled error in handle_failed"}
+               assert failed.status == {:failed, "due to an unhandled error in handle_failed/2"}
              end) =~ "(RuntimeError) error in handle_failed"
     end
   end

@@ -477,7 +477,7 @@ defmodule Broadway do
   crash or raise an error. If this callback crashes or raises an error,
   the messages are failed internall by Broadway to avoid crashing the process.
   """
-  if Version.match?(System.version(), ">= 1.7.0"), do: @doc(since: "0.5.0")
+  @doc since: "0.5.0"
   @callback handle_failed(messages :: [Message.t()], context :: term) :: [Message.t()]
 
   @optional_callbacks handle_batch: 4, handle_failed: 2
