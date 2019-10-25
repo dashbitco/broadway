@@ -82,9 +82,11 @@ defmodule Broadway.Server do
     %{
       name: opts[:name],
       module: module,
-      processors_config: opts[:processors],
-      producer_config: opts[:producer],
-      batchers_config: opts[:batchers],
+      producer_config: carry_over_one(opts[:producer], opts, [:hibernate_after, :spawn_opt]),
+      processors_config:
+        carry_over_many(opts[:processors], opts, [:partition_by, :hibernate_after, :spawn_opt]),
+      batchers_config:
+        carry_over_many(opts[:batchers], opts, [:partition_by, :hibernate_after, :spawn_opt]),
       context: opts[:context],
       terminator: :"#{name_prefix(opts[:name])}.Terminator",
       max_restarts: opts[:max_restarts],
@@ -92,6 +94,19 @@ defmodule Broadway.Server do
       shutdown: opts[:shutdown],
       resubscribe_interval: opts[:resubscribe_interval]
     }
+  end
+
+  defp carry_over_one(value, opts, keys) do
+    Keyword.merge(Keyword.take(opts, keys), value)
+  end
+
+  defp carry_over_many(list, opts, keys) do
+    defaults = Keyword.take(opts, keys)
+    for {k, v} <- list, do: {k, Keyword.merge(defaults, v)}
+  end
+
+  defp start_options(name, config) do
+    [name: name] ++ Keyword.take(config, [:spawn_opt, :hibernate_after])
   end
 
   defp build_producers_specs(config, opts) do
@@ -122,9 +137,10 @@ defmodule Broadway.Server do
     names_and_specs =
       for index <- 0..(n_producers - 1) do
         name = producer_name(name_prefix(broadway_name), index)
+        start_options = start_options(name, producer_config)
 
         spec = %{
-          start: {Producer, :start_link, [args, index, [name: name]]},
+          start: {Producer, :start_link, [args, index, start_options]},
           id: name,
           shutdown: shutdown
         }
@@ -192,10 +208,10 @@ defmodule Broadway.Server do
 
     specs =
       for {name, index} <- Enum.with_index(names) do
-        opts = [name: name]
+        start_options = start_options(name, processor_config)
 
         %{
-          start: {Processor, :start_link, [[partition: index] ++ args, opts]},
+          start: {Processor, :start_link, [[partition: index] ++ args, start_options]},
           id: name,
           shutdown: shutdown
         }
@@ -268,7 +284,7 @@ defmodule Broadway.Server do
     {name, spec}
   end
 
-  defp build_consumers_specs(config, batcher_config, batcher) do
+  defp build_consumers_specs(config, {key, batcher_config}, batcher) do
     %{
       name: broadway_name,
       module: module,
@@ -277,8 +293,7 @@ defmodule Broadway.Server do
       shutdown: shutdown
     } = config
 
-    {key, options} = batcher_config
-    n_consumers = options[:stages]
+    n_consumers = batcher_config[:stages]
 
     names =
       for index <- 0..(n_consumers - 1) do
@@ -296,10 +311,10 @@ defmodule Broadway.Server do
 
     specs =
       for {name, index} <- Enum.with_index(names) do
-        opts = [name: name]
+        start_options = start_options(name, batcher_config)
 
         %{
-          start: {Consumer, :start_link, [[partition: index] ++ args, opts]},
+          start: {Consumer, :start_link, [[partition: index] ++ args, start_options]},
           id: name,
           shutdown: shutdown
         }
@@ -320,10 +335,10 @@ defmodule Broadway.Server do
       last: last
     ]
 
-    opts = [name: name]
+    start_options = [name: name]
 
     %{
-      start: {Terminator, :start_link, [args, opts]},
+      start: {Terminator, :start_link, [args, start_options]},
       id: name,
       shutdown: shutdown
     }

@@ -356,6 +356,31 @@ defmodule BroadwayTest do
       assert_receive {:init_called, map}
       refute Map.has_key?(map, :broadway)
     end
+
+    test "supports spawn_opt" do
+      # At a given level
+      Broadway.start_link(Forwarder,
+        name: broadway_name = new_unique_name(),
+        producer: [module: {ManualProducer, []}, spawn_opt: [priority: :high]],
+        processors: [default: []]
+      )
+
+      assert named_priority(get_producer(broadway_name)) == {:priority, :high}
+      assert named_priority(get_processor(broadway_name, :default)) == {:priority, :normal}
+
+      # At the root
+      Broadway.start_link(Forwarder,
+        name: broadway_name = new_unique_name(),
+        producer: [module: {ManualProducer, []}],
+        processors: [default: []],
+        spawn_opt: [priority: :high]
+      )
+
+      assert named_priority(get_producer(broadway_name)) == {:priority, :high}
+      assert named_priority(get_processor(broadway_name, :default)) == {:priority, :high}
+    end
+
+    defp named_priority(name), do: Process.info(Process.whereis(name), :priority)
   end
 
   test "push_messages/2" do
@@ -695,6 +720,8 @@ defmodule BroadwayTest do
   end
 
   describe "partition_by" do
+    @describetag processors_options: [], batchers_options: []
+
     setup tags do
       test_pid = self()
       broadway_name = new_unique_name()
@@ -727,23 +754,26 @@ defmodule BroadwayTest do
           context: context,
           producer: [module: {ManualProducer, []}],
           processors: [
-            default: [
-              stages: 2,
-              partition_by: partition_by
-            ]
+            default:
+              [
+                stages: 2
+              ] ++ tags.processors_options
           ],
           batchers: [
-            default: [
-              stages: 2,
-              batch_size: Map.get(tags, :batch_size, 2),
-              batch_timeout: 80,
-              partition_by: partition_by
-            ]
-          ]
+            default:
+              [
+                stages: 2,
+                batch_size: Map.get(tags, :batch_size, 2),
+                batch_timeout: 80
+              ] ++ tags.batchers_options
+          ],
+          partition_by: partition_by
         )
 
       %{broadway: broadway}
     end
+
+    def shuffle_data(msg), do: if(msg.data <= 6, do: 0, else: 1)
 
     test "messages of the same partition are processed in order by the same processor",
          %{broadway: broadway} do
@@ -797,6 +827,32 @@ defmodule BroadwayTest do
       assert_receive {:batch_handled, [17, 19], _}
       assert_receive {:batch_handled, [20, 22], _}
       assert_receive {:batch_handled, [21, 23], _}
+    end
+
+    @tag processors_options: [partition_by: &__MODULE__.shuffle_data/1],
+         batchers_options: [partition_by: &__MODULE__.shuffle_data/1]
+    test "messages with processors and batchers level partitioning",
+         %{broadway: broadway} do
+      Broadway.test_messages(broadway, Enum.to_list(1..12), batch_mode: :bulk)
+
+      assert_receive {:message_handled, 1, processor_1}
+      assert_receive {:message_handled, data, ^processor_1}
+      assert data == 2
+
+      assert_receive {:message_handled, 7, processor_2}
+      assert_receive {:message_handled, data, ^processor_2}
+      assert data == 8
+
+      assert_receive {:batch_handled, [1, 2], batch_processor_1}
+      assert_receive {:batch_handled, data, ^batch_processor_1}
+      assert data == [3, 4]
+
+      assert_receive {:batch_handled, [7, 8], batch_processor_2}
+      assert_receive {:batch_handled, data, ^batch_processor_2}
+      assert data == [9, 10]
+
+      assert processor_1 != processor_2
+      assert batch_processor_1 != batch_processor_2
     end
   end
 
