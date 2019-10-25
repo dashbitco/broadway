@@ -684,10 +684,28 @@ defmodule Broadway do
         raise ArgumentError, "invalid configuration given to Broadway.start_link/2, " <> message
 
       {:ok, opts} ->
+        opts =
+          opts
+          |> carry_over_one(:producer, [:hibernate_after, :spawn_opt])
+          |> carry_over_many(:processors, [:partition_by, :hibernate_after, :spawn_opt])
+          |> carry_over_many(:batchers, [:partition_by, :hibernate_after, :spawn_opt])
+
         # We want to invoke this as early as possible otherwise the
         # stacktrace gets deeper and deeper in case of errors.
         {child_spec, opts} = prepare_for_start(module, opts)
+
         Server.start_link(module, child_spec, opts)
+    end
+  end
+
+  defp carry_over_one(opts, key, keys) do
+    update_in opts[key], fn value -> Keyword.merge(Keyword.take(opts, keys), value) end
+  end
+
+  defp carry_over_many(opts, key, keys) do
+    update_in opts[key], fn list ->
+      defaults = Keyword.take(opts, keys)
+      for {k, v} <- list, do: {k, Keyword.merge(defaults, v)}
     end
   end
 

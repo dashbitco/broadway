@@ -82,11 +82,9 @@ defmodule Broadway.Server do
     %{
       name: opts[:name],
       module: module,
-      producer_config: carry_over_one(opts[:producer], opts, [:hibernate_after, :spawn_opt]),
-      processors_config:
-        carry_over_many(opts[:processors], opts, [:partition_by, :hibernate_after, :spawn_opt]),
-      batchers_config:
-        carry_over_many(opts[:batchers], opts, [:partition_by, :hibernate_after, :spawn_opt]),
+      producer_config: opts[:producer],
+      processors_config: opts[:processors],
+      batchers_config: opts[:batchers],
       context: opts[:context],
       terminator: :"#{name_prefix(opts[:name])}.Terminator",
       max_restarts: opts[:max_restarts],
@@ -94,15 +92,6 @@ defmodule Broadway.Server do
       shutdown: opts[:shutdown],
       resubscribe_interval: opts[:resubscribe_interval]
     }
-  end
-
-  defp carry_over_one(value, opts, keys) do
-    Keyword.merge(Keyword.take(opts, keys), value)
-  end
-
-  defp carry_over_many(list, opts, keys) do
-    defaults = Keyword.take(opts, keys)
-    for {k, v} <- list, do: {k, Keyword.merge(defaults, v)}
   end
 
   defp start_options(name, config) do
