@@ -158,10 +158,9 @@ For general information about setting up Broadway, see `Broadway` module docs as
 `Broadway.start_link/2`.
 
 > Note: Even though batching is optional since Broadway v0.2, we recommend all Cloud Pub/Sub
-> pipelines to have at least a default batcher, with the default values defined above, unless you
-> are expecting a very low rate of incoming messages. That's because batchers will also
-> acknowledge messages in batches, which is the most cost and time efficient way of doing so on
-> Cloud Pub/Sub.
+> pipelines to have at least a default batcher, as that allows you to control the exact batch
+> size and frequency that messages are acknowledged to Cloud Pub/Sub, which often leads to
+> pipelines that are more cost and time efficient.
 
 ## Implement Broadway callbacks
 
