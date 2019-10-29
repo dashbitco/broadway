@@ -10,7 +10,9 @@ defmodule Broadway.Producer do
   if necessary at all, and introduce any new child specs that will be
   started before the ProducerSupervisor in Broadwday's supervision tree.
 
-  The options include the all of Broadway topology options.
+  It is guaranteed to be invoked inside the Broadway main process.
+
+  The options include all of Broadway topology options.
   """
   @callback prepare_for_start(module :: atom, options :: keyword) ::
               {[:supervisor.child_spec() | {module, any} | module], options :: keyword}

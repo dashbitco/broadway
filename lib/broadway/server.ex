@@ -4,8 +4,8 @@ defmodule Broadway.Server do
 
   alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator}
 
-  def start_link(module, child_specs, opts) do
-    GenServer.start_link(__MODULE__, {module, child_specs, opts}, opts)
+  def start_link(module, opts) do
+    GenServer.start_link(__MODULE__, {module, opts}, opts)
   end
 
   def producer_names(server) do
@@ -15,8 +15,13 @@ defmodule Broadway.Server do
   ## Callbacks
 
   @impl true
-  def init({module, child_specs, opts}) do
+  def init({module, opts}) do
     Process.flag(:trap_exit, true)
+
+    # We want to invoke this as early as possible otherwise the
+    # stacktrace gets deeper and deeper in case of errors.
+    {child_specs, opts} = prepare_for_start(module, opts)
+
     config = init_config(module, opts)
     {:ok, supervisor_pid} = start_supervisor(child_specs, config, opts)
 
@@ -56,6 +61,16 @@ defmodule Broadway.Server do
 
   defp reason_to_signal(:killed), do: :kill
   defp reason_to_signal(other), do: other
+
+  defp prepare_for_start(module, opts) do
+    {mod, _} = opts[:producer][:module]
+
+    if Code.ensure_loaded?(mod) and function_exported?(mod, :prepare_for_start, 2) do
+      mod.prepare_for_start(module, opts)
+    else
+      {[], opts}
+    end
+  end
 
   defp start_supervisor(child_specs, config, opts) do
     {producers_names, producers_specs} = build_producers_specs(config, opts)

@@ -690,11 +690,7 @@ defmodule Broadway do
           |> carry_over_many(:processors, [:partition_by, :hibernate_after, :spawn_opt])
           |> carry_over_many(:batchers, [:partition_by, :hibernate_after, :spawn_opt])
 
-        # We want to invoke this as early as possible otherwise the
-        # stacktrace gets deeper and deeper in case of errors.
-        {child_spec, opts} = prepare_for_start(module, opts)
-
-        Server.start_link(module, child_spec, opts)
+        Server.start_link(module, opts)
     end
   end
 
@@ -707,16 +703,6 @@ defmodule Broadway do
       defaults = Keyword.take(opts, keys)
       for {k, v} <- list, do: {k, Keyword.merge(defaults, v)}
     end)
-  end
-
-  defp prepare_for_start(module, opts) do
-    {mod, _} = opts[:producer][:module]
-
-    if Code.ensure_loaded?(mod) and function_exported?(mod, :prepare_for_start, 2) do
-      mod.prepare_for_start(module, opts)
-    else
-      {[], opts}
-    end
   end
 
   @doc """
