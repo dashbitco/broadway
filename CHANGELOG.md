@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.0-dev
+## v0.5.0 (2019-11-04)
 
   * Deprecate `:producers` in favor of a single `:producer` key
   * Add `Broadway.Message.configure_ack/3`
