@@ -26,7 +26,11 @@ defmodule Broadway.Producer do
   must ask the data provider to stop sending messages. It will be invoked for
   each producer stage.
   """
-  @callback prepare_for_draining(state :: any) :: any
+  @callback prepare_for_draining(state :: any) ::
+              {:noreply, [event], new_state}
+              | {:noreply, [event], new_state, :hibernate}
+              | {:stop, reason :: term, new_state}
+            when new_state: term, event: term
 
   @optional_callbacks prepare_for_start: 2, prepare_for_draining: 1
 
@@ -145,10 +149,12 @@ defmodule Broadway.Producer do
     %{module: module, module_state: module_state} = state
 
     if function_exported?(module, :prepare_for_draining, 1) do
-      module.prepare_for_draining(module_state)
+      module_state
+      |> module.prepare_for_draining()
+      |> handle_no_reply(state)
+    else
+      {:noreply, [], state}
     end
-
-    {:noreply, [], state}
   end
 
   def handle_cast(message, state) do

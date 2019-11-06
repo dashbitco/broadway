@@ -47,18 +47,18 @@ defmodule BroadwayTest do
     end
 
     @impl true
-    def prepare_for_draining(%{test_pid: test_pid}) do
+    def prepare_for_draining(%{test_pid: test_pid} = state) do
       message = wrap_message(:message_during_cancel, test_pid)
       send(self(), {:push_messages, [message]})
 
       message = wrap_message(:message_after_cancel, test_pid)
       Process.send_after(self(), {:push_messages, [message]}, 1)
-      :ok
+      {:noreply, [], state}
     end
 
     @impl true
-    def prepare_for_draining(_state) do
-      :ok
+    def prepare_for_draining(state) do
+      {:noreply, [], state}
     end
 
     defp wrap_message(message, test_pid) do
