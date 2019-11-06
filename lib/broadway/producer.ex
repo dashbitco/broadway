@@ -46,8 +46,13 @@ defmodule Broadway.Producer do
 
   @spec drain(GenServer.server()) :: :ok
   def drain(producer) do
-    GenStage.cast(producer, {__MODULE__, :prepare_for_draining})
+    # First we set the demand to accumulate. This is to avoid
+    # polling implementations from re-entering the polling loop
+    # once they flush any timers during draining. Push implementations
+    # will still empty out their queues as long as they put them
+    # in the GenStage buffer.
     GenStage.demand(producer, :accumulate)
+    GenStage.cast(producer, {__MODULE__, :prepare_for_draining})
     GenStage.async_info(producer, {__MODULE__, :cancel_consumers})
   end
 
