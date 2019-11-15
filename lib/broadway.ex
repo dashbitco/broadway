@@ -533,10 +533,8 @@ defmodule Broadway do
     * `:name` - Required. Used for name registration. All processes/stages
       created will be named using this value as prefix.
 
-    * `:producers` - Required. A keyword list of named producers
-      where the key is an atom as identifier and the value is another
-      keyword list of options. See "Producers options" section below.
-      Currently only a single producer is allowed.
+    * `:producer` - Required. A keyword list of options. See "Producers
+      options" section below. Only a single producer is allowed.
 
     * `:processors` - Required. A keyword list of named processors
       where the key is an atom as identifier and the value is another
