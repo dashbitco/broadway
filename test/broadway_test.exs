@@ -1760,6 +1760,51 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "rate limiting" do
+    test "with an interval and a number of allowed messages in that interval" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:handle_message_called, message, System.system_time()})
+        message
+      end
+
+      {:ok, _broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          producer: [
+            module: {ManualProducer, []},
+            rate_limiting: [allowed_messages: 2, interval: 50]
+          ],
+          processors: [default: []],
+          context: %{handle_message: handle_message}
+        )
+
+      send(
+        get_producer(broadway_name),
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:handle_message_called, %Message{data: 1}, timestamp1}
+      assert_receive {:handle_message_called, %Message{data: 2}, timestamp2}
+      assert_receive {:handle_message_called, %Message{data: 3}, timestamp3}
+
+      assert_receive {:ack, :ref, [_, _], []}
+      assert_receive {:ack, :ref, [_], []}
+
+      # To be safe, we're saying that these messages have to be at least 10ms apart
+      # even if the interval is 50ms. This is because the time when the processor
+      # receives the message is not the time when the producer produced it.
+      assert System.convert_time_unit(timestamp3 - timestamp1, :native, :millisecond) >= 10
+    end
+  end
+
   defp new_unique_name() do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end

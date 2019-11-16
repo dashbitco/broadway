@@ -61,6 +61,7 @@ defmodule Broadway.Producer do
     {module, arg} = args[:module]
     transformer = args[:transformer]
     dispatcher = args[:dispatcher]
+    rate_limiting_options = args[:rate_limiting]
 
     # Inject the topology index only if the args are a keyword list.
     arg =
@@ -74,11 +75,33 @@ defmodule Broadway.Producer do
       module: module,
       module_state: nil,
       transformer: transformer,
-      consumers: []
+      consumers: [],
+      rate_limiting_enabled?: not is_nil(rate_limiting_options)
     }
+
+    {state, maybe_start_timer_fun} =
+      if rate_limiting_options do
+        state =
+          Map.merge(state, %{
+            rate_limiting_allowed: rate_limiting_options[:allowed_messages],
+            rate_limiting_buffer: []
+          })
+
+        start_timer_fun = fn ->
+          :timer.send_interval(
+            rate_limiting_options[:interval],
+            {__MODULE__, :reset_rate_limiting, rate_limiting_options[:allowed_messages]}
+          )
+        end
+
+        {state, start_timer_fun}
+      else
+        {state, fn -> :ok end}
+      end
 
     case module.init(arg) do
       {:producer, module_state} ->
+        maybe_start_timer_fun.()
         {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}
 
       {:producer, module_state, options} ->
@@ -87,6 +110,7 @@ defmodule Broadway.Producer do
                   "which is different from dispatcher #{inspect(dispatcher)} expected by Broadway"
         end
 
+        maybe_start_timer_fun.()
         {:producer, %{state | module_state: module_state}, [dispatcher: dispatcher] ++ options}
 
       return_value ->
@@ -111,10 +135,12 @@ defmodule Broadway.Producer do
     case module.handle_demand(demand, module_state) do
       {:noreply, events, new_module_state} when is_list(events) ->
         messages = transform_events(events, transformer)
+        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
         {:noreply, messages, %{state | module_state: new_module_state}}
 
       {:noreply, events, new_module_state, :hibernate} ->
         messages = transform_events(events, transformer)
+        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
         {:noreply, messages, %{state | module_state: new_module_state}, :hibernate}
 
       {:stop, reason, new_module_state} ->
@@ -135,10 +161,12 @@ defmodule Broadway.Producer do
     |> case do
       {:reply, reply, events, new_module_state} ->
         messages = transform_events(events, state.transformer)
+        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
         {:reply, reply, messages, %{state | module_state: new_module_state}}
 
       {:reply, reply, events, new_module_state, :hibernate} ->
         messages = transform_events(events, state.transformer)
+        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
         {:reply, reply, messages, %{state | module_state: new_module_state}, :hibernate}
 
       {:stop, reason, reply, new_module_state} ->
@@ -179,6 +207,17 @@ defmodule Broadway.Producer do
     {:noreply, [], state}
   end
 
+  # If we're here, we're sure that rate limiting was set up so we don't need to
+  # check if it's enabled.
+  def handle_info({__MODULE__, :reset_rate_limiting, allowed_count}, state) do
+    state = %{state | rate_limiting_allowed: allowed_count}
+
+    {messages_to_send, state} =
+      get_and_update_in(state.rate_limiting_buffer, &Enum.split(&1, allowed_count))
+
+    {:noreply, messages_to_send, state}
+  end
+
   def handle_info(message, state) do
     %{module: module, module_state: module_state} = state
 
@@ -200,10 +239,12 @@ defmodule Broadway.Producer do
     case reply do
       {:noreply, events, new_module_state} when is_list(events) ->
         messages = transform_events(events, transformer)
+        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
         {:noreply, messages, %{state | module_state: new_module_state}}
 
       {:noreply, events, new_module_state, :hibernate} ->
         messages = transform_events(events, transformer)
+        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
         {:noreply, messages, %{state | module_state: new_module_state}, :hibernate}
 
       {:stop, reason, new_module_state} ->
@@ -235,5 +276,28 @@ defmodule Broadway.Producer do
     raise "the produced message is invalid. All messages must be a %Broadway.Message{} " <>
             "struct. In case you're using a standard GenStage producer, please set the " <>
             ":transformer option to transform produced events into message structs"
+  end
+
+  defp maybe_rate_limit_and_buffer_messages(state, messages) do
+    if state[:rate_limiting_enabled?] && messages != [] do
+      rate_limit_and_buffer_messages(state, messages)
+    else
+      {state, messages}
+    end
+  end
+
+  defp rate_limit_and_buffer_messages(state, messages) do
+    message_count = length(messages)
+    allowed = state.rate_limiting_allowed
+
+    if allowed >= message_count do
+      state = update_in(state.rate_limiting_allowed, &(&1 - message_count))
+      {state, messages}
+    else
+      {messages_to_send, messages_to_buffer} = Enum.split(messages, allowed)
+      state = put_in(state.rate_limiting_allowed, 0)
+      state = update_in(state.rate_limiting_buffer, &(&1 ++ messages_to_buffer))
+      {state, messages_to_send}
+    end
   end
 end
