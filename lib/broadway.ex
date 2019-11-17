@@ -615,7 +615,6 @@ defmodule Broadway do
          in `interval`, only `allowed_messages` will be published until
          the end of `interval`, and then more messages will be published.
 
-        * `:buffer_size` - Optional. The size of the internal buffer where
     * `:hibernate_after` - Optional. Overrides the top-level `:hibernate_after`.
 
     * `:spawn_opt` - Optional. Overrides the top-level `:spawn_opt`.
