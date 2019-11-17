@@ -314,7 +314,7 @@ defmodule BroadwayTest do
       assert Agent.get(Module.concat(broadway, "Agent"), & &1) == %{}
 
       # An that is a child of the main supervisor
-      assert [_, _, _, _, {Agent, _, _, _}] =
+      assert [_, _, _, _, _, {Agent, _, _, _}] =
                Supervisor.which_children(Module.concat(broadway, "Broadway.Supervisor"))
     end
 
@@ -1787,14 +1787,19 @@ defmodule BroadwayTest do
          [
            %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
            %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 5, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
          ]}
       )
 
       assert_receive {:handle_message_called, %Message{data: 1}, timestamp1}
-      assert_receive {:handle_message_called, %Message{data: 2}, timestamp2}
+      assert_receive {:handle_message_called, %Message{data: 2}, _timestamp2}
       assert_receive {:handle_message_called, %Message{data: 3}, timestamp3}
+      assert_receive {:handle_message_called, %Message{data: 4}, _timestamp4}
+      assert_receive {:handle_message_called, %Message{data: 5}, timestamp5}
 
+      assert_receive {:ack, :ref, [_, _], []}
       assert_receive {:ack, :ref, [_, _], []}
       assert_receive {:ack, :ref, [_], []}
 
@@ -1802,6 +1807,7 @@ defmodule BroadwayTest do
       # even if the interval is 50ms. This is because the time when the processor
       # receives the message is not the time when the producer produced it.
       assert System.convert_time_unit(timestamp3 - timestamp1, :native, :millisecond) >= 10
+      assert System.convert_time_unit(timestamp5 - timestamp3, :native, :millisecond) >= 10
     end
   end
 

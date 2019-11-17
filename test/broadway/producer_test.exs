@@ -66,7 +66,14 @@ defmodule Broadway.ProducerTest do
   end
 
   setup do
-    %{state: %{module: FakeProducer, transformer: nil, module_state: nil}}
+    %{
+      state: %{
+        module: FakeProducer,
+        transformer: nil,
+        module_state: nil,
+        rate_limiting: nil
+      }
+    }
   end
 
   test "init with bad return" do

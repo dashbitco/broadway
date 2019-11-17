@@ -1,7 +1,8 @@
 defmodule Broadway.Producer do
   @moduledoc false
   use GenStage
-  alias Broadway.Message
+
+  alias Broadway.{Message, RateLimiter}
 
   @doc """
   Invoked once by Broadway during `Broadway.start_link/2`.
@@ -61,6 +62,7 @@ defmodule Broadway.Producer do
     {module, arg} = args[:module]
     transformer = args[:transformer]
     dispatcher = args[:dispatcher]
+    broadway_name = args[:broadway][:name]
     rate_limiting_options = args[:rate_limiting]
 
     # Inject the topology index only if the args are a keyword list.
@@ -76,32 +78,18 @@ defmodule Broadway.Producer do
       module_state: nil,
       transformer: transformer,
       consumers: [],
-      rate_limiting_enabled?: not is_nil(rate_limiting_options)
+      broadway_name: broadway_name
     }
 
-    {state, maybe_start_timer_fun} =
+    state =
       if rate_limiting_options do
-        state =
-          Map.merge(state, %{
-            rate_limiting_allowed: rate_limiting_options[:allowed_messages],
-            rate_limiting_buffer: []
-          })
-
-        start_timer_fun = fn ->
-          :timer.send_interval(
-            rate_limiting_options[:interval],
-            {__MODULE__, :reset_rate_limiting, rate_limiting_options[:allowed_messages]}
-          )
-        end
-
-        {state, start_timer_fun}
+        Map.put(state, :rate_limiting, {:open, _buffer = []})
       else
-        {state, fn -> :ok end}
+        Map.put(state, :rate_limiting, nil)
       end
 
     case module.init(arg) do
       {:producer, module_state} ->
-        maybe_start_timer_fun.()
         {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}
 
       {:producer, module_state, options} ->
@@ -110,7 +98,6 @@ defmodule Broadway.Producer do
                   "which is different from dispatcher #{inspect(dispatcher)} expected by Broadway"
         end
 
-        maybe_start_timer_fun.()
         {:producer, %{state | module_state: module_state}, [dispatcher: dispatcher] ++ options}
 
       return_value ->
@@ -207,14 +194,15 @@ defmodule Broadway.Producer do
     {:noreply, [], state}
   end
 
-  # If we're here, we're sure that rate limiting was set up so we don't need to
-  # check if it's enabled.
-  def handle_info({__MODULE__, :reset_rate_limiting, allowed_count}, state) do
-    state = %{state | rate_limiting_allowed: allowed_count}
+  def handle_info({RateLimiter, :reset_rate_limiting}, state) do
+    # TODO: to optimize this, we could only take away allowed_messages out of the
+    # buffer.
+    {messages, state} =
+      get_and_update_in(state.rate_limiting, fn {_open_or_closed, buffer} ->
+        {buffer, {:open, []}}
+      end)
 
-    {messages_to_send, state} =
-      get_and_update_in(state.rate_limiting_buffer, &Enum.split(&1, allowed_count))
-
+    {state, messages_to_send} = maybe_rate_limit_and_buffer_messages(state, messages)
     {:noreply, messages_to_send, state}
   end
 
@@ -279,25 +267,29 @@ defmodule Broadway.Producer do
   end
 
   defp maybe_rate_limit_and_buffer_messages(state, messages) do
-    if state[:rate_limiting_enabled?] && messages != [] do
-      rate_limit_and_buffer_messages(state, messages)
+    if (_enabled? = state.rate_limiting) && messages != [] do
+      rate_limit_and_buffer_messages(state, messages, _to_send = [])
     else
       {state, messages}
     end
   end
 
-  defp rate_limit_and_buffer_messages(state, messages) do
-    message_count = length(messages)
-    allowed = state.rate_limiting_allowed
+  defp rate_limit_and_buffer_messages(state, [message | rest] = messages, messages_to_send) do
+    case RateLimiter.decrease_counter_or_rate_limit(state.broadway_name) do
+      :ok ->
+        rate_limit_and_buffer_messages(state, rest, [message | messages_to_send])
 
-    if allowed >= message_count do
-      state = update_in(state.rate_limiting_allowed, &(&1 - message_count))
-      {state, messages}
-    else
-      {messages_to_send, messages_to_buffer} = Enum.split(messages, allowed)
-      state = put_in(state.rate_limiting_allowed, 0)
-      state = update_in(state.rate_limiting_buffer, &(&1 ++ messages_to_buffer))
-      {state, messages_to_send}
+      :rate_limited ->
+        state =
+          update_in(state.rate_limiting, fn {_open_or_closed, buffer} ->
+            {:closed, buffer ++ messages}
+          end)
+
+        {state, Enum.reverse(messages_to_send)}
     end
+  end
+
+  defp rate_limit_and_buffer_messages(state, [], messages_to_send) do
+    {state, Enum.reverse(messages_to_send)}
   end
 end
