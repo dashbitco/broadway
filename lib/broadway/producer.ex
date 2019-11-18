@@ -296,13 +296,13 @@ defmodule Broadway.Producer do
   defp slice_buffer_for_allowed(batches_buffer, allowed, acc) do
     case :queue.out(batches_buffer) do
       {{:value, batch}, buffer} ->
-        case Enum.split(batch, allowed) do
+        case split_and_count(batch, allowed) do
           # If the whole batch is probably sendable, we add it to the acc,
           # move on to the next batch, and update the allowed count.
-          {_whole_batch, []} ->
-            slice_buffer_for_allowed(buffer, allowed - length(batch), [acc, batch])
+          {_whole_batch, [], batch_size} ->
+            slice_buffer_for_allowed(buffer, allowed - batch_size, [acc, batch])
 
-          {sliced_batch, rest} ->
+          {sliced_batch, rest, _batch_size} ->
             # We reinsert the batch that we can't send in the front of the queue, not the back.
             new_buffer = :queue.in_r(rest, buffer)
             {new_buffer, List.flatten([acc, sliced_batch])}
@@ -326,5 +326,15 @@ defmodule Broadway.Producer do
 
   defp rate_limit_messages(_state, [], acc) do
     {[], Enum.reverse(acc)}
+  end
+
+  defp split_and_count(list, position), do: split_and_count(list, position, [], 0)
+
+  defp split_and_count(left, position, acc, count) when left == [] or position == 0 do
+    {Enum.reverse(acc), left, count}
+  end
+
+  defp split_and_count([elem | rest], position, acc, count) do
+    split_and_count(rest, position - 1, [elem | acc], count + 1)
   end
 end
