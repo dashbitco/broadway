@@ -73,20 +73,26 @@ defmodule Broadway.Producer do
         arg
       end
 
+    rate_limiting_state =
+      if rate_limiting_options do
+        %{
+          state: :open,
+          # A queue of "batches" of messages that we buffered.
+          message_buffer: :queue.new(),
+          demand_buffer: []
+        }
+      else
+        nil
+      end
+
     state = %{
       module: module,
       module_state: nil,
       transformer: transformer,
       consumers: [],
-      broadway_name: broadway_name
+      broadway_name: broadway_name,
+      rate_limiting: rate_limiting_state
     }
-
-    state =
-      if rate_limiting_options do
-        Map.put(state, :rate_limiting, {:open, _buffer = []})
-      else
-        Map.put(state, :rate_limiting, nil)
-      end
 
     case module.init(arg) do
       {:producer, module_state} ->
@@ -195,14 +201,9 @@ defmodule Broadway.Producer do
   end
 
   def handle_info({RateLimiter, :reset_rate_limiting}, state) do
-    # TODO: to optimize this, we could only take away allowed_messages out of the
-    # buffer.
-    {messages, state} =
-      get_and_update_in(state.rate_limiting, fn {_open_or_closed, buffer} ->
-        {buffer, {:open, []}}
-      end)
+    state = put_in(state.rate_limiting.state, :open)
 
-    {state, messages_to_send} = maybe_rate_limit_and_buffer_messages(state, messages)
+    {state, messages_to_send} = rate_limit_and_buffer_messages(state)
     {:noreply, messages_to_send, state}
   end
 
@@ -267,29 +268,63 @@ defmodule Broadway.Producer do
   end
 
   defp maybe_rate_limit_and_buffer_messages(state, messages) do
-    if (_enabled? = state.rate_limiting) && messages != [] do
-      rate_limit_and_buffer_messages(state, messages, _to_send = [])
+    if state.rate_limiting do
+      state = update_in(state.rate_limiting.message_buffer, &:queue.in(messages, &1))
+      rate_limit_and_buffer_messages(state)
     else
       {state, messages}
     end
   end
 
-  defp rate_limit_and_buffer_messages(state, [message | rest] = messages, messages_to_send) do
-    case RateLimiter.decrease_counter_or_rate_limit(state.broadway_name) do
-      :ok ->
-        rate_limit_and_buffer_messages(state, rest, [message | messages_to_send])
+  defp rate_limit_and_buffer_messages(%{rate_limiting: %{state: :closed}} = state) do
+    {state, []}
+  end
 
-      :rate_limited ->
-        state =
-          update_in(state.rate_limiting, fn {_open_or_closed, buffer} ->
-            {:closed, buffer ++ messages}
-          end)
+  defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: batches_buffer}} = state) do
+    allowed = RateLimiter.get_currently_allowed(state.broadway_name)
 
-        {state, Enum.reverse(messages_to_send)}
+    {batches_buffer, probably_sendable} = slice_buffer_for_allowed(batches_buffer, allowed, [])
+
+    {batch_to_buffer, sendable} = rate_limit_messages(state, probably_sendable, [])
+    new_buffer = :queue.in_r(batch_to_buffer, batches_buffer)
+    state = put_in(state.rate_limiting.message_buffer, new_buffer)
+    state = if batch_to_buffer == [], do: state, else: put_in(state.rate_limiting.state, :closed)
+
+    {state, sendable}
+  end
+
+  defp slice_buffer_for_allowed(batches_buffer, allowed, acc) do
+    case :queue.out(batches_buffer) do
+      {{:value, batch}, buffer} ->
+        case Enum.split(batch, allowed) do
+          # If the whole batch is probably sendable, we add it to the acc,
+          # move on to the next batch, and update the allowed count.
+          {_whole_batch, []} ->
+            slice_buffer_for_allowed(buffer, allowed - length(batch), [acc, batch])
+
+          {sliced_batch, rest} ->
+            # We reinsert the batch that we can't send in the front of the queue, not the back.
+            new_buffer = :queue.in_r(rest, buffer)
+            {new_buffer, List.flatten([acc, sliced_batch])}
+        end
+
+      # All messages are probably sendable because we exhausted the buffer.
+      {:empty, empty_buffer} ->
+        {empty_buffer, List.flatten(acc)}
     end
   end
 
-  defp rate_limit_and_buffer_messages(state, [], messages_to_send) do
-    {state, Enum.reverse(messages_to_send)}
+  defp rate_limit_messages(state, [message | rest] = probably_sendable, acc) do
+    case RateLimiter.decrease_counter_or_rate_limit(state.broadway_name) do
+      :ok ->
+        rate_limit_messages(state, rest, [message | acc])
+
+      :rate_limited ->
+        {probably_sendable, Enum.reverse(acc)}
+    end
+  end
+
+  defp rate_limit_messages(_state, [], acc) do
+    {[], Enum.reverse(acc)}
   end
 end

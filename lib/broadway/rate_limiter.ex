@@ -33,6 +33,10 @@ defmodule Broadway.RateLimiter do
     end
   end
 
+  def get_currently_allowed(broadway_name) do
+    :ets.lookup_element(table_name(broadway_name), @row_name, 2)
+  end
+
   @impl true
   def init({name, rate_limiting_opts}) do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
