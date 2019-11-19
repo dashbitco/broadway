@@ -304,7 +304,7 @@ defmodule Broadway.Producer do
     {state, []}
   end
 
-  defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: batches_buffer}} = state) do
+  defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: buffer}} = state) do
     case RateLimiter.get_currently_allowed(state.rate_limiting.table_name) do
       # No point in trying to send messages if no messages are allowed. In that case,
       # we close the rate limiting and don't emit anything.
@@ -312,14 +312,18 @@ defmodule Broadway.Producer do
         {put_in(state.rate_limiting.state, :closed), []}
 
       allowed ->
-        {allowed_left, probably_sendable, batches_buffer} =
-          dequeue_many(batches_buffer, allowed, [])
+        {allowed_left, probably_sendable, buffer} = dequeue_many(buffer, allowed, [])
 
-        {state, sendable, unsent} =
-          rate_limit_messages(state, probably_sendable, allowed - allowed_left)
+        {rate_limiting_state, sendable, unsent} =
+          rate_limit_messages(
+            state.rate_limiting.table_name,
+            probably_sendable,
+            _probably_sendable_count = allowed - allowed_left
+          )
 
-        new_buffer = enqueue_batch_r(batches_buffer, unsent)
+        new_buffer = enqueue_batch_r(buffer, unsent)
         state = put_in(state.rate_limiting.message_buffer, new_buffer)
+        state = put_in(state.rate_limiting.state, rate_limiting_state)
 
         {state, sendable}
     end
@@ -366,23 +370,23 @@ defmodule Broadway.Producer do
     {[], []}
   end
 
-  defp rate_limit_messages(state, messages, message_count) do
-    case RateLimiter.rate_limit(state.rate_limiting.table_name, message_count) do
+  defp rate_limit_messages(table_name, messages, message_count) do
+    case RateLimiter.rate_limit(table_name, message_count) do
       # If no more messages are allowed, we're rate limited but we're able
       # to send all messages that we have.
       0 ->
-        {put_in(state.rate_limiting.state, :closed), messages, _unsent = []}
+        {:closed, messages, _unsent = []}
 
       # We were able to send all messages and still more messages are allowed,
       # so the rate limiting is "open".
       left when left > 0 ->
-        {state, messages, _unsent = []}
+        {:open, messages, _unsent = []}
 
       # We went over the rate limit, so we split (on negative index) the messages
       # we were able to send and close the rate limiting.
       overflow when overflow < 0 ->
         {sendable, unsent} = Enum.split(messages, overflow)
-        {put_in(state.rate_limiting.state, :closed), sendable, unsent}
+        {:closed, sendable, unsent}
     end
   end
 
