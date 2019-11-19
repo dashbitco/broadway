@@ -77,6 +77,7 @@ defmodule Broadway.Producer do
       if rate_limiting_options do
         %{
           state: :open,
+          table_name: RateLimiter.table_name(broadway_name),
           # A queue of "batches" of messages that we buffered.
           message_buffer: :queue.new(),
           demand_buffer: []
@@ -90,7 +91,6 @@ defmodule Broadway.Producer do
       module_state: nil,
       transformer: transformer,
       consumers: [],
-      broadway_name: broadway_name,
       rate_limiting: rate_limiting_state
     }
 
@@ -281,7 +281,7 @@ defmodule Broadway.Producer do
   end
 
   defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: batches_buffer}} = state) do
-    allowed = RateLimiter.get_currently_allowed(state.broadway_name)
+    allowed = RateLimiter.get_currently_allowed(state.rate_limiting.table_name)
 
     {allowed_left, probably_sendable, batches_buffer} = dequeue_many(batches_buffer, allowed, [])
 
@@ -330,7 +330,7 @@ defmodule Broadway.Producer do
   end
 
   defp rate_limit_messages(state, messages, message_count) do
-    case RateLimiter.rate_limit(state.broadway_name, message_count) do
+    case RateLimiter.rate_limit(state.rate_limiting.table_name, message_count) do
       :ok -> {messages, _unsent = []}
       {:rate_limited, overflow} -> Enum.split(messages, overflow)
     end

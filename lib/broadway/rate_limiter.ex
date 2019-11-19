@@ -17,15 +17,20 @@ defmodule Broadway.RateLimiter do
     end
   end
 
-  def rate_limit(broadway_name, amount) when is_integer(amount) and amount > 0 do
-    case :ets.update_counter(table_name(broadway_name), @row_name, -amount) do
+  def rate_limit(table_name, amount)
+      when is_atom(table_name) and is_integer(amount) and amount > 0 do
+    case :ets.update_counter(table_name, @row_name, -amount) do
       left when left >= 0 -> :ok
       overflow -> {:rate_limited, overflow}
     end
   end
 
-  def get_currently_allowed(broadway_name) do
-    :ets.lookup_element(table_name(broadway_name), @row_name, 2)
+  def get_currently_allowed(table_name) when is_atom(table_name) do
+    :ets.lookup_element(table_name, @row_name, 2)
+  end
+
+  def table_name(broadway_name) when is_atom(broadway_name) do
+    Module.concat(broadway_name, RateLimiterETS)
   end
 
   @impl true
@@ -34,19 +39,20 @@ defmodule Broadway.RateLimiter do
     allowed = Keyword.fetch!(rate_limiting_opts, :allowed_messages)
 
     table_name = table_name(name)
+
     _ets = :ets.new(table_name, [:named_table, :public, :set])
     :ets.insert(table_name, {@row_name, allowed})
 
     _ = schedule_next_reset(interval, allowed)
 
-    {:ok, {name, interval}}
+    {:ok, {name, table_name, interval}}
   end
 
   @impl true
-  def handle_info({:reset_limit, allowed}, {broadway_name, interval}) do
-    was_rate_limited? = get_currently_allowed(broadway_name) <= 0
+  def handle_info({:reset_limit, allowed}, {broadway_name, table_name, interval}) do
+    was_rate_limited? = get_currently_allowed(table_name) <= 0
 
-    true = :ets.insert(table_name(broadway_name), {@row_name, allowed})
+    true = :ets.insert(table_name, {@row_name, allowed})
 
     if was_rate_limited? do
       producers = Broadway.producer_names(broadway_name)
@@ -55,11 +61,7 @@ defmodule Broadway.RateLimiter do
 
     _ = schedule_next_reset(interval, allowed)
 
-    {:noreply, {broadway_name, interval}}
-  end
-
-  defp table_name(broadway_name) do
-    Module.concat(broadway_name, RateLimiterETS)
+    {:noreply, {broadway_name, table_name, interval}}
   end
 
   defp schedule_next_reset(interval, allowed) do
