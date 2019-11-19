@@ -133,22 +133,8 @@ defmodule Broadway.Producer do
   end
 
   def handle_demand(demand, state) do
-    %{module: module, transformer: transformer, module_state: module_state} = state
-
-    case module.handle_demand(demand, module_state) do
-      {:noreply, events, new_module_state} when is_list(events) ->
-        messages = transform_events(events, transformer)
-        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
-        {:noreply, messages, %{state | module_state: new_module_state}}
-
-      {:noreply, events, new_module_state, :hibernate} ->
-        messages = transform_events(events, transformer)
-        {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
-        {:noreply, messages, %{state | module_state: new_module_state}, :hibernate}
-
-      {:stop, reason, new_module_state} ->
-        {:stop, reason, %{state | module_state: new_module_state}}
-    end
+    %{module: module, module_state: module_state} = state
+    handle_no_reply(module.handle_demand(demand, module_state), state)
   end
 
   @impl true
@@ -306,7 +292,7 @@ defmodule Broadway.Producer do
   end
 
   defp maybe_rate_limit_and_buffer_messages(state, messages) do
-    if state.rate_limiting do
+    if state.rate_limiting && messages != [] do
       state = update_in(state.rate_limiting.message_buffer, &enqueue_batch(&1, messages))
       rate_limit_and_buffer_messages(state)
     else
@@ -319,23 +305,24 @@ defmodule Broadway.Producer do
   end
 
   defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: batches_buffer}} = state) do
-    allowed = RateLimiter.get_currently_allowed(state.rate_limiting.table_name)
+    case RateLimiter.get_currently_allowed(state.rate_limiting.table_name) do
+      # No point in trying to send messages if no messages are allowed. In that case,
+      # we close the rate limiting and don't emit anything.
+      allowed when allowed <= 0 ->
+        {put_in(state.rate_limiting.state, :closed), []}
 
-    {allowed_left, probably_sendable, batches_buffer} = dequeue_many(batches_buffer, allowed, [])
+      allowed ->
+        {allowed_left, probably_sendable, batches_buffer} =
+          dequeue_many(batches_buffer, allowed, [])
 
-    {sendable, unsent} = rate_limit_messages(state, probably_sendable, allowed - allowed_left)
+        {state, sendable, unsent} =
+          rate_limit_messages(state, probably_sendable, allowed - allowed_left)
 
-    new_buffer = :queue.in_r(unsent, batches_buffer)
-    state = put_in(state.rate_limiting.message_buffer, new_buffer)
+        new_buffer = enqueue_batch_r(batches_buffer, unsent)
+        state = put_in(state.rate_limiting.message_buffer, new_buffer)
 
-    state =
-      if unsent == [] do
-        state
-      else
-        put_in(state.rate_limiting.state, :closed)
-      end
-
-    {state, sendable}
+        {state, sendable}
+    end
   end
 
   defp reverse_split_demand(rest, 0, acc) do
@@ -372,19 +359,30 @@ defmodule Broadway.Producer do
   defp enqueue_batch(queue, _list = []), do: queue
   defp enqueue_batch(queue, list), do: :queue.in(list, queue)
 
+  defp enqueue_batch_r(queue, _list = []), do: queue
+  defp enqueue_batch_r(queue, list), do: :queue.in_r(list, queue)
+
   defp rate_limit_messages(_state, [], _count) do
     {[], []}
   end
 
   defp rate_limit_messages(state, messages, message_count) do
     case RateLimiter.rate_limit(state.rate_limiting.table_name, message_count) do
-      :ok -> {messages, _unsent = []}
-      {:rate_limited, overflow} -> Enum.split(messages, overflow)
+      {:ok, _left = 0} ->
+        {put_in(state.rate_limiting.state, :closed), messages, _unsent = []}
+
+      {:ok, _left} ->
+        {state, messages, _unsent = []}
+
+      {:rate_limited, overflow} ->
+        {sendable, unsent} = Enum.split(messages, overflow)
+        {put_in(state.rate_limiting.state, :closed), sendable, unsent}
     end
   end
 
   defp schedule_next_handle_demand_if_rate_limiting_open(state) do
-    if state.rate_limiting.state == :open do
+    if state.rate_limiting.state == :open and
+         not :queue.is_empty(state.rate_limiting.demand_buffer) do
       send(self(), {__MODULE__, :handle_next_demand})
     end
   end

@@ -20,7 +20,7 @@ defmodule Broadway.RateLimiter do
   def rate_limit(table_name, amount)
       when is_atom(table_name) and is_integer(amount) and amount > 0 do
     case :ets.update_counter(table_name, @row_name, -amount) do
-      left when left >= 0 -> :ok
+      left when left >= 0 -> {:ok, left}
       overflow -> {:rate_limited, overflow}
     end
   end
