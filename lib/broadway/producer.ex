@@ -368,13 +368,19 @@ defmodule Broadway.Producer do
 
   defp rate_limit_messages(state, messages, message_count) do
     case RateLimiter.rate_limit(state.rate_limiting.table_name, message_count) do
-      {:ok, _left = 0} ->
+      # If no more messages are allowed, we're rate limited but we're able
+      # to send all messages that we have.
+      0 ->
         {put_in(state.rate_limiting.state, :closed), messages, _unsent = []}
 
-      {:ok, _left} ->
+      # We were able to send all messages and still more messages are allowed,
+      # so the rate limiting is "open".
+      left when left > 0 ->
         {state, messages, _unsent = []}
 
-      {:rate_limited, overflow} ->
+      # We went over the rate limit, so we split (on negative index) the messages
+      # we were able to send and close the rate limiting.
+      overflow when overflow < 0 ->
         {sendable, unsent} = Enum.split(messages, overflow)
         {put_in(state.rate_limiting.state, :closed), sendable, unsent}
     end
