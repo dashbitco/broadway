@@ -291,7 +291,7 @@ defmodule Broadway.Producer do
     state = put_in(state.rate_limiting.message_buffer, new_buffer)
 
     state =
-      if allowed_left == 0 or unsent == [] do
+      if unsent == [] do
         state
       else
         put_in(state.rate_limiting.state, :closed)
