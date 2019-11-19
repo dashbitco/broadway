@@ -283,58 +283,56 @@ defmodule Broadway.Producer do
   defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: batches_buffer}} = state) do
     allowed = RateLimiter.get_currently_allowed(state.broadway_name)
 
-    {batches_buffer, probably_sendable} = slice_buffer_for_allowed(batches_buffer, allowed, [])
+    {allowed_left, probably_sendable, batches_buffer} = dequeue_many(batches_buffer, allowed, [])
 
-    {batch_to_buffer, sendable} = rate_limit_messages(state, probably_sendable, [])
-    new_buffer = :queue.in_r(batch_to_buffer, batches_buffer)
+    {sendable, unsent} = rate_limit_messages(state, probably_sendable, allowed - allowed_left)
+
+    new_buffer = :queue.in_r(unsent, batches_buffer)
     state = put_in(state.rate_limiting.message_buffer, new_buffer)
-    state = if batch_to_buffer == [], do: state, else: put_in(state.rate_limiting.state, :closed)
+    state = if unsent == [], do: state, else: put_in(state.rate_limiting.state, :closed)
 
     {state, sendable}
   end
 
-  defp slice_buffer_for_allowed(batches_buffer, allowed, acc) do
-    case :queue.out(batches_buffer) do
-      {{:value, batch}, buffer} ->
-        case split_and_count(batch, allowed) do
-          # If the whole batch is probably sendable, we add it to the acc,
-          # move on to the next batch, and update the allowed count.
-          {_whole_batch, [], batch_size} ->
-            slice_buffer_for_allowed(buffer, allowed - batch_size, [acc, batch])
+  defp reverse_split_demand(rest, 0, acc) do
+    {0, acc, rest}
+  end
 
-          {sliced_batch, rest, _batch_size} ->
-            # We reinsert the batch that we can't send in the front of the queue, not the back.
-            new_buffer = :queue.in_r(rest, buffer)
-            {new_buffer, List.flatten([acc, sliced_batch])}
+  defp reverse_split_demand([], demand, acc) do
+    {demand, acc, []}
+  end
+
+  defp reverse_split_demand([head | tail], demand, acc) do
+    reverse_split_demand(tail, demand - 1, [head | acc])
+  end
+
+  defp dequeue_many(queue, demand, acc) do
+    case :queue.out(queue) do
+      {{:value, list}, queue} ->
+        case reverse_split_demand(list, demand, acc) do
+          {0, acc, []} ->
+            {0, Enum.reverse(acc), queue}
+
+          {0, acc, rest} ->
+            {0, Enum.reverse(acc), :queue.in_r(rest, queue)}
+
+          {demand, acc, []} ->
+            dequeue_many(queue, demand, acc)
         end
 
-      # All messages are probably sendable because we exhausted the buffer.
-      {:empty, empty_buffer} ->
-        {empty_buffer, List.flatten(acc)}
+      {:empty, queue} ->
+        {demand, Enum.reverse(acc), queue}
     end
   end
 
-  defp rate_limit_messages(state, [message | rest] = probably_sendable, acc) do
-    case RateLimiter.decrease_counter_or_rate_limit(state.broadway_name) do
-      :ok ->
-        rate_limit_messages(state, rest, [message | acc])
+  defp rate_limit_messages(_state, [], _count) do
+    {[], []}
+  end
 
-      :rate_limited ->
-        {probably_sendable, Enum.reverse(acc)}
+  defp rate_limit_messages(state, messages, message_count) do
+    case RateLimiter.rate_limit(state.broadway_name, message_count) do
+      :ok -> {messages, _unsent = []}
+      {:rate_limited, overflow} -> Enum.split(messages, overflow)
     end
-  end
-
-  defp rate_limit_messages(_state, [], acc) do
-    {[], Enum.reverse(acc)}
-  end
-
-  defp split_and_count(list, position), do: split_and_count(list, position, [], 0)
-
-  defp split_and_count(left, position, acc, count) when left == [] or position == 0 do
-    {Enum.reverse(acc), left, count}
-  end
-
-  defp split_and_count([elem | rest], position, acc, count) do
-    split_and_count(rest, position - 1, [elem | acc], count + 1)
   end
 end

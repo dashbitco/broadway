@@ -17,19 +17,10 @@ defmodule Broadway.RateLimiter do
     end
   end
 
-  def decrease_counter_or_rate_limit(broadway_name) do
-    # We're decrementing by 1. We're setting a threshold of 0, which means that
-    # if the counter would go below 0, it's reset to set_value (-1) instead.
-    # This ensures that the first time we go below 0, we reset to -1 and return -1.
-    # Then every other time we're going to decrement from -1 to -2, reset to -1
-    # because it's below the threshold, and return -1 again. So -1 means that we
-    # are below the rate limiting.
-
-    update_op = {_position = 2, _incr = -1, _threshold = 0, _set_value = -1}
-
-    case :ets.update_counter(table_name(broadway_name), @row_name, update_op) do
-      -1 -> :rate_limited
-      _other -> :ok
+  def rate_limit(broadway_name, amount) when is_integer(amount) and amount > 0 do
+    case :ets.update_counter(table_name(broadway_name), @row_name, -amount) do
+      left when left >= 0 -> :ok
+      overflow -> {:rate_limited, overflow}
     end
   end
 

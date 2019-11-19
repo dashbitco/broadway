@@ -1777,6 +1777,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           producer: [
             module: {ManualProducer, []},
+            stages: 2,
             rate_limiting: [allowed_messages: 2, interval: 50]
           ],
           processors: [default: []],
