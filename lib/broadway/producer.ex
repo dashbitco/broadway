@@ -222,13 +222,12 @@ defmodule Broadway.Producer do
   def handle_info({RateLimiter, :reset_rate_limiting}, state) do
     state = put_in(state.rate_limiting.state, :open)
 
-    {state, messages_to_send} = rate_limit_and_buffer_messages(state)
+    {state, messages} = rate_limit_and_buffer_messages(state)
 
-    # If we're not rate limited after emptying the buffer, we'll forward
-    # demand upstream.
+    # If we're not rate limited after emptying the buffer, we'll forward demand upstream.
     schedule_next_handle_demand_if_rate_limiting_open(state)
 
-    {:noreply, messages_to_send, state}
+    {:noreply, messages, state}
   end
 
   def handle_info(message, state) do
@@ -306,26 +305,26 @@ defmodule Broadway.Producer do
 
   defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: buffer}} = state) do
     case RateLimiter.get_currently_allowed(state.rate_limiting.table_name) do
-      # No point in trying to send messages if no messages are allowed. In that case,
+      # No point in trying to emit messages if no messages are allowed. In that case,
       # we close the rate limiting and don't emit anything.
       allowed when allowed <= 0 ->
         {put_in(state.rate_limiting.state, :closed), []}
 
       allowed ->
-        {allowed_left, probably_sendable, buffer} = dequeue_many(buffer, allowed, [])
+        {allowed_left, probably_emittable, buffer} = dequeue_many(buffer, allowed, [])
 
-        {rate_limiting_state, sendable, unsent} =
+        {rate_limiting_state, messages_to_emit, messages_to_buffer} =
           rate_limit_messages(
             state.rate_limiting.table_name,
-            probably_sendable,
-            _probably_sendable_count = allowed - allowed_left
+            probably_emittable,
+            _probably_emittable_count = allowed - allowed_left
           )
 
-        new_buffer = enqueue_batch_r(buffer, unsent)
+        new_buffer = enqueue_batch_r(buffer, messages_to_buffer)
         state = put_in(state.rate_limiting.message_buffer, new_buffer)
         state = put_in(state.rate_limiting.state, rate_limiting_state)
 
-        {state, sendable}
+        {state, messages_to_emit}
     end
   end
 
@@ -373,20 +372,20 @@ defmodule Broadway.Producer do
   defp rate_limit_messages(table_name, messages, message_count) do
     case RateLimiter.rate_limit(table_name, message_count) do
       # If no more messages are allowed, we're rate limited but we're able
-      # to send all messages that we have.
+      # to emit all messages that we have.
       0 ->
-        {:closed, messages, _unsent = []}
+        {:closed, messages, _to_buffer = []}
 
-      # We were able to send all messages and still more messages are allowed,
+      # We were able to emit all messages and still more messages are allowed,
       # so the rate limiting is "open".
       left when left > 0 ->
-        {:open, messages, _unsent = []}
+        {:open, messages, _to_buffer = []}
 
       # We went over the rate limit, so we split (on negative index) the messages
-      # we were able to send and close the rate limiting.
+      # we were able to emit and close the rate limiting.
       overflow when overflow < 0 ->
-        {sendable, unsent} = Enum.split(messages, overflow)
-        {:closed, sendable, unsent}
+        {emittable, to_buffer} = Enum.split(messages, overflow)
+        {:closed, emittable, to_buffer}
     end
   end
 
