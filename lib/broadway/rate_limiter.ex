@@ -46,13 +46,13 @@ defmodule Broadway.RateLimiter do
     _ets = :ets.new(table_name, [:named_table, :public, :set])
     :ets.insert(table_name, {@row_name, allowed})
 
-    :timer.send_interval(interval, {:reset_limit, allowed})
+    _ = schedule_next_reset(interval, allowed)
 
-    {:ok, name}
+    {:ok, {name, interval}}
   end
 
   @impl true
-  def handle_info({:reset_limit, allowed}, broadway_name) do
+  def handle_info({:reset_limit, allowed}, {broadway_name, interval}) do
     # Taken from this match spec:
     # :ets.fun2ms(fn {@row_name, counter} when counter < allowed -> {@row_name, allowed} end)
     match_spec = [
@@ -68,10 +68,16 @@ defmodule Broadway.RateLimiter do
       Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
     end
 
-    {:noreply, broadway_name}
+    _ = schedule_next_reset(interval, allowed)
+
+    {:noreply, {broadway_name, interval}}
   end
 
   defp table_name(broadway_name) do
     Module.concat(broadway_name, RateLimiterETS)
+  end
+
+  defp schedule_next_reset(interval, allowed) do
+    _ref = Process.send_after(self(), {:reset_limit, allowed}, interval)
   end
 end

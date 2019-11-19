@@ -1761,6 +1761,8 @@ defmodule BroadwayTest do
   end
 
   describe "rate limiting" do
+    @describetag :focus
+
     test "with an interval and a number of allowed messages in that interval" do
       broadway_name = new_unique_name()
       test_pid = self()
