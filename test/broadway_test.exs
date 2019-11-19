@@ -1765,7 +1765,6 @@ defmodule BroadwayTest do
   end
 
   describe "rate limiting" do
-    # @tag :focus
     test "with an interval and a number of allowed messages in that interval" do
       broadway_name = new_unique_name()
       test_pid = self()
@@ -1816,7 +1815,6 @@ defmodule BroadwayTest do
       assert System.convert_time_unit(timestamp5 - timestamp3, :native, :millisecond) >= 10
     end
 
-    @tag :skip
     test "buffers demand and flushes it when the rate limiting is lifted" do
       broadway_name = new_unique_name()
       test_pid = self()
@@ -1860,11 +1858,11 @@ defmodule BroadwayTest do
       refute_receive {:handle_demand_called, _demand}
       refute_receive {:handle_message_called, %Message{data: 3}}, 500
 
-      # We "cheat" and manually tell the producer that the rate limit interval was lifted.
-      send(get_producer(broadway_name), {Broadway.RateLimiter, :reset_rate_limiting})
+      # We "cheat" and manually tell the rate limiter to reset the limit.
+      send(get_rate_limiter(broadway_name), {:reset_limit, _allowed = 2})
 
       assert_receive {:handle_demand_called, _demand}
-      assert_receive {:handle_message_called, %Message{data: 3}, timestamp3}, 1000
+      assert_receive {:handle_message_called, %Message{data: 3}}
     end
   end
 
@@ -1886,6 +1884,10 @@ defmodule BroadwayTest do
 
   defp get_consumer(broadway_name, key, index \\ 0) do
     :"#{broadway_name}.Broadway.Consumer_#{key}_#{index}"
+  end
+
+  defp get_rate_limiter(broadway_name) do
+    :"#{broadway_name}.Broadway.RateLimiter"
   end
 
   defp get_n_producers(broadway_name) do

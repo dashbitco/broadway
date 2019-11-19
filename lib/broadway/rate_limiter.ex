@@ -13,7 +13,8 @@ defmodule Broadway.RateLimiter do
 
       rate_limiting_opts ->
         name = Keyword.fetch!(opts, :name)
-        GenServer.start_link(__MODULE__, {name, rate_limiting_opts})
+        genserver_opts = [name: Module.concat(name, __MODULE__)]
+        GenServer.start_link(__MODULE__, {name, rate_limiting_opts}, genserver_opts)
     end
   end
 
