@@ -269,7 +269,7 @@ defmodule Broadway.Producer do
 
   defp maybe_rate_limit_and_buffer_messages(state, messages) do
     if state.rate_limiting do
-      state = update_in(state.rate_limiting.message_buffer, &:queue.in(messages, &1))
+      state = update_in(state.rate_limiting.message_buffer, &enqueue_batch(&1, messages))
       rate_limit_and_buffer_messages(state)
     else
       {state, messages}
@@ -289,7 +289,13 @@ defmodule Broadway.Producer do
 
     new_buffer = :queue.in_r(unsent, batches_buffer)
     state = put_in(state.rate_limiting.message_buffer, new_buffer)
-    state = if unsent == [], do: state, else: put_in(state.rate_limiting.state, :closed)
+
+    state =
+      if allowed_left == 0 or unsent == [] do
+        state
+      else
+        put_in(state.rate_limiting.state, :closed)
+      end
 
     {state, sendable}
   end
@@ -324,6 +330,9 @@ defmodule Broadway.Producer do
         {demand, Enum.reverse(acc), queue}
     end
   end
+
+  defp enqueue_batch(queue, _list = []), do: queue
+  defp enqueue_batch(queue, list), do: :queue.in(list, queue)
 
   defp rate_limit_messages(_state, [], _count) do
     {[], []}
