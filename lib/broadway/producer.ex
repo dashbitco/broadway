@@ -80,7 +80,8 @@ defmodule Broadway.Producer do
           table_name: RateLimiter.table_name(broadway_name),
           # A queue of "batches" of messages that we buffered.
           message_buffer: :queue.new(),
-          demand_buffer: []
+          # A queue of demands (integers) that we buffered.
+          demand_buffer: :queue.new()
         }
       else
         nil
@@ -122,6 +123,15 @@ defmodule Broadway.Producer do
   end
 
   @impl true
+  def handle_demand(demand, state)
+
+  # If we're rate limited, we store the demand in the buffer instead of forwarding it.
+  # We'll forward it once the rate limit is lifted.
+  def handle_demand(demand, %{rate_limiting: %{state: :closed}} = state) do
+    state = update_in(state.rate_limiting.demand_buffer, &:queue.in(demand, &1))
+    {:noreply, [], state}
+  end
+
   def handle_demand(demand, state) do
     %{module: module, transformer: transformer, module_state: module_state} = state
 
@@ -200,10 +210,38 @@ defmodule Broadway.Producer do
     {:noreply, [], state}
   end
 
+  def handle_info({__MODULE__, :handle_next_demand}, state) do
+    {pop_result, state} = get_and_update_in(state.rate_limiting.demand_buffer, &:queue.out/1)
+
+    case pop_result do
+      {:value, demand} ->
+        case handle_demand(demand, state) do
+          {:noreply, messages, state} ->
+            schedule_next_handle_demand_if_rate_limiting_open(state)
+            {:noreply, messages, state}
+
+          {:noreply, messages, state, :hibernate} ->
+            schedule_next_handle_demand_if_rate_limiting_open(state)
+            {:noreply, messages, state, :hibernate}
+
+          {:stop, reason, state} ->
+            {:stop, reason, state}
+        end
+
+      :empty ->
+        {:noreply, [], state}
+    end
+  end
+
   def handle_info({RateLimiter, :reset_rate_limiting}, state) do
     state = put_in(state.rate_limiting.state, :open)
 
     {state, messages_to_send} = rate_limit_and_buffer_messages(state)
+
+    # If we're not rate limited after emptying the buffer, we'll forward
+    # demand upstream.
+    schedule_next_handle_demand_if_rate_limiting_open(state)
+
     {:noreply, messages_to_send, state}
   end
 
@@ -342,6 +380,12 @@ defmodule Broadway.Producer do
     case RateLimiter.rate_limit(state.rate_limiting.table_name, message_count) do
       :ok -> {messages, _unsent = []}
       {:rate_limited, overflow} -> Enum.split(messages, overflow)
+    end
+  end
+
+  defp schedule_next_handle_demand_if_rate_limiting_open(state) do
+    if state.rate_limiting.state == :open do
+      send(self(), {__MODULE__, :handle_next_demand})
     end
   end
 end
