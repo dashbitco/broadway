@@ -194,7 +194,7 @@ Finally, we can send some sample messages to Kafka using the following snippet:
       :ok = :brod.produce_sync(client_id, topic, partition, _key="", "#{i}")
     end)
 
-Use should see the output showing the generated batches:
+You should see the output showing the generated batches:
 
     Got batch: [
       {"2", 4},
