@@ -20,7 +20,7 @@ In order to use Broadway with Kafka, we need to:
 
 In case you don't have Kafka installed yet, please follow the instructions on Kafka's
 [Quickstart](https://kafka.apache.org/quickstart) for a clean installation. After
-initializing Kafka, you can crate a new stream by running:
+initializing Kafka, you can create a new stream by running:
 
     kafka-topics --create --zookeeper localhost:2181 --partitions 3 --topic test
 
@@ -34,7 +34,7 @@ BroadwayKafka can subscribe to one or more topics and process streams of records
 using Kafka's [Consumer API](https://kafka.apache.org/documentation.html#consumerapi).
 
 Each GenStage producer initialized by BroadwayKafka will be available as a consumer,
-all registered using the same self-labed **consumer group**. Each record published to a
+all registered using the same self-labeled **consumer group**. Each record published to a
 topic/partition will be delivered to one consumer instance within each consumer group.
 
 Bear in mind that a topic/partition can be assigned to any consumer instance that has
@@ -109,6 +109,12 @@ Assuming we want to consume messages from a queue called
       ...callbacks...
     end
 
+> **Note**: Pipelines built on top of BroadwayKafka are automatically partitioned.
+So even though there are multiple processes (stages), these processes will preserve
+Kafka's ordering semantics when it comes to topics/partitions. Internally, this is
+achieved by making sure all messages from the same topic/partition will always be
+forwarded to the same processor and batch processor.
+
 For a full list of options for `BroadwayKafka.Producer`, refer to the
 official [BroadwayKafka](https://hexdocs.pm/broadway_kafka/) documentation.
 
@@ -175,12 +181,17 @@ You can now test your pipeline by entering an `iex` session:
 
     iex -S mix
 
-If everything went fine, you should see lots of `info` log messages from the `brod`
-supervisors.
+If everything went fine, you should see lots of `info` log messages like this
+one coming from the `:brod` supervisors:
+
+    15:14:04.356 [info]  [supervisor: {:local, :brod_sup}, started: [pid: #PID<0.251.0>, id: :test_client, mfargs: {:brod_client, :start_link, [[localhost: 9092], :test_client, []]}, restart_type: {:permanent, 10}, shutdown: 5000, child_type: :worker]]
+
+ [Brod](https://github.com/klarna/brod/) is the client that BroadwayKafka uses
+ under the hood to communicate with Kafka.
 
 ### Sending messages to Kafka
 
-Finally, we can send some sample messages to Kafka using the following snippet:
+Finally, we can send some sample messages to Kafka using using `:brod` with the following snippet:
 
     topic = "test"
     client_id = :my_client
