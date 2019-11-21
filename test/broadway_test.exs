@@ -1726,6 +1726,274 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "redirection" do
+    setup _ do
+      test_pid = self()
+      broadway_name = new_unique_name()
+
+      handle_message = fn message, _ ->
+        case message.data do
+          {:batch, batcher} when is_atom(batcher) ->
+            Message.put_batcher(message, batcher)
+
+          {:batch, batcher, key} when is_atom(batcher) ->
+            %Message{message | batcher: batcher, batch_key: key}
+
+          _ ->
+            message
+        end
+      end
+
+      handle_batch = fn
+        batcher, batch, _, %{redirect_name: redirect_name} = context ->
+          redirect_timeout = Map.get(context, :redirect_timeout, 100)
+
+          batch =
+            batch
+            |> Enum.map(fn message ->
+              case message.data do
+                :ack_in_batcher -> Message.ack_immediately(message)
+                :fail_in_batcher -> Message.failed(message, "Failed message")
+                _ -> message
+              end
+            end)
+            |> Broadway.redirect(to: redirect_name, timeout: redirect_timeout, ordered: true)
+
+          send(test_pid, {:batch_redirected, batch, batcher, redirect_name})
+          batch
+
+        batcher, batch, _, _ ->
+          send(test_pid, {:batch_handled, batcher, batch})
+          batch
+      end
+
+      %{
+        broadway_name: broadway_name,
+        handle_batch: handle_batch,
+        handle_message: handle_message,
+        redirect_name: new_unique_name(),
+        test_pid: test_pid
+      }
+    end
+
+    test "redirect/2", %{
+      broadway_name: broadway_name,
+      handle_batch: handle_batch,
+      handle_message: handle_message,
+      redirect_name: redirect_name,
+      test_pid: test_pid
+    } do
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{
+            handle_batch: handle_batch,
+            handle_message: handle_message,
+            redirect_name: redirect_name
+          },
+          producer: [module: {Broadway.DummyProducer, []}],
+          processors: [default: []],
+          batchers: [default: [stages: 1, batch_size: 3]]
+        )
+
+      {:ok, _to_broadway} =
+        Broadway.start_link(Forwarder,
+          name: redirect_name,
+          context: %{test_pid: test_pid},
+          producer: [module: {Broadway.LineProducer, []}],
+          processors: [default: [stages: 1]],
+          batchers: [default: [stages: 1, batch_size: 3]]
+        )
+
+      ref = Broadway.test_messages(broadway, [1, 2, 3], batch_mode: :bulk)
+
+      assert_receive {:batch_redirected, [%{data: 1}, %{data: 2}, %{data: 3}], :default, _}
+      assert_receive {:message_handled, 1}
+      assert_receive {:message_handled, 2}
+      assert_receive {:message_handled, 3}
+      assert_receive {:batch_handled, :default, [%{data: 1}, %{data: 2}, %{data: 3}]}
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}, %{data: 3}], []}
+    end
+
+    test "redirect/2 only notifies for non-acknowledged and non-failed messages", %{
+      broadway_name: broadway_name,
+      handle_batch: handle_batch,
+      handle_message: handle_message,
+      redirect_name: redirect_name,
+      test_pid: test_pid
+    } do
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{
+            handle_batch: handle_batch,
+            handle_message: handle_message,
+            redirect_name: redirect_name
+          },
+          producer: [module: {Broadway.DummyProducer, []}],
+          processors: [default: []],
+          batchers: [default: [stages: 1, batch_size: 5]]
+        )
+
+      {:ok, _to_broadway} =
+        Broadway.start_link(Forwarder,
+          name: redirect_name,
+          context: %{test_pid: test_pid},
+          producer: [module: {Broadway.LineProducer, []}],
+          processors: [default: [stages: 1]],
+          batchers: [default: [stages: 1, batch_size: 3]]
+        )
+
+      ref =
+        Broadway.test_messages(broadway, [1, :ack_in_batcher, 3, :fail_in_batcher, 5],
+          batch_mode: :bulk
+        )
+
+      assert_receive {:ack, ^ref, [_], []}
+      assert_receive {:batch_redirected, [_, _, _, _, _], :default, _}
+      assert_receive {:message_handled, 1}
+      assert_receive {:message_handled, 3}
+      assert_receive {:message_handled, 5}
+      assert_receive {:batch_handled, :default, [%{data: 1}, %{data: 3}, %{data: 5}]}
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 3}, %{data: 5}], []}
+    end
+
+    test "redirect/2 resets batcher/batch key", %{
+      broadway_name: broadway_name,
+      handle_batch: handle_batch,
+      handle_message: handle_message,
+      redirect_name: redirect_name,
+      test_pid: test_pid
+    } do
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{
+            handle_batch: handle_batch,
+            handle_message: handle_message,
+            redirect_name: redirect_name
+          },
+          producer: [module: {Broadway.DummyProducer, []}],
+          processors: [default: []],
+          batchers: [
+            foo: [stages: 1, batch_size: 2],
+            bar: [stages: 1, batch_size: 2]
+          ]
+        )
+
+      {:ok, _to_broadway} =
+        Broadway.start_link(Forwarder,
+          name: redirect_name,
+          context: %{test_pid: test_pid},
+          producer: [module: {Broadway.LineProducer, []}],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 8]],
+          batchers: [default: [stages: 1, batch_size: 8]]
+        )
+
+      ref =
+        Broadway.test_messages(
+          broadway,
+          [
+            {:batch, :foo},
+            {:batch, :bar},
+            {:batch, :foo},
+            {:batch, :bar},
+            {:batch, :foo, 1},
+            {:batch, :bar, 2},
+            {:batch, :foo, 1},
+            {:batch, :bar, 2}
+          ],
+          batch_mode: :bulk
+        )
+
+      assert_receive {:batch_redirected, [%{batch_key: :default}, _], :foo, _}
+      assert_receive {:batch_redirected, [%{batch_key: 1}, _], :foo, _}
+      assert_receive {:batch_redirected, [%{batch_key: :default}, _], :bar, _}
+      assert_receive {:batch_redirected, [%{batch_key: 2}, _], :bar, _}
+
+      assert_receive {:message_handled, {:batch, :foo}}
+      assert_receive {:message_handled, {:batch, :foo}}
+      assert_receive {:message_handled, {:batch, :bar}}
+      assert_receive {:message_handled, {:batch, :bar}}
+      assert_receive {:message_handled, {:batch, :foo, 1}}
+      assert_receive {:message_handled, {:batch, :foo, 1}}
+      assert_receive {:message_handled, {:batch, :bar, 2}}
+      assert_receive {:message_handled, {:batch, :bar, 2}}
+
+      assert_receive {:batch_handled, :default,
+                      [
+                        %{batch_key: :default},
+                        %{batch_key: :default},
+                        %{batch_key: :default},
+                        %{batch_key: :default},
+                        %{batch_key: :default},
+                        %{batch_key: :default},
+                        %{batch_key: :default},
+                        %{batch_key: :default}
+                      ]}
+
+      assert_receive {:ack, ^ref, [_, _, _, _, _, _, _, _], []}
+    end
+
+    test "redirect/2 fails messages on dispatch timeout", %{
+      broadway_name: broadway_name,
+      handle_batch: handle_batch,
+      handle_message: handle_message,
+      redirect_name: redirect_name,
+      test_pid: test_pid
+    } do
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: %{
+            handle_message: handle_message,
+            handle_batch: handle_batch,
+            redirect_name: redirect_name,
+            redirect_timeout: 10
+          },
+          producer: [module: {Broadway.DummyProducer, []}],
+          processors: [default: [stages: 1]],
+          batchers: [default: [stages: 1, batch_size: 4]]
+        )
+
+      {:ok, _to_broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: redirect_name,
+          context: %{
+            handle_message: fn message, _ ->
+              # Sleep for much longer than the redirect timeout so the
+              # producer will timeout dispatching later messages.
+              send(test_pid, {:message_handled, message.data})
+              :ok = Process.sleep(250)
+              message
+            end,
+            handle_batch: handle_batch
+          },
+          producer: [module: {Broadway.LineProducer, []}],
+          processors: [default: [stages: 2, min_demand: 0, max_demand: 1]],
+          batchers: [default: [stages: 1, batch_size: 2]]
+        )
+
+      ref = Broadway.test_messages(broadway, [1, 2, 3, 4], batch_mode: :bulk)
+      assert_receive {:message_handled, 1}
+      assert_receive {:message_handled, 2}
+      assert_receive {:batch_redirected, [_, _, _, _], :default, _}
+      assert_receive {:batch_handled, :default, [%{data: 1}, %{data: 2}]}
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
+
+      assert_receive {:ack, ^ref, [],
+                      [
+                        %{data: 3, status: {:failed, {:timeout, _}}},
+                        %{data: 4, status: {:failed, {:timeout, _}}}
+                      ]}
+
+      refute_received {:message_handled, 3}
+      refute_received {:message_handled, 4}
+      refute_received {:batch_handled, [_, _], _}
+      refute_received {:ack, _, [_, _], []}
+    end
+  end
+
   describe "shutdown" do
     setup tags do
       Process.flag(:trap_exit, true)

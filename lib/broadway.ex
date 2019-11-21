@@ -52,6 +52,15 @@ defmodule Broadway do
       you can set the `:partition_by` option. See "Ordering and partitioning".
 
     * Rate-limiting (TODO)
+
+    * Message Routing - Broadway provides conveniences for
+      building complex messaging architectures. Messages can
+      be redirected through multiple pipelines for any
+      desired fan in/out configuration. For example, if you
+      want to send messages from PipelineA to PipelineB, it
+      can be done by calling `Broadway.redirect/2`.
+      See "Chaining Pipelines".
+
     * Statistics/Metrics (TODO)
     * Back-off (TODO)
 
@@ -382,9 +391,115 @@ defmodule Broadway do
   order. Those issues happens regardless of Broadway and solutions
   to said problems almost always need to be addressed outside of
   Broadway too.
+
+  ## Chaining Pipelines
+
+  > Caution: Improper use of message forwarding can lead to
+  > degraded pipeline performance. Before reaching for
+  > chained pipelines as a method for logically separating
+  > your message processing workflow, carefully consider
+  > whether or not your use case could be handled with a
+  > single pipeline.
+
+  Some messaging patterns require more complex processing
+  configurations than what is provided by a single Broadway
+  pipeline. When the need arises, you can continue to
+  leverage the performance and availability features
+  provided by Broadway. Instead of relying on additional
+  remote queues, only to receive subsequent messages in
+  another Broadway pipeline, you may choose to locally
+  redirect a batch of messages to another pipeline before
+  acknowledging the messages.
+
+  For example, if you want to process messages individually,
+  perform some batch operation, then perform another CPU
+  intensive task per individual message, you can define one
+  data source and two Broadway pipelines. The first pipeline
+  receives messages from your data source and performs the
+  initial processing. Next, it fans out to its own batcher
+  processes to perform some batch operation. When the batch
+  operation completes, it fans in the processed messages to
+  the next pipeline in the chain. From there, the receiving
+  pipeline can choose to acknowledge the messages, or to
+  redirect them to another pipeline.
+
+  Let's look at an example. First, configure a Broadway
+  pipeline with a producer of your choice. In the
+  `c:handle_batch/4` callback, use `redirect/2` to dispatch
+  the message to the next pipeline, waiting the specified
+  amount of time per message for the receiving producer to
+  finish dispatching:
+
+      defmodule MyFirstPipeline do
+        # Receives the initial messages
+        use Broadway
+
+        def start_link(_opts) do
+          Broadway.start_link(MyFirstPipeline,
+            name: MyForwarder,
+            producer: [
+              module: {Counter, []},
+              stages: 1
+            ],
+            processors: [
+              default: [stages: 2]
+            ]
+          )
+        end
+
+        def handle_message(_processor, message, _context) do
+          # do some intensive processing and return the message
+        end
+
+        def handle_batch(_batch, messages, _batch_info, _context) do
+          # messages are dispatched to MyNextPipeline
+          # on timeout, the message will be failed
+          redirect(messages, to: MyNextPipeline, timeout: 15_000)
+        end
+      end
+
+  Next, configure the receiving pipeline using
+  `Broadway.LineProducer`. The LineProducer is a specific
+  type of producer that can receive messages from another
+  pipeline, and will return once the message has been
+  dispatched. This can lead to timeouts in the event that
+  there are no available consumers, so be sure to set the
+  appropriate number of producer and processor stages in
+  your proceeding pipeline(s).
+
+      defmodule MyNextPipeline do
+        # Receives messages from MyFirstPipeline
+        use Broadway
+
+        def start_link(_) do
+          Broadway.start_link(__MODULE__,
+            name: __MODULE__,
+            producer: [module: {Broadway.LineProducer, []}],
+            processors: [default: []]
+          )
+        end
+
+        def handle_message(_processor, message, _context) do
+          # another round of intensive processing
+        end
+
+        def handle_batch(_batch, messages, _batch_info, _context) do
+          # return the batch of messages for acknowledgement
+        end
+      end
+
+  Note that any pipeline in the chain can be the terminal
+  pipeline for any message or messages it receives. Though
+  you must always return the entire batch of messages from
+  `c:handle_batch/4`, you can choose to redirect only a
+  portion of the messages processed in the current pipeline.
+  Messages returned to Broadway without being redirected
+  will be terminally acknowledged in the current pipeline,
+  while the terminal acknowledgement for redirected messages
+  will occur somewhere farther along the chain.
   """
 
-  alias Broadway.{BatchInfo, Message, Options, Server, Producer}
+  alias Broadway.{BatchInfo, Message, Options, Producer, Redirector, Server}
 
   @doc """
   Invoked to handle/process individual messages sent from a producer.
@@ -500,6 +615,7 @@ defmodule Broadway do
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts, module: __CALLER__.module] do
       @behaviour Broadway
+      import Broadway, only: [redirect: 2]
 
       @doc false
       def child_spec(arg) do
@@ -797,6 +913,72 @@ defmodule Broadway do
 
     :ok = push_messages(broadway, messages)
     ref
+  end
+
+  @doc """
+  Redirects a list of messages to another pipeline.
+
+  > Caution: Improper use of message routing can lead
+  > to degraded pipeline performance. See the
+  > "Chaining Pipelines" section of module documentation
+  > for more information.
+
+  This function can be used to dispatch a list of messages
+  from a `c:handle_batch/4` callback to producer stages
+  in the proceeding Broadway pipeline.
+
+  Once a message has been dispatched into the next pipeline,
+  this function will set a no-op acknowledger on the message
+  so that it is safe to be "acknowledged" at the end of the
+  pipeline that called `redirect/2`. This can be referred to
+  as a message's _effective acknowledgement_ in the calling
+  pipeline.
+
+  > Note: `redirect/2` only waits to return until the
+  > messages has been picked up by the proceeding pipeline,
+  > not until the pipeline has finished processing the
+  > messages.
+
+  Once the proceeding pipeline finishes processing the
+  message, assuming it does not redirect the message to
+  _yet another_ pipeline, the message will be acknowledged
+  as usual. This can be referred to as a message's
+  _terminal acknowledgement_ in the proceeding pipeline.
+  If the proceeding pipeline also calls `redirect/2`,
+  redirection proceeds ad infinitum until the message is
+  finally acknowledged.
+
+  > Failed messages and messages that have already been
+  > acknowledged, for instance via `ack_immediately/1`
+  > are never redirected.
+
+  ## Receiving Redirected Messages
+
+  Chained pipelines should be configured to use
+  `Broadway.LineProducer`, a producer incorporating an
+  internal queue to hold messages until they can be
+  dispatched into the receiving pipeline. See the
+  "Chaining Pipelines" section in the module documentation
+  for more information.
+
+  The redirected messages are dispatched across all
+  available producers/stages in the receiving pipeline.
+
+  Returns the updated list of redirected messages.
+
+  ## Options
+
+    `to` - The name of the Broadway pipeline where the
+    messages are to be dispatched.
+
+    `timeout` - Optional. The amount of time, per message,
+    to wait for the receiving pipeline to dispatch the
+    message. Default is `5000`ms.
+  """
+  @spec redirect(messages :: [Message.t(), ...], options :: keyword) :: [Message.t(), ...]
+  def redirect(messages, options) when is_list(messages) and messages != [] do
+    broadway = options[:to] || raise ArgumentError, "expected :to option in redirect/2"
+    Redirector.redirect(broadway, messages, options)
   end
 
   defp configuration_spec() do

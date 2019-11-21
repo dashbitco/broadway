@@ -62,6 +62,7 @@ defmodule Broadway.MixProject do
         ],
         Producers: [
           Broadway.DummyProducer,
+          Broadway.LineProducer,
           Broadway.TermStorage
         ]
       ]
