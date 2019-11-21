@@ -46,7 +46,7 @@ defmodule Broadway do
       by calling `Broadway.Message.put_batch_key/2`.
 
     * Ordering and Partitioning - Broadway allows developers to partition
-      messages across workers, guaranteeing messages withinhe same partition
+      messages across workers, guaranteeing messages within the same partition
       are processed in order. For example, if you want to guarantee all events
       tied to a given `user_id` are processed in order and not concurrently,
       you can set the `:partition_by` option. See "Ordering and partitioning".
