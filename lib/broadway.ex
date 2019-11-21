@@ -46,7 +46,7 @@ defmodule Broadway do
       by calling `Broadway.Message.put_batch_key/2`.
 
     * Ordering and Partitioning - Broadway allows developers to partition
-      messages across workers, guaranteeing messages within the same partition
+      messages across workers, guaranteeing messages withinhe same partition
       are processed in order. For example, if you want to guarantee all events
       tied to a given `user_id` are processed in order and not concurrently,
       you can set the `:partition_by` option. See "Ordering and partitioning".
@@ -767,11 +767,8 @@ defmodule Broadway do
   """
   @spec test_messages(GenServer.server(), data :: [term], opts :: Keyword.t()) :: reference
   def test_messages(broadway, data, opts \\ []) when is_list(data) and is_list(opts) do
-    message_fields =
-      opts
-      |> Keyword.take([:metadata, :batch_mode])
-      |> Keyword.put_new(:batch_mode, :flush)
-      |> Map.new()
+    batch_mode = Keyword.get(opts, :batch_mode, :flush)
+    metadata = Map.new(Keyword.get(opts, :metadata, []))
 
     ref = make_ref()
     ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
@@ -779,7 +776,7 @@ defmodule Broadway do
     messages =
       Enum.map(
         data,
-        &struct!(Message, Map.merge(%{data: &1, acknowledger: ack}, message_fields))
+        &%Message{data: &1, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
       )
 
     :ok = push_messages(broadway, messages)
