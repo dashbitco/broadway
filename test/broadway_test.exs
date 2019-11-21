@@ -404,6 +404,48 @@ defmodule BroadwayTest do
     assert_receive {:ack, :ref, [_, _], []}
   end
 
+  describe "test_messages/3" do
+    setup do
+      handle_message = fn message, _ ->
+        message
+      end
+
+      context = %{
+        handle_message: handle_message
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: context,
+          producer: [module: {ManualProducer, []}],
+          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]]
+        )
+
+      %{broadway: broadway}
+    end
+
+    test "metadata field is added to message, if specified in test_messages",
+         %{broadway: broadway} do
+      ref =
+        Broadway.test_messages(broadway, [:message],
+          batch_mode: :flush,
+          metadata: %{field: :value}
+        )
+
+      assert_receive {:ack, ^ref, [%Message{data: :message, metadata: %{field: :value}}], []}
+    end
+
+    test "metadata field in message defaults to %{}, if not specified in test_messages",
+         %{broadway: broadway} do
+      ref = Broadway.test_messages(broadway, [:message], batch_mode: :flush)
+
+      assert_receive {:ack, ^ref, [%Message{data: :message, metadata: %{}}], []}
+    end
+  end
+
   describe "processor" do
     setup do
       test_pid = self()
