@@ -751,6 +751,10 @@ defmodule Broadway do
     in is immediately delivered. When set to `:bulk`, batch is
     delivered when its size or timeout is reached. Defaults to `:flush`.
 
+  * `:metadata` - optionally a map of additional fields to add to the
+    message. This can be used, for example, when testing
+    `BroadwayRabbitMQ.Producer`.
+
   ## Examples
 
   For example, in your tests, you may do:
@@ -761,13 +765,22 @@ defmodule Broadway do
       assert length(failed) == 0
 
   """
-  @spec test_messages(GenServer.server(), data :: [term]) :: reference
+  @spec test_messages(GenServer.server(), data :: [term], opts :: Keyword.t()) :: reference
   def test_messages(broadway, data, opts \\ []) when is_list(data) and is_list(opts) do
-    batch_mode = Keyword.get(opts, :batch_mode, :flush)
+    message_fields =
+      opts
+      |> Keyword.take([:metadata, :batch_mode])
+      |> Keyword.put_new(:batch_mode, :flush)
+      |> Map.new()
+
     ref = make_ref()
     ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
 
-    messages = Enum.map(data, &%Message{data: &1, acknowledger: ack, batch_mode: batch_mode})
+    messages =
+      Enum.map(
+        data,
+        &struct!(Message, Map.merge(%{data: &1, acknowledger: ack}, message_fields))
+      )
 
     :ok = push_messages(broadway, messages)
     ref
