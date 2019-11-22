@@ -32,40 +32,50 @@ defmodule Broadway.RateLimiter do
   end
 
   @impl true
-  def init({name, rate_limiting_opts}) do
+  def init({broadway_name, rate_limiting_opts}) do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
     allowed = Keyword.fetch!(rate_limiting_opts, :allowed_messages)
 
-    table_name = table_name(name)
+    table_name = table_name(broadway_name)
 
     _ets = :ets.new(table_name, [:named_table, :public, :set])
     :ets.insert(table_name, {@row_name, allowed})
 
-    send(self(), :store_producer_names)
+    # We need to fetch (and store in the state) the producer names after we start
+    # because now the producers haven't been started yet.
+    send(self(), {:store_producer_names, broadway_name})
 
     _ = schedule_next_reset(interval, allowed)
 
-    {:ok, {name, table_name, interval, nil}}
+    state = %{
+      table_name: table_name,
+      interval: interval,
+      producers: []
+    }
+
+    {:ok, state}
   end
 
   @impl true
-  def handle_info({:reset_limit, allowed}, {broadway_name, table_name, interval, producer_names}) do
+  def handle_info({:reset_limit, allowed}, state) do
+    %{table_name: table_name, producers: producers, interval: interval} = state
+
     was_rate_limited? = get_currently_allowed(table_name) <= 0
 
     true = :ets.insert(table_name, {@row_name, allowed})
 
     if was_rate_limited? do
-      Enum.each(producer_names, &send(&1, {__MODULE__, :reset_rate_limiting}))
+      Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
     end
 
     _ = schedule_next_reset(interval, allowed)
 
-    {:noreply, {broadway_name, table_name, interval, producer_names}}
+    {:noreply, state}
   end
 
-  def handle_info(:store_producer_names, {broadway_name, table_name, interval, _}) do
+  def handle_info({:store_producer_names, broadway_name}, state) do
     producers = Broadway.producer_names(broadway_name)
-    {:noreply, {broadway_name, table_name, interval, producers}}
+    {:noreply, %{state | producers: producers}}
   end
 
   defp schedule_next_reset(interval, allowed) do
