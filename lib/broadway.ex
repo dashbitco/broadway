@@ -603,7 +603,7 @@ defmodule Broadway do
     * `:rate_limiting` - Optional. A list of options to enable and configure
       rate limiting for producing. If this option is present, rate limiting is
       enabled, otherwise it isn't. Rate limiting refers to the rate at which
-      the publisher will forward messages to the rest of the pipeline. The
+      producers will forward messages to the rest of the pipeline. The
       following options are supported:
 
         * `:allowed_messages` - Required. An integer that describes how many
