@@ -36,10 +36,8 @@ defmodule Broadway.RateLimiter do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
     allowed = Keyword.fetch!(rate_limiting_opts, :allowed_messages)
 
-    table_name = table_name(broadway_name)
-
-    _ets = :ets.new(table_name, [:named_table, :public, :set])
-    :ets.insert(table_name, {@row_name, allowed})
+    table = :ets.new(table_name(broadway_name), [:named_table, :public, :set])
+    :ets.insert(table, {@row_name, allowed})
 
     # We need to fetch (and store in the state) the producer names after we start
     # because now the producers haven't been started yet.
@@ -48,9 +46,9 @@ defmodule Broadway.RateLimiter do
     _ = schedule_next_reset(interval, allowed)
 
     state = %{
-      table_name: table_name,
       interval: interval,
-      producers: []
+      producers: [],
+      table: table
     }
 
     {:ok, state}
@@ -58,11 +56,11 @@ defmodule Broadway.RateLimiter do
 
   @impl true
   def handle_info({:reset_limit, allowed}, state) do
-    %{table_name: table_name, producers: producers, interval: interval} = state
+    %{producers: producers, interval: interval, table: table} = state
 
-    was_rate_limited? = get_currently_allowed(table_name) <= 0
+    was_rate_limited? = get_currently_allowed(table) <= 0
 
-    true = :ets.insert(table_name, {@row_name, allowed})
+    true = :ets.insert(table, {@row_name, allowed})
 
     if was_rate_limited? do
       Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
