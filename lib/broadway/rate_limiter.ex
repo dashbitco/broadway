@@ -13,8 +13,7 @@ defmodule Broadway.RateLimiter do
 
       rate_limiting_opts ->
         name = Keyword.fetch!(opts, :name)
-        genserver_opts = [name: Module.concat(name, __MODULE__)]
-        GenServer.start_link(__MODULE__, {name, rate_limiting_opts}, genserver_opts)
+        GenServer.start_link(__MODULE__, {name, rate_limiting_opts}, name: table_name(name))
     end
   end
 
@@ -28,7 +27,7 @@ defmodule Broadway.RateLimiter do
   end
 
   def table_name(broadway_name) when is_atom(broadway_name) do
-    Module.concat(broadway_name, RateLimiterETS)
+    Module.concat(broadway_name, RateLimiter)
   end
 
   @impl true

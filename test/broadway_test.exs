@@ -1936,7 +1936,7 @@ defmodule BroadwayTest do
   end
 
   defp get_rate_limiter(broadway_name) do
-    :"#{broadway_name}.Broadway.RateLimiter"
+    :"#{broadway_name}.RateLimiter"
   end
 
   defp get_n_producers(broadway_name) do
