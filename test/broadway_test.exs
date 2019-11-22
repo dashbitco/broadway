@@ -1859,7 +1859,7 @@ defmodule BroadwayTest do
       refute_receive {:handle_message_called, %Message{data: 3}}, 500
 
       # We "cheat" and manually tell the rate limiter to reset the limit.
-      send(get_rate_limiter(broadway_name), {:reset_limit, _allowed = 2})
+      send(get_rate_limiter(broadway_name), :reset_limit)
 
       assert_receive {:handle_demand_called, _demand}
       assert_receive {:handle_message_called, %Message{data: 3}}
@@ -1909,7 +1909,7 @@ defmodule BroadwayTest do
 
       refute_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel}}
 
-      send(get_rate_limiter(broadway_name), {:reset_limit, _allowed = 2})
+      send(get_rate_limiter(broadway_name), :reset_limit)
 
       assert_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel}}
     end

@@ -42,10 +42,11 @@ defmodule Broadway.RateLimiter do
     # because now the producers haven't been started yet.
     send(self(), {:store_producer_names, broadway_name})
 
-    _ = schedule_next_reset(interval, allowed)
+    _ = schedule_next_reset(interval)
 
     state = %{
       interval: interval,
+      allowed: allowed,
       producers: [],
       table: table
     }
@@ -54,8 +55,8 @@ defmodule Broadway.RateLimiter do
   end
 
   @impl true
-  def handle_info({:reset_limit, allowed}, state) do
-    %{producers: producers, interval: interval, table: table} = state
+  def handle_info(:reset_limit, state) do
+    %{producers: producers, interval: interval, allowed: allowed, table: table} = state
 
     was_rate_limited? = get_currently_allowed(table) <= 0
 
@@ -65,7 +66,7 @@ defmodule Broadway.RateLimiter do
       Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
     end
 
-    _ = schedule_next_reset(interval, allowed)
+    _ = schedule_next_reset(interval)
 
     {:noreply, state}
   end
@@ -75,7 +76,7 @@ defmodule Broadway.RateLimiter do
     {:noreply, %{state | producers: producers}}
   end
 
-  defp schedule_next_reset(interval, allowed) do
-    _ref = Process.send_after(self(), {:reset_limit, allowed}, interval)
+  defp schedule_next_reset(interval) do
+    _ref = Process.send_after(self(), :reset_limit, interval)
   end
 end
