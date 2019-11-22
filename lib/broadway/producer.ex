@@ -233,7 +233,9 @@ defmodule Broadway.Producer do
     {state, messages} = rate_limit_and_buffer_messages(state)
 
     # If we're not rate limited after emptying the buffer, we'll forward demand upstream.
-    schedule_next_handle_demand_if_rate_limiting_open(state)
+    unless state.rate_limiting.draining? do
+      schedule_next_handle_demand_if_rate_limiting_open(state)
+    end
 
     {:noreply, messages, state}
   end
