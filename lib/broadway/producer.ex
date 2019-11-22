@@ -207,10 +207,8 @@ defmodule Broadway.Producer do
   end
 
   def handle_info({__MODULE__, :handle_next_demand}, state) do
-    {pop_result, state} = get_and_update_in(state.rate_limiting.demand_buffer, &:queue.out/1)
-
-    case pop_result do
-      {:value, demand} ->
+    case get_and_update_in(state.rate_limiting.demand_buffer, &:queue.out/1) do
+      {{:value, demand}, state} ->
         case handle_demand(demand, state) do
           {:noreply, messages, state} ->
             schedule_next_handle_demand_if_rate_limiting_open(state)
@@ -224,7 +222,7 @@ defmodule Broadway.Producer do
             {:stop, reason, state}
         end
 
-      :empty ->
+      {:empty, state} ->
         {:noreply, [], state}
     end
   end
@@ -313,33 +311,42 @@ defmodule Broadway.Producer do
     {state, []}
   end
 
-  defp rate_limit_and_buffer_messages(%{rate_limiting: %{message_buffer: buffer}} = state) do
-    case RateLimiter.get_currently_allowed(state.rate_limiting.table_name) do
-      # No point in trying to emit messages if no messages are allowed. In that case,
-      # we close the rate limiting and don't emit anything.
-      allowed when allowed <= 0 ->
-        {put_in(state.rate_limiting.state, :closed), []}
+  defp rate_limit_and_buffer_messages(%{rate_limiting: rate_limiting} = state) do
+    %{message_buffer: buffer, table_name: table_name, draining?: draining?} = rate_limiting
 
-      allowed ->
-        {allowed_left, probably_emittable, buffer} = dequeue_many(buffer, allowed, [])
+    {rate_limiting, messages_to_emit} =
+      case RateLimiter.get_currently_allowed(table_name) do
+        # No point in trying to emit messages if no messages are allowed. In that case,
+        # we close the rate limiting and don't emit anything.
+        allowed when allowed <= 0 ->
+          {%{rate_limiting | state: :closed}, []}
 
-        {rate_limiting_state, messages_to_emit, messages_to_buffer} =
-          rate_limit_messages(
-            state.rate_limiting.table_name,
-            probably_emittable,
-            _probably_emittable_count = allowed - allowed_left
-          )
+        allowed ->
+          {allowed_left, probably_emittable, buffer} = dequeue_many(buffer, allowed, [])
 
-        new_buffer = enqueue_batch_r(buffer, messages_to_buffer)
-        state = put_in(state.rate_limiting.message_buffer, new_buffer)
-        state = put_in(state.rate_limiting.state, rate_limiting_state)
+          {rate_limiting_state, messages_to_emit, messages_to_buffer} =
+            rate_limit_messages(
+              table_name,
+              probably_emittable,
+              _probably_emittable_count = allowed - allowed_left
+            )
 
-        if state.rate_limiting.draining? and :queue.is_empty(state.rate_limiting.message_buffer) do
-          cancel_consumers(state)
-        end
+          new_buffer = enqueue_batch_r(buffer, messages_to_buffer)
 
-        {state, messages_to_emit}
-    end
+          rate_limiting = %{
+            rate_limiting
+            | message_buffer: new_buffer,
+              state: rate_limiting_state
+          }
+
+          if draining? and :queue.is_empty(new_buffer) do
+            cancel_consumers(state)
+          end
+
+          {rate_limiting, messages_to_emit}
+      end
+
+    {%{state | rate_limiting: rate_limiting}, messages_to_emit}
   end
 
   defp reverse_split_demand(rest, 0, acc) do
