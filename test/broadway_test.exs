@@ -1864,6 +1864,55 @@ defmodule BroadwayTest do
       assert_receive {:handle_demand_called, _demand}
       assert_receive {:handle_message_called, %Message{data: 3}}
     end
+
+    test "works when stopping a pipeline and draining producers" do
+      Process.flag(:trap_exit, true)
+
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:handle_message_called, message})
+        message
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          producer: [
+            module: {ManualProducer, %{test_pid: test_pid}},
+            stages: 1,
+            # We use a long rate limiting interval so that we can trigger the rate limiting
+            # manually from this test.
+            rate_limiting: [allowed_messages: 2, interval: 10000]
+          ],
+          processors: [default: [stages: 1, max_demand: 2]],
+          context: %{handle_message: handle_message}
+        )
+
+      # First, we use all the rate limiting we have available.
+      send(
+        get_producer(broadway_name),
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:handle_message_called, %Broadway.Message{data: 1}}
+      assert_receive {:handle_message_called, %Broadway.Message{data: 2}}
+
+      # Then we stop the pipeline, triggering the :message_during_cancel message of
+      # the ManualProducer.
+      Process.exit(broadway, :shutdown)
+
+      refute_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel}}
+
+      send(get_rate_limiter(broadway_name), {:reset_limit, _allowed = 2})
+
+      assert_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel}}
+    end
   end
 
   defp new_unique_name() do

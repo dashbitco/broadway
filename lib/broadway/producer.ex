@@ -77,6 +77,7 @@ defmodule Broadway.Producer do
       if rate_limiting_options do
         %{
           state: :open,
+          draining?: false,
           table_name: RateLimiter.table_name(broadway_name),
           # A queue of "batches" of messages that we buffered.
           message_buffer: :queue.new(),
@@ -188,11 +189,20 @@ defmodule Broadway.Producer do
   end
 
   @impl true
-  def handle_info({__MODULE__, :cancel_consumers}, state) do
-    for from <- state.consumers do
-      send(self(), {:"$gen_producer", from, {:cancel, :shutdown}})
-    end
+  def handle_info({__MODULE__, :cancel_consumers}, %{rate_limiting: %{} = rate_limiting} = state) do
+    rate_limiting =
+      if :queue.is_empty(rate_limiting.message_buffer) do
+        cancel_consumers(state)
+        rate_limiting
+      else
+        %{rate_limiting | draining?: true}
+      end
 
+    {:noreply, [], %{state | rate_limiting: rate_limiting}}
+  end
+
+  def handle_info({__MODULE__, :cancel_consumers}, state) do
+    cancel_consumers(state)
     {:noreply, [], state}
   end
 
@@ -324,6 +334,10 @@ defmodule Broadway.Producer do
         state = put_in(state.rate_limiting.message_buffer, new_buffer)
         state = put_in(state.rate_limiting.state, rate_limiting_state)
 
+        if state.rate_limiting.draining? and :queue.is_empty(state.rate_limiting.message_buffer) do
+          cancel_consumers(state)
+        end
+
         {state, messages_to_emit}
     end
   end
@@ -393,6 +407,12 @@ defmodule Broadway.Producer do
     if state.rate_limiting.state == :open and
          not :queue.is_empty(state.rate_limiting.demand_buffer) do
       send(self(), {__MODULE__, :handle_next_demand})
+    end
+  end
+
+  defp cancel_consumers(state) do
+    for from <- state.consumers do
+      send(self(), {:"$gen_producer", from, {:cancel, :shutdown}})
     end
   end
 end

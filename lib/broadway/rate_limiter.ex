@@ -41,25 +41,31 @@ defmodule Broadway.RateLimiter do
     _ets = :ets.new(table_name, [:named_table, :public, :set])
     :ets.insert(table_name, {@row_name, allowed})
 
+    send(self(), :store_producer_names)
+
     _ = schedule_next_reset(interval, allowed)
 
-    {:ok, {name, table_name, interval}}
+    {:ok, {name, table_name, interval, nil}}
   end
 
   @impl true
-  def handle_info({:reset_limit, allowed}, {broadway_name, table_name, interval}) do
+  def handle_info({:reset_limit, allowed}, {broadway_name, table_name, interval, producer_names}) do
     was_rate_limited? = get_currently_allowed(table_name) <= 0
 
     true = :ets.insert(table_name, {@row_name, allowed})
 
     if was_rate_limited? do
-      producers = Broadway.producer_names(broadway_name)
-      Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
+      Enum.each(producer_names, &send(&1, {__MODULE__, :reset_rate_limiting}))
     end
 
     _ = schedule_next_reset(interval, allowed)
 
-    {:noreply, {broadway_name, table_name, interval}}
+    {:noreply, {broadway_name, table_name, interval, producer_names}}
+  end
+
+  def handle_info(:store_producer_names, {broadway_name, table_name, interval, _}) do
+    producers = Broadway.producer_names(broadway_name)
+    {:noreply, {broadway_name, table_name, interval, producers}}
   end
 
   defp schedule_next_reset(interval, allowed) do
