@@ -694,7 +694,7 @@ defmodule BroadwayTest do
       assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
                      when length(messages) == 5
 
-      refute_receive {:batch_handled, _, _}
+      refute_received {:batch_handled, _, _}
     end
 
     test "generate batches with the remaining messages after :batch_timeout is reached",
@@ -703,7 +703,7 @@ defmodule BroadwayTest do
 
       assert_receive {:batch_handled, :odd, messages, _} when length(messages) == 3
       assert_receive {:batch_handled, :even, messages, _} when length(messages) == 2
-      refute_receive {:batch_handled, _, _, _}
+      refute_received {:batch_handled, _, _, _}
     end
   end
 
@@ -975,7 +975,7 @@ defmodule BroadwayTest do
 
       assert_receive {:ack, ^ref, [%Message{data: 1}], []}
       assert_receive :manually_acked
-      refute_receive {:ack, ^ref, _successful, _failed}
+      refute_received {:ack, ^ref, _successful, _failed}
     end
 
     test "acks multiple messages" do
@@ -1011,7 +1011,7 @@ defmodule BroadwayTest do
 
       assert_receive {:ack, ^ref, [_, _, _], [_]}
       assert_receive :manually_acked
-      refute_receive {:ack, ^ref, _successful, _failed}
+      refute_received {:ack, ^ref, _successful, _failed}
     end
   end
 
@@ -1375,10 +1375,10 @@ defmodule BroadwayTest do
       GenStage.stop(producer)
 
       assert_receive {:DOWN, ^ref_producer, _, _, _}
-      refute_receive {:DOWN, ^ref_processor, _, _, _}
-      refute_receive {:DOWN, ^ref_batcher, _, _, _}
-      refute_receive {:DOWN, ^ref_consumer, _, _, _}
       assert_receive {:producer_initialized, ^producer}
+      refute_received {:DOWN, ^ref_processor, _, _, _}
+      refute_received {:DOWN, ^ref_batcher, _, _, _}
+      refute_received {:DOWN, ^ref_consumer, _, _, _}
     end
 
     test "processors resubscribe to the restarted producers and keep processing messages",
@@ -1485,12 +1485,11 @@ defmodule BroadwayTest do
 
       assert_receive {:message_handled, %{data: 1}}
       assert_receive {:message_handled, %{data: 2}}
-
-      refute_receive {:message_handled, %{data: :kill_processor}}
-      refute_receive {:message_handled, %{data: 3}}
-
       assert_receive {:message_handled, %{data: 4}}
       assert_receive {:message_handled, %{data: 5}}
+
+      refute_received {:message_handled, %{data: :kill_processor}}
+      refute_received {:message_handled, %{data: 3}}
     end
 
     test "batches are created normally (without the lost messages)", %{broadway: broadway} do
@@ -1601,7 +1600,7 @@ defmodule BroadwayTest do
       values = Enum.map(successful, & &1.data)
       assert values == [6, 7]
 
-      refute_receive {:ack, _, _successful, _failed}
+      refute_received {:ack, _, _successful, _failed}
     end
   end
 
@@ -1790,8 +1789,8 @@ defmodule BroadwayTest do
       Process.exit(broadway, :shutdown)
 
       assert_receive {:ack, _, [%{data: :message_during_cancel}], []}
-      refute_receive {:ack, _, [%{data: :message_after_cancel}], []}
       assert_receive {:EXIT, ^broadway, :shutdown}
+      refute_received {:ack, _, [%{data: :message_after_cancel}], []}
     end
 
     @tag shutdown: 1
