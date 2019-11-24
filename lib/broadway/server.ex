@@ -78,7 +78,7 @@ defmodule Broadway.Server do
 
     children =
       [
-        build_rate_limiter_spec(config),
+        build_rate_limiter_spec(config, producers_names),
         build_producer_supervisor_spec(config, producers_specs),
         build_processor_supervisor_spec(config, processors_specs)
       ] ++
@@ -114,9 +114,16 @@ defmodule Broadway.Server do
     [name: name] ++ Keyword.take(config, [:spawn_opt, :hibernate_after])
   end
 
-  defp build_rate_limiter_spec(config) do
+  defp build_rate_limiter_spec(config, producers_names) do
     %{name: broadway_name, producer_config: producer_config} = config
-    {RateLimiter, name: broadway_name, rate_limiting: producer_config[:rate_limiting]}
+
+    opts = [
+      name: broadway_name,
+      rate_limiting: producer_config[:rate_limiting],
+      producers_names: producers_names
+    ]
+
+    {RateLimiter, opts}
   end
 
   defp build_producers_specs(config, opts) do

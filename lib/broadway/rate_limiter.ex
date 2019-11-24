@@ -13,7 +13,9 @@ defmodule Broadway.RateLimiter do
 
       rate_limiting_opts ->
         name = Keyword.fetch!(opts, :name)
-        GenServer.start_link(__MODULE__, {name, rate_limiting_opts}, name: table_name(name))
+        producers_names = Keyword.fetch!(opts, :producers_names)
+        args = {name, rate_limiting_opts, producers_names}
+        GenServer.start_link(__MODULE__, args, name: table_name(name))
     end
   end
 
@@ -31,23 +33,19 @@ defmodule Broadway.RateLimiter do
   end
 
   @impl true
-  def init({broadway_name, rate_limiting_opts}) do
+  def init({broadway_name, rate_limiting_opts, producers_names}) do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
     allowed = Keyword.fetch!(rate_limiting_opts, :allowed_messages)
 
     table = :ets.new(table_name(broadway_name), [:named_table, :public, :set])
     :ets.insert(table, {@row_name, allowed})
 
-    # We need to fetch (and store in the state) the producer names after we start
-    # because now the producers haven't been started yet.
-    send(self(), {:store_producer_names, broadway_name})
-
     _ = schedule_next_reset(interval)
 
     state = %{
       interval: interval,
       allowed: allowed,
-      producers: [],
+      producers_names: producers_names,
       table: table
     }
 
@@ -56,20 +54,20 @@ defmodule Broadway.RateLimiter do
 
   @impl true
   def handle_info(:reset_limit, state) do
-    %{producers: producers, interval: interval, allowed: allowed, table: table} = state
+    %{producers_names: producers_names, interval: interval, allowed: allowed, table: table} =
+      state
 
     true = :ets.insert(table, {@row_name, allowed})
 
-    :ok = Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
+    Enum.each(producers_names, fn name ->
+      if pid = Process.whereis(name) do
+        send(pid, {__MODULE__, :reset_rate_limiting})
+      end
+    end)
 
     _ = schedule_next_reset(interval)
 
     {:noreply, state}
-  end
-
-  def handle_info({:store_producer_names, broadway_name}, state) do
-    producers = Broadway.producer_names(broadway_name)
-    {:noreply, %{state | producers: producers}}
   end
 
   defp schedule_next_reset(interval) do
