@@ -123,11 +123,9 @@ defmodule Broadway.Producer do
     {:noreply, [], update_in(state.consumers, &List.delete(&1, from))}
   end
 
-  @impl true
-  def handle_demand(demand, state)
-
   # If we're rate limited, we store the demand in the buffer instead of forwarding it.
   # We'll forward it once the rate limit is lifted.
+  @impl true
   def handle_demand(demand, %{rate_limiting: %{state: :closed}} = state) do
     state = update_in(state.rate_limiting.demand_buffer, &:queue.in(demand, &1))
     {:noreply, [], state}
