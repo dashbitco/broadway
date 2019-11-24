@@ -59,11 +59,10 @@ defmodule Broadway.RateLimiter do
 
     true = :ets.insert(table, {@row_name, allowed})
 
-    Enum.each(producers_names, fn name ->
-      if pid = Process.whereis(name) do
-        send(pid, {__MODULE__, :reset_rate_limiting})
-      end
-    end)
+    for name <- producers_names,
+        pid = Process.whereis(name),
+        is_pid(pid),
+        do: send(pid, {__MODULE__, :reset_rate_limiting})
 
     _ = schedule_next_reset(interval)
 
