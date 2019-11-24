@@ -1896,7 +1896,8 @@ defmodule BroadwayTest do
         {:push_messages,
          [
            %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
          ]}
       )
 
@@ -1907,10 +1908,11 @@ defmodule BroadwayTest do
       # the ManualProducer.
       Process.exit(broadway, :shutdown)
 
-      refute_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel}}
+      refute_received {:handle_message_called, %Broadway.Message{data: :message_during_cancel}}
 
       send(get_rate_limiter(broadway_name), :reset_limit)
 
+      assert_receive {:handle_message_called, %Broadway.Message{data: 3}}
       assert_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel}}
     end
   end
