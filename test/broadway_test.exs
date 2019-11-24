@@ -1855,8 +1855,8 @@ defmodule BroadwayTest do
 
       # Now, since the rate limiting interval is long, we can assert that
       # handle_demand is not called and that the third message is not emitted yet.
-      refute_receive {:handle_demand_called, _demand}
-      refute_receive {:handle_message_called, %Message{data: 3}}, 500
+      refute_received {:handle_demand_called, _demand}
+      refute_received {:handle_message_called, %Message{data: 3}}, 500
 
       # We "cheat" and manually tell the rate limiter to reset the limit.
       send(get_rate_limiter(broadway_name), :reset_limit)
