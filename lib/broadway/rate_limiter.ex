@@ -58,13 +58,9 @@ defmodule Broadway.RateLimiter do
   def handle_info(:reset_limit, state) do
     %{producers: producers, interval: interval, allowed: allowed, table: table} = state
 
-    was_rate_limited? = get_currently_allowed(table) <= 0
-
     true = :ets.insert(table, {@row_name, allowed})
 
-    if was_rate_limited? do
-      Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
-    end
+    :ok = Enum.each(producers, &send(&1, {__MODULE__, :reset_rate_limiting}))
 
     _ = schedule_next_reset(interval)
 

@@ -225,6 +225,12 @@ defmodule Broadway.Producer do
     end
   end
 
+  # If the rate limit is lifted but our rate limiting state was "open",
+  # we don't need to do anything since we don't have anything in the buffer.
+  def handle_info({RateLimiter, :reset_rate_limiting}, %{rate_limiting: %{state: :open}} = state) do
+    {:noreply, [], state}
+  end
+
   def handle_info({RateLimiter, :reset_rate_limiting}, state) do
     state = put_in(state.rate_limiting.state, :open)
 
