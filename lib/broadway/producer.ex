@@ -188,13 +188,11 @@ defmodule Broadway.Producer do
 
   @impl true
   def handle_info({__MODULE__, :cancel_consumers}, %{rate_limiting: %{} = rate_limiting} = state) do
-    rate_limiting =
-      if :queue.is_empty(rate_limiting.message_buffer) do
-        cancel_consumers(state)
-        rate_limiting
-      else
-        %{rate_limiting | draining?: true}
-      end
+    rate_limiting = %{rate_limiting | draining?: true}
+
+    if :queue.is_empty(rate_limiting.message_buffer) do
+      cancel_consumers(state)
+    end
 
     {:noreply, [], %{state | rate_limiting: rate_limiting}}
   end
