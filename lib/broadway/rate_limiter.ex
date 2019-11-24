@@ -1,4 +1,5 @@
 defmodule Broadway.RateLimiter do
+  # TODO: Use :counters once we require Erlang/OTP 22+
   @moduledoc false
 
   use GenServer
