@@ -202,6 +202,11 @@ defmodule Broadway.Producer do
     {:noreply, [], state}
   end
 
+  # Don't forward buffered demand when we're draining.
+  def handle_info({__MODULE__, :handle_next_demand}, %{rate_limiting: %{draining?: true}} = state) do
+    {:noreply, [], state}
+  end
+
   def handle_info({__MODULE__, :handle_next_demand}, state) do
     case get_and_update_in(state.rate_limiting.demand_buffer, &:queue.out/1) do
       {{:value, demand}, state} ->
@@ -235,9 +240,7 @@ defmodule Broadway.Producer do
     {state, messages} = rate_limit_and_buffer_messages(state)
 
     # If we're not rate limited after emptying the buffer, we'll forward demand upstream.
-    unless state.rate_limiting.draining? do
-      schedule_next_handle_demand_if_rate_limiting_open(state)
-    end
+    schedule_next_handle_demand_if_rate_limiting_open(state)
 
     {:noreply, messages, state}
   end
