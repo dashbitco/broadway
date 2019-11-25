@@ -51,7 +51,6 @@ defmodule Broadway do
       tied to a given `user_id` are processed in order and not concurrently,
       you can set the `:partition_by` option. See "Ordering and partitioning".
 
-    * Rate-limiting (TODO)
     * Statistics/Metrics (TODO)
     * Back-off (TODO)
 
