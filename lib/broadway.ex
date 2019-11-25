@@ -799,6 +799,38 @@ defmodule Broadway do
     ref
   end
 
+  @doc """
+  Updates the producer rate limiting of the given pipeline at runtime.
+
+  Supports the following options (see the `:rate_limiting` options in the module
+  documentation for more information):
+
+    * `:allowed_messages`
+    * `:interval`
+
+  Returns an `{:error, reason}` tuple if the given `broadway` pipeline doesn't
+  have rate limiting enabled.
+
+  ## Examples
+
+      Broadway.update_rate_limiting(broadway, allowed_messages: 100)
+
+  """
+  @doc since: "0.6.0"
+  @spec update_rate_limiting(GenServer.server(), opts :: Keyword.t()) ::
+          :ok | {:error, reason :: term()}
+  def update_rate_limiting(broadway, opts) when is_list(opts) do
+    spec = [
+      allowed_messages: [type: :pos_integer],
+      interval: [type: :pos_integer]
+    ]
+
+    case Options.validate(opts, spec) do
+      {:ok, opts} -> Server.update_rate_limiting(broadway, opts)
+      {:error, message} -> raise ArgumentError, "invalid options, " <> message
+    end
+  end
+
   defp configuration_spec() do
     [
       name: [required: true, type: :atom],

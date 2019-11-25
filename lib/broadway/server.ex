@@ -12,6 +12,10 @@ defmodule Broadway.Server do
     GenServer.call(server, :producer_names)
   end
 
+  def update_rate_limiting(server, opts) do
+    GenServer.call(server, {:update_rate_limiting, opts})
+  end
+
   ## Callbacks
 
   @impl true
@@ -30,7 +34,8 @@ defmodule Broadway.Server do
        supervisor_pid: supervisor_pid,
        terminator: config.terminator,
        name: opts[:name],
-       producers_names: producer_names(name_prefix(opts[:name]), config.producer_config)
+       producers_names: producer_names(name_prefix(opts[:name]), config.producer_config),
+       rate_limiting?: not is_nil(config.producer_config[:rate_limiting])
      }}
   end
 
@@ -46,6 +51,17 @@ defmodule Broadway.Server do
   @impl true
   def handle_call(:producer_names, _from, state) do
     {:reply, state.producers_names, state}
+  end
+
+  def handle_call({:update_rate_limiting, opts}, _from, state) do
+    %{rate_limiting?: rate_limiting?, name: name} = state
+
+    if rate_limiting? do
+      reply = Broadway.RateLimiter.update_rate_limiting(name, opts)
+      {:reply, reply, state}
+    else
+      {:error, :rate_limiting_not_enabled}
+    end
   end
 
   @impl true
