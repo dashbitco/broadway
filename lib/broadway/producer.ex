@@ -216,11 +216,11 @@ defmodule Broadway.Producer do
       {{:value, demand}, state} ->
         case handle_demand(demand, state) do
           {:noreply, messages, state} ->
-            schedule_next_handle_demand()
+            schedule_next_handle_demand_if_any(state)
             {:noreply, messages, state}
 
           {:noreply, messages, state, :hibernate} ->
-            schedule_next_handle_demand()
+            schedule_next_handle_demand_if_any(state)
             {:noreply, messages, state, :hibernate}
 
           {:stop, reason, state} ->
@@ -245,10 +245,8 @@ defmodule Broadway.Producer do
 
     # We'll schedule to handle the buffered demand regardless of
     # the state of rate limiting. We'll check if we can forward it
-    # when handling this message.
-    if not :queue.is_empty(state.rate_limiting.demand_buffer) do
-      schedule_next_handle_demand()
-    end
+    # when handling the message.
+    schedule_next_handle_demand_if_any(state)
 
     {:noreply, messages, state}
   end
@@ -425,8 +423,10 @@ defmodule Broadway.Producer do
     end
   end
 
-  defp schedule_next_handle_demand do
-    send(self(), {__MODULE__, :handle_next_demand})
+  defp schedule_next_handle_demand_if_any(state) do
+    if not :queue.is_empty(state.rate_limiting.demand_buffer) do
+      send(self(), {__MODULE__, :handle_next_demand})
+    end
   end
 
   defp cancel_consumers(state) do
