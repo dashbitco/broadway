@@ -27,7 +27,11 @@ defmodule BroadwayTest do
     end
 
     @impl true
-    def handle_demand(_demand, state) do
+    def handle_demand(demand, state) do
+      if test_pid = state[:test_pid] do
+        send(test_pid, {:handle_demand_called, demand, System.monotonic_time()})
+      end
+
       {:noreply, [], state}
     end
 
@@ -314,7 +318,7 @@ defmodule BroadwayTest do
       assert Agent.get(Module.concat(broadway, "Agent"), & &1) == %{}
 
       # An that is a child of the main supervisor
-      assert [_, _, _, _, {Agent, _, _, _}] =
+      assert [_, _, _, _, _, {Agent, _, _, _}] =
                Supervisor.which_children(Module.concat(broadway, "Broadway.Supervisor"))
     end
 
@@ -1801,6 +1805,170 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "rate limiting" do
+    test "with an interval and a number of allowed messages in that interval" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:handle_message_called, message, System.monotonic_time()})
+        message
+      end
+
+      {:ok, _broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          producer: [
+            module: {ManualProducer, []},
+            stages: 2,
+            rate_limiting: [allowed_messages: 2, interval: 50]
+          ],
+          processors: [default: []],
+          context: %{handle_message: handle_message}
+        )
+
+      send(
+        get_producer(broadway_name),
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 5, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:handle_message_called, %Message{data: 1}, timestamp1}
+      assert_receive {:handle_message_called, %Message{data: 2}, _timestamp2}
+      assert_receive {:handle_message_called, %Message{data: 3}, timestamp3}
+      assert_receive {:handle_message_called, %Message{data: 4}, _timestamp4}
+      assert_receive {:handle_message_called, %Message{data: 5}, timestamp5}
+
+      assert_receive {:ack, :ref, [_, _], []}
+      assert_receive {:ack, :ref, [_, _], []}
+      assert_receive {:ack, :ref, [_], []}
+
+      # To be safe, we're saying that these messages have to be at least 10ms apart
+      # even if the interval is 50ms. This is because the time when the processor
+      # receives the message is not the time when the producer produced it.
+      assert System.convert_time_unit(timestamp3 - timestamp1, :native, :millisecond) >= 10
+      assert System.convert_time_unit(timestamp5 - timestamp3, :native, :millisecond) >= 10
+    end
+
+    test "buffers demand and flushes it when the rate limiting is lifted" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:handle_message_called, message, System.monotonic_time()})
+        message
+      end
+
+      {:ok, _broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          producer: [
+            module: {ManualProducer, %{test_pid: test_pid}},
+            stages: 1,
+            # We use a long rate limiting interval so that we can trigger the rate limiting
+            # manually from this test.
+            rate_limiting: [allowed_messages: 2, interval: 10000]
+          ],
+          processors: [default: [stages: 1, max_demand: 2]],
+          context: %{handle_message: handle_message}
+        )
+
+      send(
+        get_producer(broadway_name),
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      # First, we assert that handle_demand is called and that two events are emitted.
+      assert_receive {:handle_demand_called, _demand, demand_timestamp1}
+      assert_receive {:handle_message_called, %Message{data: 1}, timestamp1}
+      assert_receive {:handle_message_called, %Message{data: 2}, _timestamp2}
+
+      assert demand_timestamp1 < timestamp1
+
+      # Now, since the rate limiting interval is long, we can assert that
+      # handle_demand is not called and that the third message is not emitted yet.
+      refute_received {:handle_demand_called, _demand, _timestamp}
+      refute_received {:handle_message_called, %Message{data: 3}, _timestamp3}
+
+      # We "cheat" and manually tell the rate limiter to reset the limit.
+      send(get_rate_limiter(broadway_name), :reset_limit)
+
+      assert_receive {:handle_demand_called, _demand, demand_timestamp2}
+      assert_receive {:handle_message_called, %Message{data: 3}, timestamp3}
+
+      assert demand_timestamp2 < timestamp3
+      assert demand_timestamp2 > timestamp1
+    end
+
+    test "works when stopping a pipeline and draining producers" do
+      Process.flag(:trap_exit, true)
+
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:handle_message_called, message, System.monotonic_time()})
+        message
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          producer: [
+            module: {ManualProducer, %{test_pid: test_pid}},
+            stages: 1,
+            # We use a long rate limiting interval so that we can trigger the rate limiting
+            # manually from this test.
+            rate_limiting: [allowed_messages: 2, interval: 10000]
+          ],
+          processors: [default: [stages: 1, max_demand: 2]],
+          context: %{handle_message: handle_message}
+        )
+
+      # First, we use all the rate limiting we have available.
+      send(
+        get_producer(broadway_name),
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:handle_message_called, %Broadway.Message{data: 1}, timestamp1}
+      assert_receive {:handle_message_called, %Broadway.Message{data: 2}, _timestamp2}
+
+      # Then we stop the pipeline, triggering the :message_during_cancel message of
+      # the ManualProducer.
+      Process.exit(broadway, :shutdown)
+
+      refute_received {:handle_message_called, %Broadway.Message{data: :message_during_cancel},
+                       _timestamp}
+
+      send(get_rate_limiter(broadway_name), :reset_limit)
+
+      assert_receive {:handle_message_called, %Broadway.Message{data: 3}, timestamp3}
+
+      assert_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel},
+                      timestamp_cancel}
+
+      assert timestamp_cancel > timestamp1
+      assert timestamp3 < timestamp_cancel
+    end
+  end
+
   defp new_unique_name() do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
@@ -1819,6 +1987,10 @@ defmodule BroadwayTest do
 
   defp get_consumer(broadway_name, key, index \\ 0) do
     :"#{broadway_name}.Broadway.Consumer_#{key}_#{index}"
+  end
+
+  defp get_rate_limiter(broadway_name) do
+    :"#{broadway_name}.RateLimiter"
   end
 
   defp get_n_producers(broadway_name) do

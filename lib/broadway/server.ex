@@ -2,7 +2,7 @@ defmodule Broadway.Server do
   @moduledoc false
   @behaviour GenServer
 
-  alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator}
+  alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator, RateLimiter}
 
   def start_link(module, opts) do
     GenServer.start_link(__MODULE__, {module, opts}, opts)
@@ -78,6 +78,7 @@ defmodule Broadway.Server do
 
     children =
       [
+        build_rate_limiter_spec(config, producers_names),
         build_producer_supervisor_spec(config, producers_specs),
         build_processor_supervisor_spec(config, processors_specs)
       ] ++
@@ -111,6 +112,18 @@ defmodule Broadway.Server do
 
   defp start_options(name, config) do
     [name: name] ++ Keyword.take(config, [:spawn_opt, :hibernate_after])
+  end
+
+  defp build_rate_limiter_spec(config, producers_names) do
+    %{name: broadway_name, producer_config: producer_config} = config
+
+    opts = [
+      name: broadway_name,
+      rate_limiting: producer_config[:rate_limiting],
+      producers_names: producers_names
+    ]
+
+    {RateLimiter, opts}
   end
 
   defp build_producers_specs(config, opts) do

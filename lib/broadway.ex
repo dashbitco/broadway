@@ -600,6 +600,22 @@ defmodule Broadway do
        `:transformer` callback will cause the whole producer to terminate,
        possibly leaving unacknowledged messages along the way.
 
+    * `:rate_limiting` - Optional. A list of options to enable and configure
+      rate limiting for producing. If this option is present, rate limiting is
+      enabled, otherwise it isn't. Rate limiting refers to the rate at which
+      producers will forward messages to the rest of the pipeline. The rate
+      limiting is applied to and shared by all producers within the time limit.
+      The following options are supported:
+
+        * `:allowed_messages` - Required. An integer that describes how many
+          messages are allowed in the specified interval.
+
+        * `:interval` - Required. An integer that describes the interval
+         (in milliseconds) during which the number of allowed messages is
+         allowed. If the producer produces more than `allowed_messages`
+         in `interval`, only `allowed_messages` will be published until
+         the end of `interval`, and then more messages will be published.
+
     * `:hibernate_after` - Optional. Overrides the top-level `:hibernate_after`.
 
     * `:spawn_opt` - Optional. Overrides the top-level `:spawn_opt`.
@@ -799,7 +815,14 @@ defmodule Broadway do
           stages: [type: :pos_integer, default: 1],
           transformer: [type: :mfa, default: nil],
           spawn_opt: [type: :keyword_list],
-          hibernate_after: [type: :pos_integer]
+          hibernate_after: [type: :pos_integer],
+          rate_limiting: [
+            type: :non_empty_keyword_list,
+            keys: [
+              allowed_messages: [required: true, type: :pos_integer],
+              interval: [required: true, type: :pos_integer]
+            ]
+          ]
         ]
       ],
       processors: [
