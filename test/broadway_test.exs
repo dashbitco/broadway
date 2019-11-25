@@ -29,7 +29,7 @@ defmodule BroadwayTest do
     @impl true
     def handle_demand(demand, state) do
       if test_pid = state[:test_pid] do
-        send(test_pid, {:handle_demand_called, demand, System.system_time()})
+        send(test_pid, {:handle_demand_called, demand, System.monotonic_time()})
       end
 
       {:noreply, [], state}
@@ -1770,7 +1770,7 @@ defmodule BroadwayTest do
       test_pid = self()
 
       handle_message = fn message, _ ->
-        send(test_pid, {:handle_message_called, message, System.system_time()})
+        send(test_pid, {:handle_message_called, message, System.monotonic_time()})
         message
       end
 
@@ -1820,7 +1820,7 @@ defmodule BroadwayTest do
       test_pid = self()
 
       handle_message = fn message, _ ->
-        send(test_pid, {:handle_message_called, message, System.system_time()})
+        send(test_pid, {:handle_message_called, message, System.monotonic_time()})
         message
       end
 
@@ -1877,7 +1877,7 @@ defmodule BroadwayTest do
       test_pid = self()
 
       handle_message = fn message, _ ->
-        send(test_pid, {:handle_message_called, message, System.system_time()})
+        send(test_pid, {:handle_message_called, message, System.monotonic_time()})
         message
       end
 
