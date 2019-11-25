@@ -202,8 +202,12 @@ defmodule Broadway.Producer do
     {:noreply, [], state}
   end
 
-  # Don't forward buffered demand when we're draining.
-  def handle_info({__MODULE__, :handle_next_demand}, %{rate_limiting: %{draining?: true}} = state) do
+  # Don't forward buffered demand when we're draining or when the rate limiting is closed.
+  def handle_info(
+        {__MODULE__, :handle_next_demand},
+        %{rate_limiting: %{draining?: draining?, state: rl_state}} = state
+      )
+      when draining? or rl_state == :closed do
     {:noreply, [], state}
   end
 
@@ -212,11 +216,11 @@ defmodule Broadway.Producer do
       {{:value, demand}, state} ->
         case handle_demand(demand, state) do
           {:noreply, messages, state} ->
-            schedule_next_handle_demand_if_rate_limiting_open(state)
+            schedule_next_handle_demand()
             {:noreply, messages, state}
 
           {:noreply, messages, state, :hibernate} ->
-            schedule_next_handle_demand_if_rate_limiting_open(state)
+            schedule_next_handle_demand()
             {:noreply, messages, state, :hibernate}
 
           {:stop, reason, state} ->
@@ -239,8 +243,12 @@ defmodule Broadway.Producer do
 
     {state, messages} = rate_limit_and_buffer_messages(state)
 
-    # If we're not rate limited after emptying the buffer, we'll forward demand upstream.
-    schedule_next_handle_demand_if_rate_limiting_open(state)
+    # We'll schedule to handle the buffered demand regardless of
+    # the state of rate limiting. We'll check if we can forward it
+    # when handling this message.
+    if not :queue.is_empty(state.rate_limiting.demand_buffer) do
+      schedule_next_handle_demand()
+    end
 
     {:noreply, messages, state}
   end
@@ -417,11 +425,8 @@ defmodule Broadway.Producer do
     end
   end
 
-  defp schedule_next_handle_demand_if_rate_limiting_open(state) do
-    if state.rate_limiting.state == :open and
-         not :queue.is_empty(state.rate_limiting.demand_buffer) do
-      send(self(), {__MODULE__, :handle_next_demand})
-    end
+  defp schedule_next_handle_demand do
+    send(self(), {__MODULE__, :handle_next_demand})
   end
 
   defp cancel_consumers(state) do
