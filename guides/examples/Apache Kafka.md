@@ -72,8 +72,8 @@ section and the `handle_` callbacks in the next one.
 Similar to other process-based behaviours, `start_link/1` simply
 delegates to `Broadway.start_link/2`, which should define the
 producers, processors, and batchers in the Broadway pipeline.
-Assuming we want to consume messages from a queue called
-`my_queue`, one possible configuration would be:
+Assuming we want to consume messages from a topic called
+`test`, one possible configuration would be:
 
     defmodule MyBroadway do
       use Broadway
