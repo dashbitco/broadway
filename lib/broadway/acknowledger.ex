@@ -90,15 +90,15 @@ defmodule Broadway.Acknowledger do
   # Used by the processor and the batcher to maybe call c:handle_failed/2
   # on failed messages.
   @doc false
-  def maybe_handle_failed_messages(messages, module, context, size) do
+  def maybe_handle_failed_messages(messages, module, context) do
     if function_exported?(module, :handle_failed, 2) and messages != [] do
-      handle_failed_messages(messages, module, context, size)
+      handle_failed_messages(messages, module, context)
     else
       messages
     end
   end
 
-  defp handle_failed_messages(messages, module, context, size) do
+  defp handle_failed_messages(messages, module, context) do
     module.handle_failed(messages, context)
   catch
     kind, reason ->
@@ -108,18 +108,19 @@ defmodule Broadway.Acknowledger do
 
       messages
   else
-    messages when is_list(messages) ->
-      returned_size = length(messages)
+    return_messages when is_list(return_messages) ->
+      size = length(messages)
+      return_size = length(return_messages)
 
-      if returned_size != size do
+      if return_size != size do
         Logger.error(
           "#{inspect(module)}.handle_failed/2 received #{size} messages and " <>
-            "returned only #{returned_size}. All messages given to handle_failed/2 " <>
+            "returned only #{return_size}. All messages given to handle_failed/2 " <>
             "must be returned"
         )
       end
 
-      messages
+      return_messages
 
     _other ->
       Logger.error(

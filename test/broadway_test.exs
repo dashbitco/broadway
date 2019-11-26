@@ -1253,14 +1253,16 @@ defmodule BroadwayTest do
           batchers: [default: []]
         )
 
-      ref = Broadway.test_messages(broadway, [1, :fail, :fail, 2])
+      assert capture_log(fn ->
+               ref = Broadway.test_messages(broadway, [1, :fail, :fail, 2])
 
-      assert_receive {:handle_failed_called, messages}
-      assert [%Message{data: :fail}, %Message{data: :fail}] = messages
+               assert_receive {:handle_failed_called, messages}
+               assert [%Message{data: :fail}, %Message{data: :fail}] = messages
 
-      assert_receive {:ack, ^ref, successful, failed}
-      assert [%{data: 1}, %{data: 2}] = successful
-      assert [%{data: :updated}, %{data: :updated}] = failed
+               assert_receive {:ack, ^ref, successful, failed}
+               assert [%{data: 1}, %{data: 2}] = successful
+               assert [%{data: :updated}, %{data: :updated}] = failed
+             end) == ""
     end
 
     test "is called for the whole batch if handle_batch crashes" do

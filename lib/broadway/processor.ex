@@ -48,8 +48,7 @@ defmodule Broadway.Processor do
       Acknowledger.maybe_handle_failed_messages(
         failed_messages,
         state.module,
-        state.context,
-        length(failed_messages)
+        state.context
       )
 
     try do
