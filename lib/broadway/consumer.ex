@@ -43,7 +43,7 @@ defmodule Broadway.Consumer do
         failed_messages,
         state.module,
         state.context,
-        size
+        length(failed_messages)
       )
 
     if returned != size do
