@@ -1967,6 +1967,51 @@ defmodule BroadwayTest do
       assert timestamp_cancel > timestamp1
       assert timestamp3 < timestamp_cancel
     end
+
+    test "updating the rate limit at runtime" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        send(test_pid, {:handle_message_called, message, System.monotonic_time()})
+        message
+      end
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          producer: [
+            module: {ManualProducer, []},
+            stages: 2,
+            rate_limiting: [allowed_messages: 1, interval: 5000]
+          ],
+          processors: [default: []],
+          context: %{handle_message: handle_message}
+        )
+
+      send(
+        get_producer(broadway_name),
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:handle_message_called, %Message{data: 1}, _timestamp}
+
+      refute_received {:handle_message_called, _message, _timestamp}
+
+      assert :ok = Broadway.update_rate_limiting(broadway, allowed_messages: 3)
+
+      send(get_rate_limiter(broadway_name), :reset_limit)
+
+      assert_receive {:handle_message_called, %Message{data: 2}, _timestamp}
+      assert_receive {:handle_message_called, %Message{data: 3}, _timestamp}
+      assert_receive {:handle_message_called, %Message{data: 4}, _timestamp}
+    end
   end
 
   defp new_unique_name() do
