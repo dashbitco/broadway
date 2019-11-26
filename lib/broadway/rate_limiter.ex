@@ -33,12 +33,8 @@ defmodule Broadway.RateLimiter do
     Module.concat(broadway_name, RateLimiter)
   end
 
-  def update_rate_limiting(broadway_name, opts) do
-    if pid = GenServer.whereis(table_name(broadway_name)) do
-      GenServer.call(pid, {:update_rate_limiting, opts})
-    else
-      {:error, :rate_limiting_not_enabled}
-    end
+  def update_rate_limiting(rate_limiter, opts) do
+    GenServer.call(rate_limiter, {:update_rate_limiting, opts})
   end
 
   @impl true

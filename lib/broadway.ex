@@ -818,16 +818,22 @@ defmodule Broadway do
   """
   @doc since: "0.6.0"
   @spec update_rate_limiting(GenServer.server(), opts :: Keyword.t()) ::
-          :ok | {:error, reason :: term()}
+          :ok | {:error, :rate_limiting_not_enabled}
   def update_rate_limiting(broadway, opts) when is_list(opts) do
     spec = [
       allowed_messages: [type: :pos_integer],
       interval: [type: :pos_integer]
     ]
 
-    case Options.validate(opts, spec) do
-      {:ok, opts} -> Server.update_rate_limiting(broadway, opts)
-      {:error, message} -> raise ArgumentError, "invalid options, " <> message
+    with {:validate_opts, {:ok, opts}} <- {:validate_opts, Options.validate(opts, spec)},
+         {:get_name, {:ok, rate_limiter_name}} <- {:get_name, Server.get_rate_limiter(broadway)} do
+      Broadway.RateLimiter.update_rate_limiting(rate_limiter_name, opts)
+    else
+      {:validate_opts, {:error, message}} ->
+        raise ArgumentError, "invalid options, " <> message
+
+      {:get_name, {:error, reason}} ->
+        {:error, reason}
     end
   end
 
