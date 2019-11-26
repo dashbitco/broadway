@@ -51,6 +51,12 @@ defmodule Broadway do
       tied to a given `user_id` are processed in order and not concurrently,
       you can set the `:partition_by` option. See "Ordering and partitioning".
 
+    * Rate limiting: Broadway allows developers to rate limit all producers in
+      a single node by a given number of messages in a time period, allowing
+      developers to easily work sources or sinks that cannot cope with a high
+      number of requests. See the ":rate_limiting" option for producers in
+      `start_link/2`.
+
     * Statistics/Metrics (TODO)
     * Back-off (TODO)
 
