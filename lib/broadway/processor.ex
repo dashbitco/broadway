@@ -97,8 +97,8 @@ defmodule Broadway.Processor do
     {Enum.reverse(successful), Enum.reverse(failed)}
   end
 
-  defp validate_message(%Message{batcher: batcher} = message, batchers) do
-    if batchers != :none and batcher not in batchers do
+  defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do
+    if status == :ok and batchers != :none and batcher not in batchers do
       raise "message was set to unknown batcher #{inspect(batcher)}. " <>
               "The known batchers are #{inspect(batchers)}"
     end

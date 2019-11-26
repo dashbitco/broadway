@@ -456,7 +456,7 @@ defmodule BroadwayTest do
 
       handle_message = fn message, _ ->
         case message.data do
-          :fail -> Message.failed(message, "Failed message")
+          :fail -> Message.failed(%{message | batcher: :unknown}, "Failed message")
           :raise -> raise "Error raised"
           :bad_return -> :oops
           :bad_batcher -> %{message | batcher: :unknown}
