@@ -125,7 +125,7 @@ module docs as well as `Broadway.start_link/2`.
 
 In order to process incoming messages, we need to implement the
 required callbacks. For the sake of simplicity, we're considering that
-all messages received from the queue are just numbers:
+all messages received from the topic are just numbers:
 
     defmodule MyBroadway do
       use Broadway
