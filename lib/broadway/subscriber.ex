@@ -11,23 +11,20 @@ defmodule Broadway.Subscriber do
   # For graceful shutdowns, we rely on cancellations with the help
   # of the terminator.
   @moduledoc false
+  @behaviour GenStage
 
-  defmacro __using__(_opts) do
-    quote do
-      @impl true
-      defdelegate handle_subscribe(kind, opts, from, state), to: Broadway.Subscriber
-      @impl true
-      defdelegate handle_cancel(reason, from, state), to: Broadway.Subscriber
-      @impl true
-      defdelegate handle_info(msg, state), to: Broadway.Subscriber
-    end
+  def start_link(module, names, options, subscriptions_options, stage_options) do
+    GenStage.start_link(
+      __MODULE__,
+      {module, names, options, subscriptions_options},
+      stage_options
+    )
   end
 
-  @doc """
-  Function to be invoked directly on init by users of this module.
-  """
-  def init(names, subscription_options, state, options \\ []) do
-    type = Keyword.fetch!(options, :type)
+  @impl true
+  def init({module, names, options, subscription_options}) do
+    {type, state, init_options} = module.init(options)
+
     terminator = Keyword.fetch!(options, :terminator)
     resubscribe = Keyword.fetch!(options, :resubscribe)
     partition = Keyword.fetch!(options, :partition)
@@ -39,25 +36,26 @@ defmodule Broadway.Subscriber do
 
     state =
       Map.merge(state, %{
-        type: type,
-        terminator: terminator,
+        callback: module,
+        terminator: if(type == :consumer, do: terminator),
         resubscribe: resubscribe,
         producers: %{},
         consumers: [],
         subscription_options: subscription_options
       })
 
+    # We always subscribe in random order so the load is balanced across consumers.
     names |> Enum.shuffle() |> Enum.each(&subscribe(&1, state))
 
-    if type == :consumer do
-      {type, state}
-    else
-      {type, state, Keyword.take(options, [:dispatcher])}
-    end
+    {type, state, init_options}
   end
 
-  ## Callbacks
+  @impl true
+  def handle_events(events, from, %{callback: callback} = state) do
+    callback.handle_events(events, from, state)
+  end
 
+  @impl true
   def handle_subscribe(:producer, opts, {_, ref}, state) do
     process_name = Keyword.fetch!(opts, :name)
     {:automatic, put_in(state.producers[ref], process_name)}
@@ -67,6 +65,7 @@ defmodule Broadway.Subscriber do
     {:automatic, update_in(state.consumers, &[from | &1])}
   end
 
+  @impl true
   def handle_cancel(_, {_, ref} = from, state) do
     case pop_in(state.producers[ref]) do
       {nil, _} ->
@@ -79,13 +78,14 @@ defmodule Broadway.Subscriber do
     end
   end
 
-  def handle_info(:never_resubscribe, state) do
+  @impl true
+  def handle_info(:will_terminate, state) do
     state = %{state | resubscribe: :never}
     maybe_cancel(state)
     {:noreply, [], state}
   end
 
-  def handle_info(:cancel_consumers, %{type: :consumer, terminator: terminator} = state) do
+  def handle_info(:cancel_consumers, %{terminator: terminator} = state) when terminator != nil do
     if pid = Process.whereis(terminator) do
       send(pid, {:done, self()})
     end
@@ -93,12 +93,21 @@ defmodule Broadway.Subscriber do
     {:noreply, [], state}
   end
 
-  def handle_info(:cancel_consumers, state) do
-    for from <- state.consumers do
-      send(self(), {:"$gen_producer", from, {:cancel, :shutdown}})
-    end
+  def handle_info(:cancel_consumers, %{callback: callback} = state) do
+    case callback.handle_info(:cancel_consumers, state) do
+      # If there are no events to emit we are done
+      {:noreply, [], state} ->
+        for from <- state.consumers do
+          send(self(), {:"$gen_producer", from, {:cancel, :shutdown}})
+        end
 
-    {:noreply, [], state}
+        {:noreply, [], state}
+
+      # Otherwise we will try again later
+      other ->
+        GenStage.async_info(self(), :cancel_consumers)
+        other
+    end
   end
 
   def handle_info({:resubscribe, process_name}, state) do
@@ -106,8 +115,8 @@ defmodule Broadway.Subscriber do
     {:noreply, [], state}
   end
 
-  def handle_info(_, state) do
-    {:noreply, [], state}
+  def handle_info(message, %{callback: callback} = state) do
+    callback.handle_info(message, state)
   end
 
   ## Helpers

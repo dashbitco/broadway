@@ -1,14 +1,19 @@
 defmodule Broadway.Batcher do
   @moduledoc false
   use GenStage
-  use Broadway.Subscriber
   alias Broadway.BatchInfo
 
   @all_batches __MODULE__.All
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
-  def start_link(args, opts) do
-    GenStage.start_link(__MODULE__, args, opts)
+  def start_link(args, stage_options) do
+    Broadway.Subscriber.start_link(
+      __MODULE__,
+      args[:processors],
+      args,
+      [max_demand: args[:batch_size]],
+      stage_options
+    )
   end
 
   @impl true
@@ -34,12 +39,7 @@ defmodule Broadway.Batcher do
       partition_by: partition_by
     }
 
-    Broadway.Subscriber.init(
-      args[:processors],
-      [max_demand: args[:batch_size]],
-      state,
-      [dispatcher: dispatcher] ++ args
-    )
+    {:producer_consumer, state, dispatcher: dispatcher}
   end
 
   @impl true
@@ -47,8 +47,6 @@ defmodule Broadway.Batcher do
     batches = handle_events_per_batch_key(events, [], state)
     {:noreply, batches, state}
   end
-
-  defoverridable handle_info: 2
 
   @impl true
   def handle_info({:timeout, timer, batch_key}, state) do
@@ -62,27 +60,19 @@ defmodule Broadway.Batcher do
     end
   end
 
-  # Hijack subscriber events to publish batches
   def handle_info(:cancel_consumers, state) do
-    batches = all_batches()
+    events =
+      for {batch_key, _} <- all_batches() do
+        {current, pending_count, timer} = delete_batch(batch_key)
+        cancel_batch_timeout(timer)
+        wrap_for_delivery(batch_key, current, pending_count, state)
+      end
 
-    if batches == %{} do
-      super(:cancel_consumers, state)
-    else
-      events =
-        for {batch_key, _} <- batches do
-          {current, pending_count, timer} = delete_batch(batch_key)
-          cancel_batch_timeout(timer)
-          wrap_for_delivery(batch_key, current, pending_count, state)
-        end
-
-      GenStage.async_info(self(), :cancel_consumers)
-      {:noreply, events, state}
-    end
+    {:noreply, events, state}
   end
 
   def handle_info(msg, state) do
-    super(msg, state)
+    {:noreply, [], state}
   end
 
   ## Default batch handling

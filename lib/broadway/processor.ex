@@ -1,34 +1,46 @@
 defmodule Broadway.Processor do
   @moduledoc false
   use GenStage
-  use Broadway.Subscriber
 
   require Logger
   alias Broadway.{Message, Acknowledger}
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
-  def start_link(args, opts) do
-    GenStage.start_link(__MODULE__, args, opts)
+  def start_link(args, stage_options) do
+    Broadway.Subscriber.start_link(
+      __MODULE__,
+      args[:producers],
+      args,
+      Keyword.take(args[:processor_config], [:min_demand, :max_demand]),
+      stage_options
+    )
   end
 
   @impl true
   def init(args) do
     Process.flag(:trap_exit, true)
-    processor_config = args[:processor_config]
+    type = args[:type]
 
     state = %{
+      type: type,
       module: args[:module],
       context: args[:context],
       processor_key: args[:processor_key],
       batchers: args[:batchers]
     }
 
-    Broadway.Subscriber.init(
-      args[:producers],
-      Keyword.take(processor_config, [:min_demand, :max_demand]),
-      state,
-      args
-    )
+    case type do
+      :consumer ->
+        {:consumer, state, []}
+
+      :producer_consumer ->
+        {:producer_consumer, state, dispatcher: args[:dispatcher]}
+    end
+  end
+
+  @impl true
+  def handle_info(_msg, state) do
+    {:noreply, [], state}
   end
 
   @impl true

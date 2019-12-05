@@ -37,7 +37,7 @@ defmodule Broadway.Terminator do
   @impl true
   def terminate(_, state) do
     for name <- state.first, pid = Process.whereis(name) do
-      send(pid, :never_resubscribe)
+      send(pid, :will_terminate)
     end
 
     for name <- state.producers, pid = Process.whereis(name) do

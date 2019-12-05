@@ -2,8 +2,9 @@ defmodule Broadway.BatcherTest do
   use ExUnit.Case, async: true
 
   test "max_demand defaults to batch_size" do
-    {_, state, _} =
-      Broadway.Batcher.init(
+    {:ok, pid} =
+      Broadway.Batcher.start_link(
+        [
         module: __MODULE__,
         context: %{},
         type: :producer_consumer,
@@ -14,8 +15,11 @@ defmodule Broadway.BatcherTest do
         batch_size: 123,
         batch_timeout: 1000,
         partition: 0
+        ],
+        []
       )
 
+    %{state: state} = :sys.get_state(pid)
     assert state.subscription_options[:max_demand] == 123
   end
 end

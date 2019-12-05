@@ -1,16 +1,19 @@
 defmodule Broadway.Consumer do
   @moduledoc false
   use GenStage
-  use Broadway.Subscriber
-
   require Logger
-
   alias Broadway.{Acknowledger, Message}
   @subscription_options [max_demand: 1, min_demand: 0]
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
-  def start_link(args, opts) do
-    GenStage.start_link(__MODULE__, args, opts)
+  def start_link(args, stage_options) do
+    Broadway.Subscriber.start_link(
+      __MODULE__,
+      [args[:batcher]],
+      args,
+      @subscription_options,
+      stage_options
+    )
   end
 
   @impl true
@@ -22,12 +25,12 @@ defmodule Broadway.Consumer do
       context: args[:context]
     }
 
-    Broadway.Subscriber.init(
-      [args[:batcher]],
-      @subscription_options,
-      state,
-      args
-    )
+    {:consumer, state, []}
+  end
+
+  @impl true
+  def handle_info(_msg, state) do
+    {:noreply, [], state}
   end
 
   @impl true

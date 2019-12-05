@@ -292,7 +292,6 @@ defmodule Broadway.Server do
 
     args =
       [
-        type: :producer_consumer,
         resubscribe: :never,
         terminator: terminator,
         batcher: key,
@@ -332,7 +331,6 @@ defmodule Broadway.Server do
       end
 
     args = [
-      type: :consumer,
       resubscribe: :never,
       terminator: terminator,
       module: module,
