@@ -5,16 +5,16 @@ defmodule Broadway.BatcherTest do
     {:ok, pid} =
       Broadway.Batcher.start_link(
         [
-        module: __MODULE__,
-        context: %{},
-        type: :producer_consumer,
-        terminator: __MODULE__,
-        resubscribe: :never,
-        batcher: :default,
-        processors: [:some_processor],
-        batch_size: 123,
-        batch_timeout: 1000,
-        partition: 0
+          module: __MODULE__,
+          context: %{},
+          type: :producer_consumer,
+          terminator: __MODULE__,
+          resubscribe: :never,
+          batcher: :default,
+          processors: [:some_processor],
+          batch_size: 123,
+          batch_timeout: 1000,
+          partition: 0
         ],
         []
       )
