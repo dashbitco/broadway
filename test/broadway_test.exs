@@ -1808,7 +1808,51 @@ defmodule BroadwayTest do
   end
 
   describe "rate limiting" do
-    test "with an interval and a number of allowed messages in that interval" do
+    test "with an interval and exact allowed messages in that interval" do
+      broadway_name = new_unique_name()
+
+      {:ok, _broadway} =
+        Broadway.start_link(Forwarder,
+          name: broadway_name,
+          producer: [
+            module: {ManualProducer, []},
+            stages: 1,
+            rate_limiting: [allowed_messages: 1, interval: 10000]
+          ],
+          processors: [default: []],
+          context: %{test_pid: self()}
+        )
+
+      producer = get_producer(broadway_name)
+
+      send(
+        producer,
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:ack, :ref, [_], []}
+
+      # We "cheat" and manually tell the rate limiter to reset the limit.
+      send(get_rate_limiter(broadway_name), :reset_limit)
+
+      # Give a chance for other processes to run
+      :erlang.yield()
+
+      send(
+        producer,
+        {:push_messages,
+         [
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+         ]}
+      )
+
+      assert_receive {:ack, :ref, [_], []}
+    end
+
+    test "with an interval and more than allowed messages in that interval" do
       broadway_name = new_unique_name()
       test_pid = self()
 

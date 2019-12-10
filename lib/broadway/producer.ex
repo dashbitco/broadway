@@ -400,7 +400,7 @@ defmodule Broadway.Producer do
   defp enqueue_batch_r(queue, list), do: :queue.in_r(list, queue)
 
   defp rate_limit_messages(_state, [], _count) do
-    {[], []}
+    {:open, [], []}
   end
 
   defp rate_limit_messages(table_name, messages, message_count) do
