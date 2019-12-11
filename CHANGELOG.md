@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.6.0-dev
+
+  * Deprecate `:stages` in favor of `:concurrency` for clarity
+  * Do not validate `:batcher` if message failed
+  * Add support for rate limiting producers
+  * Support returning state in `c:Broadway.Producer.prepare_for_draining/1`
+
 ## v0.5.0 (2019-11-04)
 
   * Deprecate `:producers` in favor of a single `:producer` key
