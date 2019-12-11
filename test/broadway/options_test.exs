@@ -53,7 +53,9 @@ defmodule Broadway.OptionsTest do
   describe "rename_to" do
     test "is renamed when given" do
       spec = [context: [rename_to: :new_context], new_context: []]
-      assert Options.validate([context: :ok], spec) ==  {:ok, [{:context, :ok}, {:new_context, :ok}]}
+
+      assert Options.validate([context: :ok], spec) ==
+               {:ok, [{:context, :ok}, {:new_context, :ok}]}
     end
 
     test "is ignored when not given" do

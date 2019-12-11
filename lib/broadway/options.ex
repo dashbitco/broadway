@@ -72,7 +72,7 @@ defmodule Broadway.Options do
     cond do
       Keyword.has_key?(opts, key) ->
         if message = Keyword.get(spec, :deprecated) do
-          IO.warn "#{inspect key} is deprecated. " <> message
+          IO.warn("#{inspect(key)} is deprecated. " <> message)
         end
 
         {:ok, opts[key]}

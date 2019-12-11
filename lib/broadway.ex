@@ -856,7 +856,11 @@ defmodule Broadway do
         type: :non_empty_keyword_list,
         keys: [
           module: [required: true, type: :mod_arg],
-          stages: [type: :pos_integer, deprecated: "Use :concurrency instead", rename_to: :concurrency],
+          stages: [
+            type: :pos_integer,
+            deprecated: "Use :concurrency instead",
+            rename_to: :concurrency
+          ],
           concurrency: [type: :pos_integer, default: 1],
           transformer: [type: :mfa, default: nil],
           spawn_opt: [type: :keyword_list],
@@ -875,7 +879,11 @@ defmodule Broadway do
         type: :non_empty_keyword_list,
         keys: [
           *: [
-            stages: [type: :pos_integer, deprecated: "Use :concurrency instead", rename_to: :concurrency],
+            stages: [
+              type: :pos_integer,
+              deprecated: "Use :concurrency instead",
+              rename_to: :concurrency
+            ],
             concurrency: [type: :pos_integer, default: System.schedulers_online() * 2],
             min_demand: [type: :non_neg_integer],
             max_demand: [type: :non_neg_integer, default: 10],
@@ -890,7 +898,11 @@ defmodule Broadway do
         type: :keyword_list,
         keys: [
           *: [
-            stages: [type: :pos_integer, deprecated: "Use :concurrency instead", rename_to: :concurrency],
+            stages: [
+              type: :pos_integer,
+              deprecated: "Use :concurrency instead",
+              rename_to: :concurrency
+            ],
             concurrency: [type: :pos_integer, default: 1],
             batch_size: [type: :pos_integer, default: 100],
             batch_timeout: [type: :pos_integer, default: 1000],
