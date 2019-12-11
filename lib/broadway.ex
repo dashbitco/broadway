@@ -4,7 +4,8 @@ defmodule Broadway do
   data ingestion and data processing pipelines.
 
   It allows developers to consume data efficiently from different
-  sources, such as Amazon SQS, RabbitMQ and others.
+  sources, such as Amazon SQS, Apache Kafka, Google Cloud PubSub,
+  RabbitMQ and others.
 
   ## Built-in features
 
