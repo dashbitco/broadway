@@ -648,7 +648,7 @@ defmodule Broadway do
 
   ### Batchers options
 
-    * `:concurrency` - Optional. The number of concurrenty batch processors
+    * `:concurrency` - Optional. The number of concurrent batch processors
       that will be started by Broadway. Use this option to control the
       concurrency level. Note that this only sets the numbers of batch
       processors for each batcher group, not the number of batchers.
