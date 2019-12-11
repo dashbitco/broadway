@@ -253,17 +253,17 @@ each layer of the pipeline. Here's an example on how you could tune them accordi
           name: __MODULE__,
           producer: [
             ...
-            stages: 60,
+            concurrency: 60,
           ],
           processors: [
             default: [
-              stages: 100,
+              concurrency: 100,
             ]
           ],
           batchers: [
             default: [
               batch_size: 10,
-              stages: 80,
+              concurrency: 80,
             ]
           ]
         )

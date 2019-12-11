@@ -26,10 +26,13 @@ defmodule Broadway.Batcher do
           {GenStage.DemandDispatcher, nil}
 
         func ->
-          stages = args[:stages]
+          concurrency = args[:concurrency]
           hash_fun = fn {_, %{partition: partition}} = payload -> {payload, partition} end
-          dispatcher = {GenStage.PartitionDispatcher, partitions: 0..(stages - 1), hash: hash_fun}
-          {dispatcher, fn msg -> rem(func.(msg), stages) end}
+
+          dispatcher =
+            {GenStage.PartitionDispatcher, partitions: 0..(concurrency - 1), hash: hash_fun}
+
+          {dispatcher, fn msg -> rem(func.(msg), concurrency) end}
       end
 
     state = %{

@@ -148,7 +148,7 @@ defmodule Broadway.Server do
       shutdown: shutdown
     } = config
 
-    n_producers = producer_config[:stages]
+    n_producers = producer_config[:concurrency]
     [{_, processor_config} | _other_processors] = processors_config
 
     # The partition of the producer depends on the processor, so we handle it here.
@@ -158,7 +158,7 @@ defmodule Broadway.Server do
           GenStage.DemandDispatcher
 
         func ->
-          n_processors = processor_config[:stages]
+          n_processors = processor_config[:concurrency]
           hash_func = fn msg -> {msg, rem(func.(msg), n_processors)} end
           {GenStage.PartitionDispatcher, partitions: 0..(n_processors - 1), hash: hash_func}
       end
@@ -201,7 +201,7 @@ defmodule Broadway.Server do
       raise "Only one set of processors is allowed for now"
     end
 
-    n_processors = processor_config[:stages]
+    n_processors = processor_config[:concurrency]
 
     names =
       for index <- 0..(n_processors - 1) do
@@ -300,7 +300,7 @@ defmodule Broadway.Server do
         # Partitioning is handled inside the batcher since the batcher
         # needs to associate the partition with the batcher key.
         partition_by: options[:partition_by],
-        stages: options[:stages]
+        concurrency: options[:concurrency]
       ] ++ options
 
     opts = [name: name]
@@ -323,7 +323,7 @@ defmodule Broadway.Server do
       shutdown: shutdown
     } = config
 
-    n_consumers = batcher_config[:stages]
+    n_consumers = batcher_config[:concurrency]
 
     names =
       for index <- 0..(n_consumers - 1) do
@@ -386,7 +386,7 @@ defmodule Broadway.Server do
   end
 
   defp producer_names(broadway_name, producer_config) do
-    for index <- 0..(producer_config[:stages] - 1) do
+    for index <- 0..(producer_config[:concurrency] - 1) do
       producer_name(broadway_name, index)
     end
   end

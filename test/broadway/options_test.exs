@@ -20,26 +20,74 @@ defmodule Broadway.OptionsTest do
               "unknown options [:not_an_option1, :not_an_option2], valid options are: [:an_option, :other_option]"}
   end
 
-  test "options with default values" do
-    spec = [context: [default: :ok]]
+  describe "default value" do
+    test "is used when none is given" do
+      spec = [context: [default: :ok]]
+      assert Options.validate([], spec) == {:ok, [context: :ok]}
+    end
 
-    assert Options.validate([], spec) == {:ok, [context: :ok]}
+    test "is not used when one is given" do
+      spec = [context: [default: :ok]]
+      assert Options.validate([context: :given], spec) == {:ok, [context: :given]}
+    end
   end
 
-  test "all required options present" do
-    spec = [name: [required: true, type: :atom]]
-    opts = [name: MyProducer]
+  describe "required options" do
+    test "when present" do
+      spec = [name: [required: true, type: :atom]]
+      opts = [name: MyProducer]
 
-    assert Options.validate(opts, spec) == {:ok, opts}
+      assert Options.validate(opts, spec) == {:ok, opts}
+    end
+
+    test "when missing" do
+      spec = [name: [required: true], an_option: [], other_option: []]
+      opts = [an_option: 1, other_option: 2]
+
+      assert Options.validate(opts, spec) ==
+               {:error,
+                "required option :name not found, received options: [:an_option, :other_option]"}
+    end
   end
 
-  test "required options missing" do
-    spec = [name: [required: true], an_option: [], other_option: []]
-    opts = [an_option: 1, other_option: 2]
+  describe "rename_to" do
+    test "is renamed when given" do
+      spec = [context: [rename_to: :new_context], new_context: []]
+      assert Options.validate([context: :ok], spec) ==  {:ok, [{:context, :ok}, {:new_context, :ok}]}
+    end
 
-    assert Options.validate(opts, spec) ==
-             {:error,
-              "required option :name not found, received options: [:an_option, :other_option]"}
+    test "is ignored when not given" do
+      spec = [context: [rename_to: :new_context], new_context: []]
+      assert Options.validate([], spec) == {:ok, []}
+    end
+
+    test "is ignored with default" do
+      spec = [context: [rename_to: :new_context, default: 1], new_context: []]
+      assert Options.validate([], spec) == {:ok, [context: 1]}
+    end
+  end
+
+  describe "deprecated" do
+    import ExUnit.CaptureIO
+
+    test "warns when given" do
+      spec = [context: [deprecated: "Use something else"]]
+
+      assert capture_io(:stderr, fn ->
+               assert Options.validate([context: :ok], spec) == {:ok, [context: :ok]}
+             end) =~ ":context is deprecated. Use something else"
+    end
+
+    test "does not warn when not given" do
+      spec = [context: [deprecated: "Use something else"]]
+      assert Options.validate([], spec) == {:ok, []}
+    end
+
+    test "does not warn when using default" do
+      spec = [context: [deprecated: "Use something else", default: :ok]]
+
+      assert Options.validate([], spec) == {:ok, [context: :ok]}
+    end
   end
 
   describe "type validation" do

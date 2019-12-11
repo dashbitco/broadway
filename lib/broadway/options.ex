@@ -38,26 +38,30 @@ defmodule Broadway.Options do
     end
   end
 
-  defp reduce_options({key, spec_opts}, parent_opts) do
-    case validate_option(parent_opts, key, spec_opts) do
+  defp reduce_options({key, spec_opts}, opts) do
+    case validate_option(opts, key, spec_opts) do
       {:error, _} = result ->
         {:halt, result}
 
       {:ok, value} ->
-        {:cont, Keyword.update(parent_opts, key, value, fn _ -> value end)}
+        actual_key = spec_opts[:rename_to] || key
+        {:cont, Keyword.update(opts, actual_key, value, fn _ -> value end)}
 
       :no_value ->
-        {:cont, parent_opts}
+        if Keyword.has_key?(spec_opts, :default) do
+          {:cont, Keyword.put(opts, key, spec_opts[:default])}
+        else
+          {:cont, opts}
+        end
     end
   end
 
   defp validate_option(opts, key, spec) do
-    with {:ok, opts} <- validate_value(opts, key, spec),
-         value <- opts[key],
+    with {:ok, value} <- validate_value(opts, key, spec),
          :ok <- validate_type(spec[:type], key, value) do
       if spec[:keys] do
         keys = normalize_keys(spec[:keys], value)
-        validate(opts[key], keys)
+        validate(value, keys)
       else
         {:ok, value}
       end
@@ -65,23 +69,20 @@ defmodule Broadway.Options do
   end
 
   defp validate_value(opts, key, spec) do
-    required? = Keyword.get(spec, :required, false)
-    has_key? = Keyword.has_key?(opts, key)
-    has_default? = Keyword.has_key?(spec, :default)
+    cond do
+      Keyword.has_key?(opts, key) ->
+        if message = Keyword.get(spec, :deprecated) do
+          IO.warn "#{inspect key} is deprecated. " <> message
+        end
 
-    case {required?, has_key?, has_default?} do
-      {_, true, _} ->
-        {:ok, opts}
+        {:ok, opts[key]}
 
-      {true, false, _} ->
+      Keyword.get(spec, :required, false) ->
         {:error,
          "required option #{inspect(key)} not found, received options: " <>
            inspect(Keyword.keys(opts))}
 
-      {_, false, true} ->
-        {:ok, Keyword.put(opts, key, spec[:default])}
-
-      {_, false, false} ->
+      true ->
         :no_value
     end
   end

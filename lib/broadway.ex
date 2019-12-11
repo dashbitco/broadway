@@ -81,10 +81,10 @@ defmodule Broadway do
             name: MyBroadwayExample,
             producer: [
               module: {Counter, []},
-              stages: 1
+              concurrency: 1
             ],
             processors: [
-              default: [stages: 2]
+              default: [concurrency: 2]
             ]
           )
         end
@@ -143,14 +143,14 @@ defmodule Broadway do
             name: MyBroadwayExample,
             producer: [
               module: {Counter, []},
-              stages: 1
+              concurrency: 1
             ],
             processors: [
-              default: [stages: 2]
+              default: [concurrency: 2]
             ],
             batchers: [
-              sqs: [stages: 2, batch_size: 10],
-              s3: [stages: 1, batch_size: 10]
+              sqs: [concurrency: 2, batch_size: 10],
+              s3: [concurrency: 1, batch_size: 10]
             ]
           )
         end
@@ -344,14 +344,14 @@ defmodule Broadway do
             name: MyBroadwayExample,
             producer: [
               module: {Counter, []},
-              stages: 1
+              concurrency: 1
             ],
             processors: [
-              default: [stages: 2]
+              default: [concurrency: 2]
             ],
             batchers: [
-              sqs: [stages: 2, batch_size: 10],
-              s3: [stages: 1, batch_size: 10]
+              sqs: [concurrency: 2, batch_size: 10],
+              s3: [concurrency: 1, batch_size: 10]
             ],
             partition_by: &partition/1
           )
@@ -592,8 +592,8 @@ defmodule Broadway do
       even producers connect to some server while odd producers connect to
       another.
 
-    * `:stages` - Optional. The number of stages that will be
-      created by Broadway. Use this option to control the concurrency
+    * `:concurrency` - Optional. The number of concurrent producers that
+      will be started by Broadway. Use this option to control the concurrency
       level of each set of producers. The default value is `1`.
 
     * `:transformer` - Optional. A tuple representing a transformer
@@ -629,8 +629,8 @@ defmodule Broadway do
 
   The processors options are:
 
-    * `:stages` - Optional. The number of stages that will be created
-      by Broadway. Use this option to control the concurrency level
+    * `:concurrency` - Optional. The number of concurrent process that will
+      be started by Broadway. Use this option to control the concurrency level
       of the processors. The default value is `System.schedulers_online() * 2`.
 
     * `:min_demand` - Optional. Set the minimum demand of all processors
@@ -647,12 +647,12 @@ defmodule Broadway do
 
   ### Batchers options
 
-    * `:stages` - Optional. The number of stages that will be created by
-      Broadway. Use this option to control the concurrency level.
-      Note that this only sets the numbers of batch processors for
-      each batcher group, not the number of batchers. The number of
-      batchers will always be one for each batcher key defined.
-      The default value is `1`.
+    * `:concurrency` - Optional. The number of concurrenty batch processors
+      that will be started by Broadway. Use this option to control the
+      concurrency level. Note that this only sets the numbers of batch
+      processors for each batcher group, not the number of batchers.
+      The number of batchers will always be one for each batcher key
+      defined. The default value is `1`.
 
     * `:batch_size` - Optional. The size of the generated batches.
       Default value is `100`.
@@ -855,7 +855,8 @@ defmodule Broadway do
         type: :non_empty_keyword_list,
         keys: [
           module: [required: true, type: :mod_arg],
-          stages: [type: :pos_integer, default: 1],
+          stages: [type: :pos_integer, deprecated: "Use :concurrency instead", rename_to: :concurrency],
+          concurrency: [type: :pos_integer, default: 1],
           transformer: [type: :mfa, default: nil],
           spawn_opt: [type: :keyword_list],
           hibernate_after: [type: :pos_integer],
@@ -873,7 +874,8 @@ defmodule Broadway do
         type: :non_empty_keyword_list,
         keys: [
           *: [
-            stages: [type: :pos_integer, default: System.schedulers_online() * 2],
+            stages: [type: :pos_integer, deprecated: "Use :concurrency instead", rename_to: :concurrency],
+            concurrency: [type: :pos_integer, default: System.schedulers_online() * 2],
             min_demand: [type: :non_neg_integer],
             max_demand: [type: :non_neg_integer, default: 10],
             partition_by: [type: {:fun, 1}],
@@ -887,7 +889,8 @@ defmodule Broadway do
         type: :keyword_list,
         keys: [
           *: [
-            stages: [type: :pos_integer, default: 1],
+            stages: [type: :pos_integer, deprecated: "Use :concurrency instead", rename_to: :concurrency],
+            concurrency: [type: :pos_integer, default: 1],
             batch_size: [type: :pos_integer, default: 100],
             batch_timeout: [type: :pos_integer, default: 1000],
             partition_by: [type: {:fun, 1}],

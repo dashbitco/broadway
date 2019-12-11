@@ -89,18 +89,18 @@ Assuming we want to consume messages from a topic called
               group_id: "group_1",
               topics: ["test"],
             ]},
-            stages: 10
+            concurrency: 10
           ],
           processors: [
             default: [
-              stages: 10
+              concurrency: 10
             ]
           ],
           batchers: [
             default: [
               batch_size: 100,
               batch_timeout: 200,
-              stages: 10
+              concurrency: 10
             ]
           ]
         )

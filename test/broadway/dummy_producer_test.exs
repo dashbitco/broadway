@@ -16,7 +16,7 @@ defmodule Broadway.DummyProducerTest do
         ],
         processors: [
           default: [
-            stages: 1
+            concurrency: 1
           ]
         ]
       )

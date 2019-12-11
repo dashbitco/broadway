@@ -61,10 +61,10 @@ defmodule MyBroadway do
         module: {BroadwaySQS.Producer, queue_url: "https://us-east-2.queue.amazonaws.com/100000000001/my_queue"}
       ],
       processors: [
-        default: [stages: 50]
+        default: [concurrency: 50]
       ],
       batchers: [
-        s3: [stages: 5, batch_size: 10, batch_timeout: 1000]
+        s3: [concurrency: 5, batch_size: 10, batch_timeout: 1000]
       ]
     )
   end

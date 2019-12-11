@@ -189,7 +189,7 @@ defmodule BroadwayTest do
       Broadway.start_link(Forwarder,
         name: broadway,
         context: %{test_pid: self()},
-        producer: [module: {ManualProducer, []}, stages: 3],
+        producer: [module: {ManualProducer, []}, concurrency: 3],
         processors: [default: []],
         batchers: [default: []]
       )
@@ -217,7 +217,7 @@ defmodule BroadwayTest do
       Broadway.start_link(Forwarder,
         name: broadway,
         producer: [module: {ManualProducer, []}],
-        processors: [default: [stages: 13]],
+        processors: [default: [concurrency: 13]],
         batchers: [default: []]
       )
 
@@ -248,8 +248,8 @@ defmodule BroadwayTest do
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [
-          p1: [stages: 2],
-          p2: [stages: 3]
+          p1: [concurrency: 2],
+          p2: [concurrency: 3]
         ]
       )
 
@@ -425,7 +425,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producer: [module: {ManualProducer, []}],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]]
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]]
         )
 
       %{broadway: broadway}
@@ -482,7 +482,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producer: [module: {ManualProducer, []}],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
         )
 
@@ -604,7 +604,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producer: [module: {ManualProducer, []}],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]]
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]]
         )
 
       producer = get_producer(broadway_name)
@@ -802,13 +802,13 @@ defmodule BroadwayTest do
           processors: [
             default:
               [
-                stages: 2
+                concurrency: 2
               ] ++ tags.processors_options
           ],
           batchers: [
             default:
               [
-                stages: 2,
+                concurrency: 2,
                 batch_size: Map.get(tags, :batch_size, 2),
                 batch_timeout: 80
               ] ++ tags.batchers_options
@@ -1093,7 +1093,7 @@ defmodule BroadwayTest do
             module: {ManualProducer, []},
             transformer: {Transformer, :transform, test_pid: self()}
           ],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
         )
 
@@ -1354,7 +1354,7 @@ defmodule BroadwayTest do
           producer: [
             module: {ManualProducer, %{test_pid: self()}}
           ],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
         )
 
@@ -1432,7 +1432,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producer: [module: {ManualProducer, []}],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
         )
 
@@ -1537,7 +1537,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producer: [module: {ManualProducer, []}],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 2]],
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]],
           batchers: [default: [batch_size: 2]]
         )
 
@@ -1640,7 +1640,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           context: context,
           producer: [module: {ManualProducer, []}],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 4]],
           batchers: [default: [batch_size: 4]]
         )
 
@@ -1747,7 +1747,7 @@ defmodule BroadwayTest do
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           producer: [module: {ManualProducer, %{test_pid: self()}}],
-          processors: [default: [stages: 1, min_demand: 1, max_demand: 4]],
+          processors: [default: [concurrency: 1, min_demand: 1, max_demand: 4]],
           batchers: [default: [batch_size: 4]],
           context: context,
           shutdown: Map.get(tags, :shutdown, 5000)
@@ -1816,7 +1816,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           producer: [
             module: {ManualProducer, []},
-            stages: 1,
+            concurrency: 1,
             rate_limiting: [allowed_messages: 1, interval: 10000]
           ],
           processors: [default: []],
@@ -1866,7 +1866,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           producer: [
             module: {ManualProducer, []},
-            stages: 2,
+            concurrency: 2,
             rate_limiting: [allowed_messages: 2, interval: 50]
           ],
           processors: [default: []],
@@ -1916,12 +1916,12 @@ defmodule BroadwayTest do
           name: broadway_name,
           producer: [
             module: {ManualProducer, %{test_pid: test_pid}},
-            stages: 1,
+            concurrency: 1,
             # We use a long rate limiting interval so that we can trigger the rate limiting
             # manually from this test.
             rate_limiting: [allowed_messages: 2, interval: 10000]
           ],
-          processors: [default: [stages: 1, max_demand: 2]],
+          processors: [default: [concurrency: 1, max_demand: 2]],
           context: %{handle_message: handle_message}
         )
 
@@ -1973,12 +1973,12 @@ defmodule BroadwayTest do
           name: broadway_name,
           producer: [
             module: {ManualProducer, %{test_pid: test_pid}},
-            stages: 1,
+            concurrency: 1,
             # We use a long rate limiting interval so that we can trigger the rate limiting
             # manually from this test.
             rate_limiting: [allowed_messages: 2, interval: 10000]
           ],
-          processors: [default: [stages: 1, max_demand: 2]],
+          processors: [default: [concurrency: 1, max_demand: 2]],
           context: %{handle_message: handle_message}
         )
 
@@ -2028,7 +2028,7 @@ defmodule BroadwayTest do
           name: broadway_name,
           producer: [
             module: {ManualProducer, []},
-            stages: 2,
+            concurrency: 2,
             rate_limiting: [allowed_messages: 1, interval: 5000]
           ],
           processors: [default: []],

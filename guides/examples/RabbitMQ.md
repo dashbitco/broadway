@@ -101,18 +101,18 @@ Assuming we want to consume messages from a queue called
                 prefetch_count: 50,
               ]
             },
-            stages: 2
+            concurrency: 2
           ],
           processors: [
             default: [
-              stages: 50
+              concurrency: 50
             ]
           ],
           batchers: [
             default: [
               batch_size: 10,
               batch_timeout: 1500,
-              stages: 5
+              concurrency: 5
             ]
           ]
         )
