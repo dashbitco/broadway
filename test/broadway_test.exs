@@ -467,7 +467,14 @@ defmodule BroadwayTest do
 
       handle_batch = fn _, batch, _, _ ->
         send(test_pid, {:batch_handled, batch})
-        Enum.reject(batch, &(&1.data == :discard_in_batcher))
+
+        for message <- batch, message.data != :discard_in_batcher do
+          if message.data == :fail_batcher do
+            Message.failed(message, "Failed batcher")
+          else
+            message
+          end
+        end
       end
 
       context = %{
@@ -581,6 +588,61 @@ defmodule BroadwayTest do
              end) =~ "** (RuntimeError) oops"
 
       refute_received {:EXIT, _, ^processor}
+    end
+
+    test "telemetry", c do
+      self = self()
+
+      :ok =
+        :telemetry.attach_many(
+          "#{c.test}",
+          [
+            [:broadway, :processor, :start],
+            [:broadway, :processor, :stop],
+            [:broadway, :consumer],
+            [:broadway, :batcher]
+          ],
+          fn name, measurements, metadata, _ ->
+            send(self, {:got, name, measurements, metadata})
+          end,
+          nil
+        )
+
+      ref = Broadway.test_messages(c.broadway, [1, 2, :fail, :fail_batcher], batch_mode: :bulk)
+      assert_receive {:batch_handled, [%{data: 1, status: :ok}, %{data: 2, status: :ok}]}
+      assert_receive {:batch_handled, [%{data: :fail_batcher, status: :ok}]}
+
+      assert_receive {:ack, ^ref, [%{status: :ok}, %{status: :ok}], []}
+      assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed message"}}]}
+      assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed batcher"}}]}
+
+      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:got, [:broadway, :processor, :stop], %{}, metadata}
+      assert [] = metadata.failed_messages
+
+      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:got, [:broadway, :processor, :stop], %{}, %{failed_messages: []}}
+      assert [] = metadata.failed_messages
+
+      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:got, [:broadway, :processor, :stop], %{}, metadata}
+      assert [%{data: :fail}] = metadata.failed_messages
+
+      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:got, [:broadway, :processor, :stop], %{}, metadata}
+      assert [] = metadata.failed_messages
+
+      assert_receive {:got, [:broadway, :consumer], %{}, metadata}
+      assert [] = metadata.failed_messages
+
+      assert_receive {:got, [:broadway, :consumer], %{}, metadata}
+      assert [%{data: :fail_batcher}] = metadata.failed_messages
+
+      assert_receive {:got, [:broadway, :batcher], %{}, %{events: [_]}}
+      assert_receive {:got, [:broadway, :batcher], %{}, %{events: [_]}}
+      assert_receive {:got, [:broadway, :batcher], %{}, %{events: [_]}}
+
+      refute_receive _
     end
   end
 

@@ -21,6 +21,7 @@ defmodule Broadway.Consumer do
     Process.flag(:trap_exit, true)
 
     state = %{
+      name: args[:name],
       module: args[:module],
       context: args[:context]
     }
@@ -65,6 +66,14 @@ defmodule Broadway.Consumer do
         )
     end
 
+    metadata = %{
+      name: state.name,
+      successful_messages: successful_messages,
+      failed_messages: failed_messages
+    }
+
+    measurements = %{time: System.monotonic_time()}
+    :telemetry.execute([:broadway, :consumer], measurements, metadata)
     {:noreply, [], state}
   end
 

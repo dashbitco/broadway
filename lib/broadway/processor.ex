@@ -22,6 +22,7 @@ defmodule Broadway.Processor do
     type = args[:type]
 
     state = %{
+      name: args[:name],
       type: type,
       module: args[:module],
       context: args[:context],
@@ -45,6 +46,10 @@ defmodule Broadway.Processor do
 
   @impl true
   def handle_events(messages, _from, state) do
+    metadata = %{name: state.name, messages: messages}
+    measurements = %{time: System.monotonic_time()}
+    :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
+
     {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
 
     {successful_messages_to_forward, successful_messages_to_ack} =
@@ -72,6 +77,15 @@ defmodule Broadway.Processor do
         )
     end
 
+    metadata = %{
+      name: state.name,
+      successful_messages_to_ack: successful_messages_to_ack,
+      successful_messages_to_forward: successful_messages_to_forward,
+      failed_messages: failed_messages
+    }
+
+    measurements = %{time: System.monotonic_time()}
+    :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
     {:noreply, successful_messages_to_forward, state}
   end
 
