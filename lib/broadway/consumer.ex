@@ -70,13 +70,32 @@ defmodule Broadway.Consumer do
 
   defp handle_batch(batcher, messages, batch_info, state) do
     %{module: module, context: context} = state
+    start_time = System.monotonic_time()
+    telemetry_metadata = %{module: module, batch_info: batch_info}
 
     try do
-      module.handle_batch(batcher, messages, batch_info, context)
-      |> split_by_status([], [], 0)
+      :telemetry.execute([:broadway, :batcher, :start], %{time: start_time}, telemetry_metadata)
+
+      handle_result =
+        module.handle_batch(batcher, messages, batch_info, context)
+        |> split_by_status([], [], 0)
+
+      :telemetry.execute(
+        [:broadway, :batcher, :stop],
+        %{duration: duration(start_time)},
+        telemetry_metadata
+      )
+
+      handle_result
     catch
       kind, reason ->
         reason = Exception.normalize(kind, reason, __STACKTRACE__)
+
+        :telemetry.execute(
+          [:broadway, :batcher, :error],
+          %{duration: duration(start_time)},
+          Map.put(telemetry_metadata, :error, reason)
+        )
 
         Logger.error(Exception.format(kind, reason, __STACKTRACE__),
           crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
@@ -85,6 +104,10 @@ defmodule Broadway.Consumer do
         messages = Enum.map(messages, &%{&1 | status: {kind, reason, __STACKTRACE__}})
         {[], messages, batch_info.size}
     end
+  end
+
+  defp duration(start_time) do
+    System.monotonic_time() - start_time
   end
 
   defp split_by_status([], successful, failed, count) do

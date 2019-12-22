@@ -83,12 +83,32 @@ defmodule Broadway.Processor do
       batchers: batchers
     } = state
 
+    start_time = System.monotonic_time()
+    telemetry_metadata = %{module: module, processor_key: processor_key}
+
     try do
-      module.handle_message(processor_key, message, context)
-      |> validate_message(batchers)
+      :telemetry.execute([:broadway, :processor, :start], %{time: start_time}, telemetry_metadata)
+
+      handle_result =
+        module.handle_message(processor_key, message, context)
+        |> validate_message(batchers)
+
+      :telemetry.execute(
+        [:broadway, :processor, :stop],
+        %{duration: duration(start_time)},
+        telemetry_metadata
+      )
+
+      handle_result
     catch
       kind, reason ->
         reason = Exception.normalize(kind, reason, __STACKTRACE__)
+
+        :telemetry.execute(
+          [:broadway, :processor, :error],
+          %{duration: duration(start_time)},
+          Map.put(telemetry_metadata, :error, reason)
+        )
 
         Logger.error(Exception.format(kind, reason, __STACKTRACE__),
           crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
@@ -103,6 +123,10 @@ defmodule Broadway.Processor do
       %{status: {:failed, _}} = message ->
         handle_messages(messages, successful, [message | failed], state)
     end
+  end
+
+  defp duration(start_time) do
+    duration = System.monotonic_time() - start_time
   end
 
   defp handle_messages([], successful, failed, _state) do

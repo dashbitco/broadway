@@ -58,7 +58,40 @@ defmodule Broadway do
       number of requests. See the ":rate_limiting" option for producers in
       `start_link/2`.
 
-    * Statistics/Metrics (TODO)
+    * Statistics/Metrics: Broadway leverages the `:telemetry` library for
+      instrumentation. Broadway currently exposes the following telemetry
+      events:
+
+      * `[:broadway, :batcher, :start]` - Dispatched by Broadway.Consumer before
+        your `handle_batch/4` callback is invoked
+        * Measurement: `%{time: System.monotonic_time}`
+        * Metadata: `%{module: module, batch_info: Broadway.BatchInfo.t}`
+
+      * `[:broadway, :batcher, :stop]` - Dispatched by Broadway.Consumer after your
+        `handle_batch/4` callback has returned
+        * Measurement: `%{duration: native_time}`
+        * Metadata: `%{module: module, batch_info: Broadway.BatchInfo.t}`
+
+      * `[:broadway, :batcher, :error]` - Dispatched by Broadway.Consumer when your
+        `handle_batch/4` callback raises an error
+        * Measurement: `%{duration: native_time}`
+        * Metadata: `%{module: module, batch_info: Broadway.BatchInfo.t, error: Exception.t()}`
+
+      * `[:broadway, :processor, :start]` - Dispatched by Broadway.Processor before
+         your `handle_message/3` callback is invoked
+        * Measurement: `%{time: System.monotonic_time}`
+        * Metadata: `%{module: module, processor_key: atom}`
+
+      * `[:broadway, :processor, :stop]` -  Dispatched by Broadway.Processor after
+        your `handle_message/3` callback has returned
+        * Measurement: `%{duration: native_time}`
+        * Metadata: `%{module: module, processor_key: atom}`
+
+      * `[:broadway, :processor, :error]` -  Dispatched by Broadway.Processor when
+        your `handle_message/3` callback raises an error
+        * Measurement: `%{duration: native_time}`
+        * Metadata: `%{module: module, processor_key: atom, error: Exception.t()}`
+
     * Back-off (TODO)
 
   ## The Broadway Behaviour
