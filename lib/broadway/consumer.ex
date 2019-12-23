@@ -39,8 +39,9 @@ defmodule Broadway.Consumer do
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
 
+    start_time = System.monotonic_time()
     metadata = %{name: state.name, messages: messages}
-    measurements = %{time: System.monotonic_time()}
+    measurements = %{time: start_time}
     :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
 
     {successful_messages, failed_messages, returned} =
@@ -76,8 +77,10 @@ defmodule Broadway.Consumer do
       failed_messages: failed_messages
     }
 
-    measurements = %{time: System.monotonic_time()}
+    stop_time = System.monotonic_time()
+    measurements = %{time: stop_time, duration: stop_time - start_time}
     :telemetry.execute([:broadway, :consumer, :stop], measurements, metadata)
+
     {:noreply, [], state}
   end
 
