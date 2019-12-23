@@ -34,7 +34,7 @@ defmodule Broadway.Server do
        supervisor_pid: supervisor_pid,
        terminator: config.terminator,
        name: opts[:name],
-       producers_names: producer_names(name_prefix(opts[:name]), config.producer_config),
+       producers_names: process_names(opts[:name], "Producer", config.producer_config),
        rate_limiter_name:
          config.producer_config[:rate_limiting] && RateLimiter.table_name(opts[:name])
      }}
@@ -167,7 +167,7 @@ defmodule Broadway.Server do
 
     names_and_specs =
       for index <- 0..(n_producers - 1) do
-        name = producer_name(name_prefix(broadway_name), index)
+        name = process_name(broadway_name, "Producer", index)
         start_options = start_options(name, producer_config)
 
         spec = %{
@@ -201,12 +201,7 @@ defmodule Broadway.Server do
       raise "Only one set of processors is allowed for now"
     end
 
-    n_processors = processor_config[:concurrency]
-
-    names =
-      for index <- 0..(n_processors - 1) do
-        process_name(name_prefix(broadway_name), "Processor_#{key}", index)
-      end
+    names = process_names(broadway_name, "Processor_#{key}", processor_config)
 
     # The partition of the processor depends on the next processor or the batcher,
     # so we handle it here.
@@ -288,7 +283,7 @@ defmodule Broadway.Server do
   defp build_batcher_spec(config, batcher_config, processors) do
     %{terminator: terminator, shutdown: shutdown} = config
     {key, options} = batcher_config
-    name = process_name(name_prefix(config.name), "Batcher", key)
+    name = process_name(config.name, "Batcher", key)
 
     args =
       [
@@ -323,12 +318,7 @@ defmodule Broadway.Server do
       shutdown: shutdown
     } = config
 
-    n_consumers = batcher_config[:concurrency]
-
-    names =
-      for index <- 0..(n_consumers - 1) do
-        process_name(name_prefix(broadway_name), "Consumer_#{key}", index)
-      end
+    names = process_names(broadway_name, "Consumer_#{key}", batcher_config)
 
     args = [
       resubscribe: :never,
@@ -373,21 +363,17 @@ defmodule Broadway.Server do
     }
   end
 
-  defp name_prefix(name) do
-    "#{name}.Broadway"
+  defp name_prefix(prefix) do
+    "#{prefix}.Broadway"
   end
 
-  defp process_name(prefix, type, key) do
-    :"#{prefix}.#{type}_#{key}"
+  defp process_name(prefix, type, index) do
+    :"#{name_prefix(prefix)}.#{type}_#{index}"
   end
 
-  defp producer_name(broadway_name, index) do
-    process_name(broadway_name, "Producer", index)
-  end
-
-  defp producer_names(broadway_name, producer_config) do
-    for index <- 0..(producer_config[:concurrency] - 1) do
-      producer_name(broadway_name, index)
+  defp process_names(prefix, type, config) do
+    for index <- 0..(config[:concurrency] - 1) do
+      process_name(prefix, type, index)
     end
   end
 
