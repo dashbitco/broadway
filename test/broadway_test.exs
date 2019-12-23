@@ -590,25 +590,26 @@ defmodule BroadwayTest do
       refute_received {:EXIT, _, ^processor}
     end
 
-    test "telemetry", c do
+    test "telemetry", %{broadway: broadway, test: test} do
       self = self()
 
       :ok =
         :telemetry.attach_many(
-          "#{c.test}",
+          "#{test}",
           [
             [:broadway, :processor, :start],
             [:broadway, :processor, :stop],
-            [:broadway, :consumer],
-            [:broadway, :batcher]
+            [:broadway, :batcher, :start],
+            [:broadway, :consumer, :start],
+            [:broadway, :consumer, :stop]
           ],
           fn name, measurements, metadata, _ ->
-            send(self, {:got, name, measurements, metadata})
+            send(self, {:telemetry_event, name, measurements, metadata})
           end,
           nil
         )
 
-      ref = Broadway.test_messages(c.broadway, [1, 2, :fail, :fail_batcher], batch_mode: :bulk)
+      ref = Broadway.test_messages(broadway, [1, 2, :fail, :fail_batcher], batch_mode: :bulk)
       assert_receive {:batch_handled, [%{data: 1, status: :ok}, %{data: 2, status: :ok}]}
       assert_receive {:batch_handled, [%{data: :fail_batcher, status: :ok}]}
 
@@ -616,33 +617,38 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed message"}}]}
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed batcher"}}]}
 
-      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:got, [:broadway, :processor, :stop], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
       assert [] = metadata.failed_messages
 
-      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:got, [:broadway, :processor, :stop], %{}, %{failed_messages: []}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{},
+                      %{failed_messages: []}}
+
       assert [] = metadata.failed_messages
 
-      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:got, [:broadway, :processor, :stop], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
       assert [%{data: :fail}] = metadata.failed_messages
 
-      assert_receive {:got, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:got, [:broadway, :processor, :stop], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
       assert [] = metadata.failed_messages
 
-      assert_receive {:got, [:broadway, :consumer], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{events: [_]}}
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{events: [_]}}
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{events: [_]}}
+
+      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{}, metadata}
+      assert %{messages: [%{data: 1}, %{data: 2}]} = metadata
+      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{}, metadata}
       assert [] = metadata.failed_messages
 
-      assert_receive {:got, [:broadway, :consumer], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{}, metadata}
+      assert %{messages: [%{data: :fail_batcher}]} = metadata
+      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{}, metadata}
       assert [%{data: :fail_batcher}] = metadata.failed_messages
-
-      assert_receive {:got, [:broadway, :batcher], %{}, %{events: [_]}}
-      assert_receive {:got, [:broadway, :batcher], %{}, %{events: [_]}}
-      assert_receive {:got, [:broadway, :batcher], %{}, %{events: [_]}}
-
-      refute_receive _
     end
   end
 

@@ -50,7 +50,7 @@ defmodule Broadway.Batcher do
   def handle_events(events, _from, state) do
     metadata = %{name: state.name, events: events}
     measurements = %{time: System.monotonic_time()}
-    :telemetry.execute([:broadway, :batcher], measurements, metadata)
+    :telemetry.execute([:broadway, :batcher, :start], measurements, metadata)
 
     batches = handle_events_per_batch_key(events, [], state)
     {:noreply, batches, state}
