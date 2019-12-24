@@ -49,18 +49,23 @@ defmodule Broadway.Batcher do
   @impl true
   def handle_events(events, _from, state) do
     start_time = System.monotonic_time()
-    measurements = %{time: start_time}
-    metadata = %{name: state.name, events: events}
-    :telemetry.execute([:broadway, :batcher, :start], measurements, metadata)
-
+    emit_start_event(state.name, start_time, events)
     batches = handle_events_per_batch_key(events, [], state)
+    emit_stop_event(state.name, start_time, batches)
+    {:noreply, batches, state}
+  end
 
+  defp emit_start_event(name, start_time, events) do
+    metadata = %{name: name, events: events}
+    measurements = %{time: start_time}
+    :telemetry.execute([:broadway, :batcher, :start], measurements, metadata)
+  end
+
+  defp emit_stop_event(name, start_time, batches) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
-    metadata = %{name: state.name, batches: batches}
+    metadata = %{name: name, batches: batches}
     :telemetry.execute([:broadway, :batcher, :stop], measurements, metadata)
-
-    {:noreply, batches, state}
   end
 
   @impl true

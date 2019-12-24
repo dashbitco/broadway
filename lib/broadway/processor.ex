@@ -47,9 +47,7 @@ defmodule Broadway.Processor do
   @impl true
   def handle_events(messages, _from, state) do
     start_time = System.monotonic_time()
-    metadata = %{name: state.name, messages: messages}
-    measurements = %{time: start_time}
-    :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
+    emit_start_event(state.name, start_time, messages)
 
     {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
 
@@ -78,8 +76,32 @@ defmodule Broadway.Processor do
         )
     end
 
+    emit_stop_event(
+      state.name,
+      start_time,
+      successful_messages_to_ack,
+      successful_messages_to_forward,
+      failed_messages
+    )
+
+    {:noreply, successful_messages_to_forward, state}
+  end
+
+  defp emit_start_event(name, start_time, messages) do
+    metadata = %{name: name, messages: messages}
+    measurements = %{time: start_time}
+    :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
+  end
+
+  defp emit_stop_event(
+         name,
+         start_time,
+         successful_messages_to_ack,
+         successful_messages_to_forward,
+         failed_messages
+       ) do
     metadata = %{
-      name: state.name,
+      name: name,
       successful_messages_to_ack: successful_messages_to_ack,
       successful_messages_to_forward: successful_messages_to_forward,
       failed_messages: failed_messages
@@ -88,7 +110,6 @@ defmodule Broadway.Processor do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
     :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
-    {:noreply, successful_messages_to_forward, state}
   end
 
   defp handle_messages([message | messages], successful, failed, state) do
