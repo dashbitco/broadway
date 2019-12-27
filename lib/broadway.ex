@@ -424,7 +424,7 @@ defmodule Broadway do
       * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
 
     * `[:broadway, :consumer, :stop]` - Dispatched by a Broadway consumer after your
-    `c:handle_batch/4` callback has returned
+      `c:handle_batch/4` callback has returned
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
 
@@ -447,8 +447,8 @@ defmodule Broadway do
     * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
       handling events
 
-      * Measurement: `%{time: System.monotonic_time., duration: native_time}`
-      * Metadata: `%{name: atom, batches: [{[Broadway.Message.t], Broadway.BatchInfo.t}]}`
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Metadata: `%{name: atom}`
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
