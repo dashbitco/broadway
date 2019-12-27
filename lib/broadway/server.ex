@@ -235,9 +235,10 @@ defmodule Broadway.Server do
     specs =
       for {name, index} <- Enum.with_index(names) do
         start_options = start_options(name, processor_config)
+        args = [name: name, partition: index] ++ args
 
         %{
-          start: {Processor, :start_link, [[partition: index] ++ args, start_options]},
+          start: {Processor, :start_link, [args, start_options]},
           id: name,
           shutdown: shutdown
         }
@@ -287,6 +288,7 @@ defmodule Broadway.Server do
 
     args =
       [
+        name: name,
         resubscribe: :never,
         terminator: terminator,
         batcher: key,
@@ -333,7 +335,7 @@ defmodule Broadway.Server do
         start_options = start_options(name, batcher_config)
 
         %{
-          start: {Consumer, :start_link, [[partition: index] ++ args, start_options]},
+          start: {Consumer, :start_link, [[name: name, partition: index] ++ args, start_options]},
           id: name,
           shutdown: shutdown
         }

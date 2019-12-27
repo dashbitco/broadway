@@ -362,7 +362,7 @@ defmodule Broadway do
           msg.data.user_id
         end
 
-  In the example above, we are partioning the pipeline by `user_id`.
+  In the example above, we are partitioning the pipeline by `user_id`.
   This means any message with the same `user_id` will be handled by
   the same processor and batch processor.
 

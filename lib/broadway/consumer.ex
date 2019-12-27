@@ -21,6 +21,7 @@ defmodule Broadway.Consumer do
     Process.flag(:trap_exit, true)
 
     state = %{
+      name: args[:name],
       module: args[:module],
       context: args[:context]
     }
@@ -37,6 +38,9 @@ defmodule Broadway.Consumer do
   def handle_events(events, _from, state) do
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
+
+    start_time = System.monotonic_time()
+    emit_start_event(state.name, start_time, messages)
 
     {successful_messages, failed_messages, returned} =
       handle_batch(batcher, messages, batch_info, state)
@@ -65,7 +69,26 @@ defmodule Broadway.Consumer do
         )
     end
 
+    emit_stop_event(state.name, start_time, successful_messages, failed_messages)
     {:noreply, [], state}
+  end
+
+  defp emit_start_event(name, start_time, messages) do
+    metadata = %{name: name, messages: messages}
+    measurements = %{time: start_time}
+    :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
+  end
+
+  defp emit_stop_event(name, start_time, successful_messages, failed_messages) do
+    metadata = %{
+      name: name,
+      successful_messages: successful_messages,
+      failed_messages: failed_messages
+    }
+
+    stop_time = System.monotonic_time()
+    measurements = %{time: stop_time, duration: stop_time - start_time}
+    :telemetry.execute([:broadway, :consumer, :stop], measurements, metadata)
   end
 
   defp handle_batch(batcher, messages, batch_info, state) do
