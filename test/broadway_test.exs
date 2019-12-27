@@ -644,15 +644,17 @@ defmodule BroadwayTest do
       assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{events: [_]}}
       assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
 
-      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{}, metadata}
-      assert %{messages: [%{data: 1}, %{data: 2}]} = metadata
-      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{}, metadata}
-      assert [] = metadata.failed_messages
+      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{},
+                      %{messages: [%{data: 1}, %{data: 2}]}}
 
-      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{}, metadata}
-      assert %{messages: [%{data: :fail_batcher}]} = metadata
-      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{}, metadata}
-      assert [%{data: :fail_batcher}] = metadata.failed_messages
+      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{},
+                      %{failed_messages: []}}
+
+      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{},
+                      %{messages: [%{data: :fail_batcher}]}}
+
+      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{},
+                      %{failed_messages: [%{data: :fail_batcher}]}}
     end
   end
 
