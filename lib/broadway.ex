@@ -58,39 +58,8 @@ defmodule Broadway do
       number of requests. See the ":rate_limiting" option for producers in
       `start_link/2`.
 
-    * Statistics/Metrics: Broadway leverages the `:telemetry` library for
-      instrumentation. Broadway currently exposes the following telemetry
-      events:
-
-      * `[:broadway, :batcher, :start]` - Dispatched by Broadway.Consumer before
-        your `handle_batch/4` callback is invoked
-        * Measurement: `%{time: System.monotonic_time}`
-        * Metadata: `%{module: module, batch_info: Broadway.BatchInfo.t}`
-
-      * `[:broadway, :batcher, :stop]` - Dispatched by Broadway.Consumer after your
-        `handle_batch/4` callback has returned
-        * Measurement: `%{duration: native_time}`
-        * Metadata: `%{module: module, batch_info: Broadway.BatchInfo.t}`
-
-      * `[:broadway, :batcher, :error]` - Dispatched by Broadway.Consumer when your
-        `handle_batch/4` callback raises an error
-        * Measurement: `%{duration: native_time}`
-        * Metadata: `%{module: module, batch_info: Broadway.BatchInfo.t, error: Exception.t()}`
-
-      * `[:broadway, :processor, :start]` - Dispatched by Broadway.Processor before
-         your `handle_message/3` callback is invoked
-        * Measurement: `%{time: System.monotonic_time}`
-        * Metadata: `%{module: module, processor_key: atom}`
-
-      * `[:broadway, :processor, :stop]` -  Dispatched by Broadway.Processor after
-        your `handle_message/3` callback has returned
-        * Measurement: `%{duration: native_time}`
-        * Metadata: `%{module: module, processor_key: atom}`
-
-      * `[:broadway, :processor, :error]` -  Dispatched by Broadway.Processor when
-        your `handle_message/3` callback raises an error
-        * Measurement: `%{duration: native_time}`
-        * Metadata: `%{module: module, processor_key: atom, error: Exception.t()}`
+    * Statistics/Metrics - Broadway uses the `:telemetry` library for
+      instrumentation, see "Telemetry" section below for more information.
 
     * Back-off (TODO)
 
@@ -395,7 +364,7 @@ defmodule Broadway do
           msg.data.user_id
         end
 
-  In the example above, we are partioning the pipeline by `user_id`.
+  In the example above, we are partitioning the pipeline by `user_id`.
   This means any message with the same `user_id` will be handled by
   the same processor and batch processor.
 
@@ -421,6 +390,65 @@ defmodule Broadway do
   order. Those issues happens regardless of Broadway and solutions
   to said problems almost always need to be addressed outside of
   Broadway too.
+
+  ## Telemetry
+
+  Broadway currently exposes following Telemetry events:
+
+    * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor before your
+      `c:handle_message/3` callback is invoked
+
+      * Measurement: `%{time: System.monotonic_time}`
+      * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
+
+    * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor after
+      your `c:handle_message/3` callback has returned
+
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+
+      * Metadata:
+
+        ```
+        %{
+          name: atom,
+          successful_messages_to_ack: [Broadway.Message.t],
+          successful_messages_to_forward: [Broadway.Message.t],
+          failed_messages: [Broadway.Message.t]
+        }
+        ```
+
+    * `[:broadway, :consumer, :start]` - Dispatched by a Broadway consumer before your
+      `c:handle_batch/4` callback is invoked
+
+      * Measurement: `%{time: System.monotonic_time}`
+      * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
+
+    * `[:broadway, :consumer, :stop]` - Dispatched by a Broadway consumer after your
+      `c:handle_batch/4` callback has returned
+
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+
+      * Metadata:
+
+        ```
+        %{
+          name: atom,
+          successful_messages: [Broadway.Message.t],
+          failed_messages: [Broadway.Message.t]
+        }
+        ```
+
+    * `[:broadway, :batcher, :start]` - Dispatched by a Broadway batcher before
+      handling events
+
+      * Measurement: `%{time: System.monotonic_time}`
+      * Metadata: `%{name: atom, events: [{Broadway.Message.t}]}`
+
+    * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
+      handling events
+
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Metadata: `%{name: atom}`
   """
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
