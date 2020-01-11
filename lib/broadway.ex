@@ -414,13 +414,13 @@ defmodule Broadway do
       * Metadata:
 
         ```
-          %{
-            name: atom,
-            message: Broadway.Message.t,
-            module: module,
-            processor: atom,
-            error: Exception.t
-          }
+        %{
+          name: atom,
+          message: Broadway.Message.t,
+          module: module,
+          processor: atom,
+          error: Exception.t
+        }
         ```
 
     * `[:broadway, :consumer, :start]` - Dispatched by a Broadway consumer before your
@@ -430,12 +430,12 @@ defmodule Broadway do
       * Metadata:
 
         ```
-          %{
-            name: atom,
-            messages: [Broadway.Message.t],
-            module: module,
-            batch_info: Broadway.BatchInfo.t
-          }
+        %{
+          name: atom,
+          messages: [Broadway.Message.t],
+          module: module,
+          batch_info: Broadway.BatchInfo.t
+        }
         ```
 
     * `[:broadway, :consumer, :stop]` - Dispatched by a Broadway consumer after your
@@ -445,12 +445,12 @@ defmodule Broadway do
       * Metadata:
 
         ```
-          %{
-            name: atom,
-            messages: [Broadway.Message.t],
-            module: module,
-            batch_info: Broadway.BatchInfo.t
-          }
+        %{
+          name: atom,
+          messages: [Broadway.Message.t],
+          module: module,
+          batch_info: Broadway.BatchInfo.t
+        }
         ```
 
     * `[:broadway, :consumer, :error]` - Dispatched by a Broadway consumer if your
@@ -460,13 +460,13 @@ defmodule Broadway do
       * Metadata:
 
         ```
-          %{
-            name: atom,
-            module: module(),
-            messages: [Broadway.Message.t],
-            batch_info: Broadway.BatchInfo.t,
-            error: Exception.t
-          }
+        %{
+          name: atom,
+          module: module(),
+          messages: [Broadway.Message.t],
+          batch_info: Broadway.BatchInfo.t,
+          error: Exception.t
+        }
         ```
 
     * `[:broadway, :batcher, :start]` - Dispatched by a Broadway batcher before

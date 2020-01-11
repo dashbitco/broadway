@@ -65,7 +65,7 @@ defmodule Broadway.Batcher do
 
   defp emit_stop_event(name, start_time) do
     stop_time = System.monotonic_time()
-    measurements = %{duration: stop_time - start_time}
+    measurements = %{time: stop_time, duration: stop_time - start_time}
     metadata = %{name: name}
 
     :telemetry.execute([:broadway, :batcher, :stop], measurements, metadata)
