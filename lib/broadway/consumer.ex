@@ -39,9 +39,6 @@ defmodule Broadway.Consumer do
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
 
-    start_time = System.monotonic_time()
-    emit_start_event(state.name, start_time, messages)
-
     {successful_messages, failed_messages, returned} =
       handle_batch(batcher, messages, batch_info, state)
 
@@ -69,56 +66,35 @@ defmodule Broadway.Consumer do
         )
     end
 
-    emit_stop_event(state.name, start_time, successful_messages, failed_messages)
     {:noreply, [], state}
-  end
-
-  defp emit_start_event(name, start_time, messages) do
-    metadata = %{name: name, messages: messages}
-    measurements = %{time: start_time}
-    :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
-  end
-
-  defp emit_stop_event(name, start_time, successful_messages, failed_messages) do
-    metadata = %{
-      name: name,
-      successful_messages: successful_messages,
-      failed_messages: failed_messages
-    }
-
-    stop_time = System.monotonic_time()
-    measurements = %{time: stop_time, duration: stop_time - start_time}
-    :telemetry.execute([:broadway, :consumer, :stop], measurements, metadata)
   end
 
   defp handle_batch(batcher, messages, batch_info, state) do
     %{module: module, context: context} = state
     start_time = System.monotonic_time()
-    telemetry_metadata = %{module: module, batch_info: batch_info}
+
+    telemetry_metadata = %{
+      module: module,
+      batch_info: batch_info,
+      name: state.name,
+      messages: messages
+    }
 
     try do
-      :telemetry.execute([:broadway, :batcher, :start], %{time: start_time}, telemetry_metadata)
+      emit_start_event(start_time, telemetry_metadata)
 
       handle_result =
         module.handle_batch(batcher, messages, batch_info, context)
         |> split_by_status([], [], 0)
 
-      :telemetry.execute(
-        [:broadway, :batcher, :stop],
-        %{duration: duration(start_time)},
-        telemetry_metadata
-      )
+      emit_stop_event(start_time, telemetry_metadata)
 
       handle_result
     catch
       kind, reason ->
         reason = Exception.normalize(kind, reason, __STACKTRACE__)
 
-        :telemetry.execute(
-          [:broadway, :batcher, :error],
-          %{duration: duration(start_time)},
-          Map.put(telemetry_metadata, :error, reason)
-        )
+        emit_error_event(start_time, telemetry_metadata, reason)
 
         Logger.error(Exception.format(kind, reason, __STACKTRACE__),
           crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
@@ -127,6 +103,25 @@ defmodule Broadway.Consumer do
         messages = Enum.map(messages, &%{&1 | status: {kind, reason, __STACKTRACE__}})
         {[], messages, batch_info.size}
     end
+  end
+
+  defp emit_start_event(start_time, metadata) do
+    measurements = %{time: start_time}
+
+    :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
+  end
+
+  defp emit_stop_event(start_time, metadata) do
+    measurements = %{duration: duration(start_time)}
+
+    :telemetry.execute([:broadway, :consumer, :stop], measurements, metadata)
+  end
+
+  defp emit_error_event(start_time, metadata, error_reason) do
+    measurements = %{duration: duration(start_time)}
+    metadata_with_error = Map.put(metadata, :error, error_reason)
+
+    :telemetry.execute([:broadway, :consumer, :error], measurements, metadata_with_error)
   end
 
   defp duration(start_time) do

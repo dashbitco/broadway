@@ -46,9 +46,6 @@ defmodule Broadway.Processor do
 
   @impl true
   def handle_events(messages, _from, state) do
-    start_time = System.monotonic_time()
-    emit_start_event(state.name, start_time, messages)
-
     {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
 
     {successful_messages_to_forward, successful_messages_to_ack} =
@@ -76,40 +73,7 @@ defmodule Broadway.Processor do
         )
     end
 
-    emit_stop_event(
-      state.name,
-      start_time,
-      successful_messages_to_ack,
-      successful_messages_to_forward,
-      failed_messages
-    )
-
     {:noreply, successful_messages_to_forward, state}
-  end
-
-  defp emit_start_event(name, start_time, messages) do
-    metadata = %{name: name, messages: messages}
-    measurements = %{time: start_time}
-    :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
-  end
-
-  defp emit_stop_event(
-         name,
-         start_time,
-         successful_messages_to_ack,
-         successful_messages_to_forward,
-         failed_messages
-       ) do
-    metadata = %{
-      name: name,
-      successful_messages_to_ack: successful_messages_to_ack,
-      successful_messages_to_forward: successful_messages_to_forward,
-      failed_messages: failed_messages
-    }
-
-    stop_time = System.monotonic_time()
-    measurements = %{time: stop_time, duration: stop_time - start_time}
-    :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
   end
 
   defp handle_messages([message | messages], successful, failed, state) do
@@ -117,35 +81,34 @@ defmodule Broadway.Processor do
       module: module,
       context: context,
       processor_key: processor_key,
-      batchers: batchers
+      batchers: batchers,
+      name: name
     } = state
 
     start_time = System.monotonic_time()
-    telemetry_metadata = %{module: module, processor_key: processor_key}
+
+    telemetry_metadata = %{
+      module: module,
+      processor_key: processor_key,
+      name: name,
+      message: message
+    }
 
     try do
-      :telemetry.execute([:broadway, :processor, :start], %{time: start_time}, telemetry_metadata)
+      emit_start_event(start_time, telemetry_metadata)
 
       handle_result =
         module.handle_message(processor_key, message, context)
         |> validate_message(batchers)
 
-      :telemetry.execute(
-        [:broadway, :processor, :stop],
-        %{duration: duration(start_time)},
-        telemetry_metadata
-      )
+      emit_stop_event(start_time, telemetry_metadata)
 
       handle_result
     catch
       kind, reason ->
         reason = Exception.normalize(kind, reason, __STACKTRACE__)
 
-        :telemetry.execute(
-          [:broadway, :processor, :error],
-          %{duration: duration(start_time)},
-          Map.put(telemetry_metadata, :error, reason)
-        )
+        emit_error_event(start_time, telemetry_metadata, reason)
 
         Logger.error(Exception.format(kind, reason, __STACKTRACE__),
           crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
@@ -162,12 +125,27 @@ defmodule Broadway.Processor do
     end
   end
 
-  defp duration(start_time) do
-    duration = System.monotonic_time() - start_time
-  end
-
   defp handle_messages([], successful, failed, _state) do
     {Enum.reverse(successful), Enum.reverse(failed)}
+  end
+
+  defp emit_start_event(start_time, metadata) do
+    :telemetry.execute([:broadway, :processor, :start], %{time: start_time}, metadata)
+  end
+
+  defp emit_stop_event(start_time, metadata) do
+    stop_time = System.monotonic_time()
+    measurements = %{time: stop_time, duration: stop_time - start_time}
+
+    :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
+  end
+
+  def emit_error_event(start_time, metadata, error_reason) do
+    stop_time = System.monotonic_time()
+    measurements = %{time: stop_time, duration: stop_time - start_time}
+    metadata_with_error = Map.put(metadata, :error, error_reason)
+
+    :telemetry.execute([:broadway, :processor, :error], measurements, metadata_with_error)
   end
 
   defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do

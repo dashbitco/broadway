@@ -399,50 +399,81 @@ defmodule Broadway do
       `c:handle_message/3` callback is invoked
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
+      * Metadata: `%{name: atom, message: t:Broadway.Message.t, module: module, processor: atom}`
 
     * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor after
       your `c:handle_message/3` callback has returned
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Metadata: `%{name: atom, message: t:Broadway.Message.t, module: module, processor: atom}`
 
+    * `[:broadway, :processor, :error]` -  Dispatched by a Broadway processor if
+      your `c:handle_message/3` callback encounters an error
+
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
       * Metadata:
 
         ```
-        %{
-          name: atom,
-          successful_messages_to_ack: [Broadway.Message.t],
-          successful_messages_to_forward: [Broadway.Message.t],
-          failed_messages: [Broadway.Message.t]
-        }
+          %{
+            name: atom,
+            message: Broadway.Message.t,
+            module: module,
+            processor: atom,
+            error: t:Exception.t
+          }
         ```
 
     * `[:broadway, :consumer, :start]` - Dispatched by a Broadway consumer before your
       `c:handle_batch/4` callback is invoked
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
+      * Metadata:
+
+        ```
+          %{
+            name: atom,
+            messages: [t:Broadway.Message.t],
+            module: module,
+            batch_info: t:Broadway.BatchInfo.t
+          }
+        ```
 
     * `[:broadway, :consumer, :stop]` - Dispatched by a Broadway consumer after your
       `c:handle_batch/4` callback has returned
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
-
       * Metadata:
 
         ```
-        %{
-          name: atom,
-          successful_messages: [Broadway.Message.t],
-          failed_messages: [Broadway.Message.t]
-        }
+          %{
+            name: atom,
+            messages: [t:Broadway.Message.t],
+            module: module,
+            batch_info: t:Broadway.BatchInfo.t
+          }
+        ```
+
+    * `[:broadway, :consumer, :error]` - Dispatched by a Broadway consumer if your
+      `c:handle_batch/4` callback encounters an error
+
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Metadata:
+
+        ```
+          %{
+            name: atom,
+            module: module(),
+            messages: [t:Broadway.Message.t],
+            batch_info: t:Broadway.BatchInfo.t,
+            error: t:Exception.t
+          }
         ```
 
     * `[:broadway, :batcher, :start]` - Dispatched by a Broadway batcher before
       handling events
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, events: [{Broadway.Message.t}]}`
+      * Metadata: `%{name: atom, events: [{t:Broadway.Message.t}]}`
 
     * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
       handling events
