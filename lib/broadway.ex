@@ -399,13 +399,13 @@ defmodule Broadway do
       `c:handle_message/3` callback is invoked
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, message: t:Broadway.Message.t, module: module, processor: atom}`
+      * Metadata: `%{name: atom, message: Broadway.Message.t, module: module, processor: atom}`
 
     * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor after
       your `c:handle_message/3` callback has returned
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
-      * Metadata: `%{name: atom, message: t:Broadway.Message.t, module: module, processor: atom}`
+      * Metadata: `%{name: atom, message: Broadway.Message.t, module: module, processor: atom}`
 
     * `[:broadway, :processor, :error]` -  Dispatched by a Broadway processor if
       your `c:handle_message/3` callback encounters an error
@@ -419,7 +419,7 @@ defmodule Broadway do
             message: Broadway.Message.t,
             module: module,
             processor: atom,
-            error: t:Exception.t
+            error: Exception.t
           }
         ```
 
@@ -432,9 +432,9 @@ defmodule Broadway do
         ```
           %{
             name: atom,
-            messages: [t:Broadway.Message.t],
+            messages: [Broadway.Message.t],
             module: module,
-            batch_info: t:Broadway.BatchInfo.t
+            batch_info: Broadway.BatchInfo.t
           }
         ```
 
@@ -447,9 +447,9 @@ defmodule Broadway do
         ```
           %{
             name: atom,
-            messages: [t:Broadway.Message.t],
+            messages: [Broadway.Message.t],
             module: module,
-            batch_info: t:Broadway.BatchInfo.t
+            batch_info: Broadway.BatchInfo.t
           }
         ```
 
@@ -463,9 +463,9 @@ defmodule Broadway do
           %{
             name: atom,
             module: module(),
-            messages: [t:Broadway.Message.t],
-            batch_info: t:Broadway.BatchInfo.t,
-            error: t:Exception.t
+            messages: [Broadway.Message.t],
+            batch_info: Broadway.BatchInfo.t,
+            error: Exception.t
           }
         ```
 
@@ -473,7 +473,7 @@ defmodule Broadway do
       handling events
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, events: [{t:Broadway.Message.t}]}`
+      * Metadata: `%{name: atom, events: [{Broadway.Message.t}]}`
 
     * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
       handling events
