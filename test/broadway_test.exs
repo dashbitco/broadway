@@ -645,16 +645,16 @@ defmodule BroadwayTest do
       assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
 
       assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{},
-                      %{messages: [%{data: 1}, %{data: 2}]}}
+                      %{messages: [%{data: 1}, %{data: 2}], batch_info: %BatchInfo{}}}
 
       assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{},
-                      %{failed_messages: []}}
+                      %{failed_messages: [], batch_info: %BatchInfo{}}}
 
       assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{},
-                      %{messages: [%{data: :fail_batcher}]}}
+                      %{messages: [%{data: :fail_batcher}], batch_info: %BatchInfo{}}}
 
       assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{},
-                      %{failed_messages: [%{data: :fail_batcher}]}}
+                      %{failed_messages: [%{data: :fail_batcher}], batch_info: %BatchInfo{}}}
     end
   end
 
