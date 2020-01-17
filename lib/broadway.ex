@@ -395,14 +395,15 @@ defmodule Broadway do
 
   Broadway currently exposes following Telemetry events:
 
-    * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor before your
-      `c:handle_message/3` callback is invoked
+    * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor when
+       the internal GenStage `handle_events/3` callback is invoked
 
       * Measurement: `%{time: System.monotonic_time}`
       * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
 
-    * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor after
-      your `c:handle_message/3` callback has returned
+    * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor when
+      the internal GenStage `handle_events/3` callback has completed processing
+      all the individual messages
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
 
@@ -417,11 +418,68 @@ defmodule Broadway do
         }
         ```
 
+    * `[:broadway, :processor, :message, :start]` - Dispatched by a Broadway processor
+      before your `c:handle_message/3` callback is invoked
+
+      * Measurement: `%{time: System.monotonic_time}`
+
+      * Metadata:
+
+        ```
+        %{
+          processor_key: atom,
+          name: atom,
+          message: Broadway.Message.t
+        }
+        ```
+
+    * `[:broadway, :processor, :message, :stop]` - Dispatched by a Broadway processor
+      after your `c:handle_message/3` callback has returned
+
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+
+      * Metadata:
+
+        ```
+        %{
+          processor_key: atom,
+          name: atom,
+          message: Broadway.Message.t,
+          updated_message: Broadway.Message.t
+        }
+        ```
+
+    * `[:broadway, :processor, :message, :error]` - Dispatched by a Broadway processor
+      if your `c:handle_message/3` callback encounters an error
+
+      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+
+      * Metadata:
+
+        ```
+        %{
+          processor_key: atom,
+          name: atom,
+          message: Broadway.Message.t,
+          kind: kind,
+          reason: reason,
+          stacktrace: stacktrace
+        }
+        ```
+
     * `[:broadway, :consumer, :start]` - Dispatched by a Broadway consumer before your
       `c:handle_batch/4` callback is invoked
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
+      * Metadata:
+
+        ```
+        %{
+          name: atom,
+          messages: [Broadway.Message.t],
+          batch_info: Broadway.BatchInfo.t
+        }
+        ```
 
     * `[:broadway, :consumer, :stop]` - Dispatched by a Broadway consumer after your
       `c:handle_batch/4` callback has returned
@@ -434,7 +492,8 @@ defmodule Broadway do
         %{
           name: atom,
           successful_messages: [Broadway.Message.t],
-          failed_messages: [Broadway.Message.t]
+          failed_messages: [Broadway.Message.t],
+          batch_info: Broadway.BatchInfo.t
         }
         ```
 
