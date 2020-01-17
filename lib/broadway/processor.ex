@@ -181,13 +181,21 @@ defmodule Broadway.Processor do
     metadata = %{
       processor_key: processor_key,
       name: name,
-      message: message,
+      message: message
     }
 
     :telemetry.execute([:broadway, :processor, :message, :stop], measurements, metadata)
   end
 
-  defp emit_message_error_event(start_time, processor_key, name, message, kind, reason, stacktrace) do
+  defp emit_message_error_event(
+         start_time,
+         processor_key,
+         name,
+         message,
+         kind,
+         reason,
+         stacktrace
+       ) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
 
