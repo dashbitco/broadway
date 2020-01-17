@@ -168,29 +168,34 @@ defmodule Broadway.Processor do
     :telemetry.execute([:broadway, :processor, :message, :start], %{time: start_time}, metadata)
   end
 
-  defp emit_message_stop_event(start_time, metadata, handle_message_result) do
+  defp emit_message_stop_event(start_time, base_metadata, handle_message_result) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
-    updated_metadata = Map.put(metadata, :updated_message, handle_message_result)
 
-    :telemetry.execute([:broadway, :processor, :message, :stop], measurements, updated_metadata)
+    metadata = %{
+      processor_key: base_metadata.processor_key,
+      name: base_metadata.name,
+      message: base_metadata.message,
+      updated_message: handle_message_result
+    }
+
+    :telemetry.execute([:broadway, :processor, :message, :stop], measurements, metadata)
   end
 
-  defp emit_message_error_event(start_time, metadata, kind, reason, stacktrace) do
+  defp emit_message_error_event(start_time, base_metadata, kind, reason, stacktrace) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
 
-    metadata_with_error =
-      metadata
-      |> Map.put(:error_kind, kind)
-      |> Map.put(:error_reason, reason)
-      |> Map.put(:error_stacktrace, stacktrace)
+    metadata = %{
+      processor_key: base_metadata.processor_key,
+      name: base_metadata.name,
+      message: base_metadata.message,
+      kind: kind,
+      reason: reason,
+      stacktrace: stacktrace
+    }
 
-    :telemetry.execute(
-      [:broadway, :processor, :message, :error],
-      measurements,
-      metadata_with_error
-    )
+    :telemetry.execute([:broadway, :processor, :message, :error], measurements, metadata)
   end
 
   defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do
