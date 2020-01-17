@@ -136,14 +136,14 @@ defmodule Broadway.Processor do
         module.handle_message(processor_key, message, context)
         |> validate_message(batchers)
 
-      emit_message_stop_event(start_time, telemetry_metadata)
+      emit_message_stop_event(start_time, telemetry_metadata, handle_message_result)
 
       handle_message_result
     catch
       kind, reason ->
         reason = Exception.normalize(kind, reason, __STACKTRACE__)
 
-        emit_message_error_event(start_time, telemetry_metadata, reason)
+        emit_message_error_event(start_time, telemetry_metadata, kind, reason, __STACKTRACE__)
 
         Logger.error(Exception.format(kind, reason, __STACKTRACE__),
           crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
@@ -168,17 +168,23 @@ defmodule Broadway.Processor do
     :telemetry.execute([:broadway, :processor, :message, :start], %{time: start_time}, metadata)
   end
 
-  defp emit_message_stop_event(start_time, metadata) do
+  defp emit_message_stop_event(start_time, metadata, handle_message_result) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
+    updated_metadata = Map.put(metadata, :updated_message, handle_message_result)
 
-    :telemetry.execute([:broadway, :processor, :message, :stop], measurements, metadata)
+    :telemetry.execute([:broadway, :processor, :message, :stop], measurements, updated_metadata)
   end
 
-  defp emit_message_error_event(start_time, metadata, error_reason) do
+  defp emit_message_error_event(start_time, metadata, kind, reason, stacktrace) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
-    metadata_with_error = Map.put(metadata, :error, error_reason)
+
+    metadata_with_error =
+      metadata
+      |> Map.put(:error_kind, kind)
+      |> Map.put(:error_reason, reason)
+      |> Map.put(:error_stacktrace, stacktrace)
 
     :telemetry.execute(
       [:broadway, :processor, :message, :error],
