@@ -36,7 +36,7 @@ defmodule Broadway.MixProject do
     [
       main: "Broadway",
       source_ref: "v#{@version}",
-      source_url: "https://github.com/plataformatec/broadway",
+      source_url: "https://github.com/dashbitco/broadway",
       extra_section: "Guides",
       extras: [
         "guides/examples/Amazon SQS.md",
@@ -73,7 +73,7 @@ defmodule Broadway.MixProject do
     %{
       licenses: ["Apache-2.0"],
       maintainers: ["Marlus Saraiva", "José Valim"],
-      links: %{"GitHub" => "https://github.com/plataformatec/broadway"}
+      links: %{"GitHub" => "https://github.com/dashbitco/broadway"}
     }
   end
 end

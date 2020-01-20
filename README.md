@@ -38,15 +38,15 @@ end
 
 Currently we officially support three Broadway producers:
 
-  * Amazon SQS: [Source](https://github.com/plataformatec/broadway_sqs) - [Guide](https://hexdocs.pm/broadway/amazon-sqs.html)
-  * Google Cloud Pub/Sub: [Source](https://github.com/plataformatec/broadway_cloud_pub_sub) - [Guide](https://hexdocs.pm/broadway/google-cloud-pubsub.html)
-  * RabbitMQ: [Source](https://github.com/plataformatec/broadway_rabbitmq) - [Guide](https://hexdocs.pm/broadway/rabbitmq.html)
+  * Amazon SQS: [Source](https://github.com/dashbitco/broadway_sqs) - [Guide](https://hexdocs.pm/broadway/amazon-sqs.html)
+  * Google Cloud Pub/Sub: [Source](https://github.com/dashbitco/broadway_cloud_pub_sub) - [Guide](https://hexdocs.pm/broadway/google-cloud-pubsub.html)
+  * RabbitMQ: [Source](https://github.com/dashbitco/broadway_rabbitmq) - [Guide](https://hexdocs.pm/broadway/rabbitmq.html)
 
 More producers are on the way.
 
 ### A quick example: SQS integration
 
-Assuming you have added [`broadway_sqs`](https://github.com/plataformatec/broadway_sqs) as a dependency and configured your SQS credentials accordingly, you can consume Amazon SQS events in only 20 LOCs:
+Assuming you have added [`broadway_sqs`](https://github.com/dashbitco/broadway_sqs) as a dependency and configured your SQS credentials accordingly, you can consume Amazon SQS events in only 20 LOCs:
 
 ```elixir
 defmodule MyBroadway do
@@ -98,11 +98,12 @@ The following Off-Broadway libraries are available (feel free to send a PR addin
 
 ## Comparison to Flow
 
-You may also be interested in [Flow by Plataformatec](https://github.com/plataformatec/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway focuses on events and on operational features, such as metrics, automatic acknowledgements, failure handling, and so on.
+You may also be interested in [Flow by Dashbit](https://github.com/dashbitco/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway focuses on events and on operational features, such as metrics, automatic acknowledgements, failure handling, and so on.
 
 ## License
 
 Copyright 2019 Plataformatec
+Copyright 2020 Dashbit
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

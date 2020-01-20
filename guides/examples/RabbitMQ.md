@@ -49,8 +49,8 @@ my_queue	0
 
 ## Configure the project
 
-In this guide, we're going to use [BroadwayRabbitMQ](https://github.com/plataformatec/broadway_rabbitmq),
-which is a Broadway RabbitMQ Connector provided by [Plataformatec](http://www.plataformatec.com).
+In this guide, we're going to use [BroadwayRabbitMQ](https://github.com/dashbitco/broadway_rabbitmq),
+which is a Broadway RabbitMQ Connector provided by [Dashbit](https://dashbit.co/).
 
 ### Starting a new project
 

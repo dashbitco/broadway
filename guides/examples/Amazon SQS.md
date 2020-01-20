@@ -38,8 +38,8 @@ which is a message queue system that offers a SQS-compatible query interface.
 
 ## Configure the project
 
-In this guide we're going to use [BroadwaySQS](https://github.com/plataformatec/broadway_sqs),
-which is a Broadway SQS Connector provided by [Plataformatec](http://www.plataformatec.com).
+In this guide we're going to use [BroadwaySQS](https://github.com/dashbitco/broadway_sqs),
+which is a Broadway SQS Connector provided by [Dashbit](https://dashbit.co/).
 
 ### Starting a new project
 

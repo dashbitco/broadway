@@ -27,8 +27,8 @@ initializing Kafka, you can create a new stream by running:
 ## Configure your Elixir project to use Broadway
 
 This guide describes the steps necessary to integrate Broadway with Kafka using
-[BroadwayKafka](https://github.com/plataformatec/broadway_kafka),
-which is a Broadway Kafka Connector provided by [Plataformatec](http://www.plataformatec.com).
+[BroadwayKafka](https://github.com/dashbitco/broadway_kafka),
+which is a Broadway Kafka Connector provided by [Dashbit](https://dashbit.co/).
 
 BroadwayKafka can subscribe to one or more topics and process streams of records
 using Kafka's [Consumer API](https://kafka.apache.org/documentation.html#consumerapi).

@@ -86,8 +86,8 @@ Finally, we need to enable Pub/Sub for our project:
 
 ## Configure the project
 
-In this guide we're going to use [BroadwayCloudPubSub](https://github.com/plataformatec/broadway_cloud_pub_sub),
-which is a Broadway Cloud Pub/Sub Connector provided by [Plataformatec](http://www.plataformatec.com).
+In this guide we're going to use [BroadwayCloudPubSub](https://github.com/dashbitco/broadway_cloud_pub_sub),
+which is a Broadway Cloud Pub/Sub Connector provided by [Dashbit](https://dashbit.co/).
 
 ### Starting a new project
 
