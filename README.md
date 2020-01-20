@@ -102,7 +102,7 @@ You may also be interested in [Flow by Dashbit](https://github.com/dashbitco/flo
 
 ## License
 
-Copyright 2019 Plataformatec
+Copyright 2019 Plataformatec\
 Copyright 2020 Dashbit
 
 Licensed under the Apache License, Version 2.0 (the "License");
