@@ -2107,7 +2107,7 @@ defmodule BroadwayTest do
       assert timestamp3 < timestamp_cancel
     end
 
-    test "updating the rate limit at runtime" do
+    test "getting and updating the rate limit at runtime" do
       broadway_name = new_unique_name()
       test_pid = self()
 
@@ -2128,6 +2128,8 @@ defmodule BroadwayTest do
           context: %{handle_message: handle_message}
         )
 
+      assert Broadway.get_rate_limiting(broadway) == {:ok, %{allowed_messages: 1, interval: 5000}}
+
       send(
         get_producer(broadway_name),
         {:push_messages,
@@ -2144,6 +2146,7 @@ defmodule BroadwayTest do
       refute_received {:handle_message_called, _message, _timestamp}
 
       assert :ok = Broadway.update_rate_limiting(broadway, allowed_messages: 3)
+      assert Broadway.get_rate_limiting(broadway) == {:ok, %{allowed_messages: 3, interval: 5000}}
 
       send(get_rate_limiter(broadway_name), :reset_limit)
 
