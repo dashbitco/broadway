@@ -926,6 +926,38 @@ defmodule Broadway do
   end
 
   @doc """
+  Gets the current values used for the producer rate limiting of the given pipeline.
+
+  Returns `{:ok, info}` if rate limiting is enabled for the given pipeline or
+  `{:error, reason}` if the given pipeline doesn't have rate limiting enabled.
+
+  The returned info is a map with the following keys:
+
+    * `:interval`
+    * `:allowed_messages`
+
+  See the `:rate_limiting` options in the module documentation for more information.
+
+  ## Examples
+
+      Broadway.get_rate_limiting(broadway)
+      #=> {:ok, %{allowed_messages: 2000, interval: 1000}}
+
+  """
+  @doc since: "0.6.0"
+  @spec get_rate_limiting(GenServer.server()) ::
+          {:ok, rate_limiting_info} | {:error, :rate_limiting_not_enabled}
+        when rate_limiting_info: %{
+               required(:interval) => non_neg_integer(),
+               required(:allowed_messages) => non_neg_integer()
+             }
+  def get_rate_limiting(broadway) do
+    with {:ok, rate_limiter_name} <- Server.get_rate_limiter(broadway) do
+      {:ok, Broadway.RateLimiter.get_rate_limiting(rate_limiter_name)}
+    end
+  end
+
+  @doc """
   Updates the producer rate limiting of the given pipeline at runtime.
 
   Supports the following options (see the `:rate_limiting` options in the module

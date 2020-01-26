@@ -37,6 +37,10 @@ defmodule Broadway.RateLimiter do
     GenServer.call(rate_limiter, {:update_rate_limiting, opts})
   end
 
+  def get_rate_limiting(rate_limiter) do
+    GenServer.call(rate_limiter, :get_rate_limiting)
+  end
+
   @impl true
   def init({broadway_name, rate_limiting_opts, producers_names}) do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
@@ -68,6 +72,11 @@ defmodule Broadway.RateLimiter do
     }
 
     {:reply, :ok, state}
+  end
+
+  def handle_call(:get_rate_limiting, _from, state) do
+    %{interval: interval, allowed: allowed} = state
+    {:reply, %{interval: interval, allowed_messages: allowed}, state}
   end
 
   @impl true
