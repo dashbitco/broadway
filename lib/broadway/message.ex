@@ -1,15 +1,15 @@
 defmodule Broadway.Message do
   @moduledoc """
-  A struct that holds all information about a message.
+  This struct holds all information about a message.
 
-  A message is first created by the producers. Once created,
-  the message is sent downstream and gets updated multiple
-  times, either by the module implementing the `Broadway`
-  behaviour through the `c:Broadway.handle_message/3` callback
-  or internaly by one of the built-in stages of Broadway.
+  A message is first created by the producers. It is then
+  sent downstream and gets updated multiple times, either
+  by a module implementing the `Broadway` behaviour
+  through the `c:Broadway.handle_message/3` callback
+  or internally by one of the built-in stages of Broadway.
 
-  In order to manipulate a message, you should use one of
-  the imported functions provided by this module.
+  Instead of modifying the struct directly, you should use the functions
+  provided by this module to manipulate messages.
   """
 
   alias __MODULE__, as: Message
@@ -38,10 +38,10 @@ defmodule Broadway.Message do
             status: :ok
 
   @doc """
-  Updates the data from a message.
+  Updates the data in a message.
 
-  This function is usually used inside the `handle_message/3` implementation
-  in order to replace the data with the new processed data.
+  This function is usually used inside the `c:Broadway.handle_message/3` implementation
+  to replace data with new processed data.
   """
   @spec update_data(message :: Message.t(), fun :: (term -> term)) :: Message.t()
   def update_data(%Message{} = message, fun) when is_function(fun, 1) do
@@ -57,10 +57,10 @@ defmodule Broadway.Message do
   end
 
   @doc """
-  Defines the batch key within a batcher for the message.
+  Defines the message batch key.
 
-  Inside each batcher, we attempt to build `batch_size`
-  within `batch_timeout` for each `batch_key`.
+  Batcher functions then attempt to create batches with the same `batch_key`,
+  of size `batch_size` within period `batch_timeout`.
   """
   @spec put_batch_key(message :: Message.t(), batch_key :: term) :: Message.t()
   def put_batch_key(%Message{} = message, batch_key) do
@@ -71,11 +71,11 @@ defmodule Broadway.Message do
   Sets the batching mode for the message.
 
   When the mode is `:bulk`, the batch that the message is in is delivered after
-  the batch size or the batch timeout is reached.
+  the batch size or batch timeout is reached.
 
   When the mode is `:flush`, the batch that the message is in is delivered
   immediately after processing. Note it doesn't mean the batch contains only a single element
-  but rather that all messages receives from the processor are delivered without waiting.
+  but rather that all messages received from the processor are delivered without waiting.
 
   The default mode for messages is `:bulk`.
   """
@@ -120,7 +120,7 @@ defmodule Broadway.Message do
   Immediately acknowledges the given message or list of messages.
 
   This function can be used to acknowledge a message (or list of messages)
-  immediately withouth waiting for the rest of the pipeline.
+  immediately without waiting for the rest of the pipeline.
 
   Acknowledging a message sets that message's acknowledger to a no-op
   acknowledger so that it's safe to ack at the end of the pipeline.
