@@ -127,9 +127,9 @@ For a full list of options for `BroadwaySQS.Producer`, please see
 For general information about setting up Broadway, see `Broadway`
 module docs as well as `Broadway.start_link/2`.
 
-> Note: Even though batching is optional since Broadway v0.2, we recommend all Amazon SQS
-> pipelines to have at least a default batcher, as that allows you to control the exact batch
-> size and frequency that messages are acknowledged to Amazon SQS, which often leads to
+> Note: Even though batching is optional since Broadway v0.2, we recommend that all Amazon SQS
+> pipelines have at least a default batcher. This lets you control the exact batch
+> size and frequency that messages are acknowledged to Amazon SQS, often leading to
 > pipelines that are more cost and time efficient.
 
 ## Implement Broadway callbacks

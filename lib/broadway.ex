@@ -38,10 +38,10 @@ defmodule Broadway do
       event was properly processed.
 
     * Custom failure handling - Broadway provides a `c:handle_failed/2` callback
-      where developers can outline custom code to handle with errors. For example,
+      where developers can outline custom code to handle errors. For example,
       if they want to move messages to another queue for further processing.
 
-    * Dynamic batching  - Broadway allows developers to batch messages based on
+    * Dynamic batching - Broadway allows developers to batch messages based on
       custom criteria. For example, if your pipeline needs to build
       batches based on the `user_id`, email address, etc, it can be done
       by calling `Broadway.Message.put_batch_key/2`.
@@ -72,7 +72,7 @@ defmodule Broadway do
 
   ### Example
 
-  Like any other process-based behaviour, you can start your Broadway
+  Like any other process-based behaviour, start your Broadway
   process by defining a module that invokes `use Broadway` and has a
   `start_link` function:
 
@@ -106,8 +106,8 @@ defmodule Broadway do
 
   The configuration above defines a pipeline with:
 
-    * 1 producer
-    * 2 processors
+    * One producer
+    * Two processors
 
   Here is how this pipeline would be represented:
 
@@ -120,8 +120,8 @@ defmodule Broadway do
                [processor_1] [processor_2]   <- process each message
   ```
 
-  After the pipeline is defined, you need to implement `c:handle_message/3`,
-  which will be invoked by processors for each message.
+  After the pipeline is defined, you need to implement the `c:handle_message/3`
+  callback which will be invoked by processors for each message.
 
   `c:handle_message/3` receives every message as a `Broadway.Message`
   struct and it must return an updated message.
@@ -130,13 +130,12 @@ defmodule Broadway do
 
   Depending on the scenario, you may want to group processed messages as
   batches before publishing your data. This is common and especially
-  important when working with services like AWS S3 and SQS that provide
+  important when working with services like AWS S3 and SQS that provide a
   specific API for sending and retrieving batches. This can drastically
   increase throughput and consequently improve the overall performance of
   your pipeline.
 
-  In order to create batches you need to define the `batchers` option in the
-  configuration:
+  To create batches, define the `batchers` configuration option:
 
       defmodule MyBroadway do
         use Broadway
@@ -163,10 +162,10 @@ defmodule Broadway do
 
   The configuration above defines a pipeline with:
 
-    * 1 producer
-    * 2 processors
-    * 1 batcher named `:sqs` with 2 batch processors
-    * 1 batcher named `:s3` with 1 batch processors
+    * One producer
+    * Two processors
+    * One batcher named `:sqs` with two batch processors
+    * One batcher named `:s3` with one batch processor
 
   Here is how this pipeline would be represented:
 
@@ -192,12 +191,12 @@ defmodule Broadway do
      [batch_sqs_1] [batch_sqs_2]    [batch_s3_1] <- process each batch
   ```
 
-  Additionally, you'll need to define the `c:handle_batch/4` callback,
-  which will be invoked by batch processors for each batch. You can then
-  invoke `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to
-  control to which batcher the message should go to.
+  Additionally, define the `c:handle_batch/4` callback,
+  which batch processors invoke for each batch. You can then
+  call `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to
+  control which batcher the message should go to.
 
-  The batcher will receive the processed messages and create batches
+  The batcher receives processed messages and creates batches
   specified by the `batch_size` and `batch_timeout` configuration. The
   goal is to create a batch with at most `batch_size` entries within
   `batch_timeout` milliseconds. Each message goes into a particular batch,
@@ -571,7 +570,7 @@ defmodule Broadway do
 
     * `batcher` is the key that defined the batcher. This value can be
       set in the `handle_message/3` callback using `Broadway.Message.put_batcher/2`.
-    * `messages` is the list of `Broadway.Message` structs of the incoming batch.
+    * `messages` is the list of `Broadway.Message` structs in the incoming batch.
     * `batch_info` is a `Broadway.BatchInfo` struct containing extra information
       about the incoming batch.
     * `context` is the user defined data structure passed to `start_link/2`.
@@ -615,7 +614,7 @@ defmodule Broadway do
 
   This callback is also invoked if `c:handle_message/3` or `c:handle_batch/4`
   crash or raise an error. If this callback crashes or raises an error,
-  the messages are failed internall by Broadway to avoid crashing the process.
+  the messages are failed internally by Broadway to avoid crashing the process.
   """
   @doc since: "0.5.0"
   @callback handle_failed(messages :: [Message.t()], context :: term) :: [Message.t()]
