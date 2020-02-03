@@ -1,7 +1,7 @@
 defmodule Broadway.MixProject do
   use Mix.Project
 
-  @version "0.5.0"
+  @version "0.6.0-dev"
   @description "Build concurrent and multi-stage data ingestion and data processing pipelines"
 
   def project do
@@ -26,7 +26,7 @@ defmodule Broadway.MixProject do
 
   defp deps do
     [
-      {:gen_stage, "~> 0.14"},
+      {:gen_stage, "~> 1.0"},
       {:telemetry, "~> 0.4.0"},
       {:ex_doc, ">= 0.19.0", only: :docs}
     ]
