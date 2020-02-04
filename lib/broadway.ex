@@ -72,9 +72,11 @@ defmodule Broadway do
 
   ### Example
 
-  Like any other process-based behaviour, start your Broadway
-  process by defining a module that invokes `use Broadway` and has a
-  `start_link` function:
+  Broadway is a process-based behaviour, and you begin by
+  defining a module that invokes `use Broadway`. Processes
+  defined by these modules will often be started by a
+  supervisor, and so a `start_link/1` function is frequently
+  also defined but not strictly necessary.
 
       defmodule MyBroadway do
         use Broadway
@@ -103,6 +105,13 @@ defmodule Broadway do
       ]
 
       Supervisor.start_link(children, strategy: :one_for_one)
+
+  Adding your pipeline to your supervision tree in this way
+  calls the default `child_spec/1` function that is generated
+  when `use Broadway` is invoked. If you would like to customize
+  the child spec passed to the supervisor, you can override the
+  `child_spec/1` function in your module or explicitly pass a
+  child spec to the supervisor when adding it to your supervision tree.
 
   The configuration above defines a pipeline with:
 
