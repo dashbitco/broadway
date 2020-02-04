@@ -619,6 +619,12 @@ defmodule Broadway do
   @doc since: "0.5.0"
   @callback handle_failed(messages :: [Message.t()], context :: term) :: [Message.t()]
 
+  @doc """
+  Invoked by a supervisor to start a process.
+  """
+  @doc since: "0.6.0"
+  @callback start_link(arguments :: any()) :: GenServer.on_start()
+
   @optional_callbacks handle_batch: 4, handle_failed: 2
 
   @doc false
@@ -790,6 +796,7 @@ defmodule Broadway do
     * `:spawn_opt` - Optional. Overrides the top-level `:spawn_opt`.
 
   """
+  @spec start_link(module(), Keyword.t()) :: GenServer.on_start()
   def start_link(module, opts) do
     opts =
       case Keyword.pop(opts, :producers) do
