@@ -1,7 +1,7 @@
 defmodule Broadway.MixProject do
   use Mix.Project
 
-  @version "0.6.0-dev"
+  @version "0.6.0-rc.0"
   @description "Build concurrent and multi-stage data ingestion and data processing pipelines"
 
   def project do
