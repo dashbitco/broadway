@@ -58,8 +58,8 @@ defmodule Broadway do
       number of requests. See the ":rate_limiting" option for producers in
       `start_link/2`.
 
-    * Statistics/Metrics - Broadway uses the `:telemetry` library for
-      instrumentation, see "Telemetry" section below for more information.
+    * Metrics - Broadway uses the `:telemetry` library for instrumentation,
+      see "Telemetry" section below for more information.
 
     * Back-off (TODO)
 

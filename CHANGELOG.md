@@ -6,6 +6,7 @@
   * Do not validate `:batcher` if message failed
   * Add support for rate limiting producers
   * Support returning state in `c:Broadway.Producer.prepare_for_draining/1`
+  * Emit telemetry events
 
 ## v0.5.0 (2019-11-04)
 

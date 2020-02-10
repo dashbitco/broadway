@@ -19,7 +19,7 @@ Broadway takes the burden of defining concurrent GenStage topologies and provide
   * Custom failure handling
   * Ordering and partitioning
   * Rate-limiting
-  * Statistics / Metrics (TODO)
+  * Metrics
   * Back-off (TODO)
 
 ## Installation
