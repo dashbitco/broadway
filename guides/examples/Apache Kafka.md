@@ -228,7 +228,7 @@ You should see the output showing the generated batches:
 
 Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However, those values might not suit your
-requirements. Depending on the number of messages you get, how much processing
+requirements. Depending on the number of records you get, how much processing
 they need and how much IO work is going to take place, you might need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, along with
@@ -244,7 +244,7 @@ assigned will result in individual processors handling more than one partition,
 decreasing the overall level of concurrency. Therefore, if you want to always be able
 to process messages at maximum concurrency (assuming you have enough resources to do it),
 you should increase the concurrency up front to make sure you have enough processors to
-handle the extra messages received from new partitions assigned.
+handle the extra records received from new partitions assigned.
 
 > **Note**: Even if you don't plan to add more partitions to a Kafka topic, your pipeline
 can still receive more assignments than planned. For instance, if another consumer crashes,
@@ -275,6 +275,6 @@ lead to a large number of duplicated records to be processed after a server
 restart or connection loss. If that's the case, make sure your logic is idempotent
 when consuming records to avoid inconsistencies. Also, bear in mind that the negative
 performance impact might be insignificant if you're using batchers since only one
-commit request will be performed per batch. As a rule, always take into account
+commit request will be performed per batch. As a basic rule, always take into account
 the values of `batch_size` and `batch_timeout` whenever you're tuning
 `:offset_commit_interval_seconds` and `:offset_commit_on_ack`
