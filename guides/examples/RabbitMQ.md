@@ -249,10 +249,10 @@ Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However, those values might not suit your
 requirements. Depending on the number of messages you get, how much processing
 they need and how much IO work is going to take place, you might need completely
-different values to optimize the flow of your pipeline. The `stages` option
+different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, among with
 `batch_size` and `batch_timeout` can give you a great deal of flexibility.
-The `stages` option controls the concurrency level in each layer of
+The `concurrency` option controls the concurrency level in each layer of
 the pipeline.
 
 Another important option to take into account is the `:prefetch_count`. Note
