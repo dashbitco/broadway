@@ -223,3 +223,58 @@ You should see the output showing the generated batches:
       {"15", 30},
       ...
     ]
+
+## Tuning the configuration
+
+Some of the configuration options available for Broadway come already with a
+"reasonable" default value. However, those values might not suit your
+requirements. Depending on the number of messages you get, how much processing
+they need and how much IO work is going to take place, you might need completely
+different values to optimize the flow of your pipeline. The `concurrency` option
+available for every set of producers, processors and batchers, along with
+`batch_size` and `batch_timeout` can give you a great deal of flexibility.
+
+By setting the `concurrency` option, you define the number of concurrent process
+that will be started by Broadway, allowing you to have full control over the
+concurrency level in each layer of the pipeline. Keep in mind that since the
+concurrency model provided by **Kafka** is based on **partitioning**, in order to take
+full advantage of this model, you need to set the `concurrency` option for
+your processors and batchers accordingly. Having less concurrency than topic/partitions
+assigned will result in individual processors handling more than one partition,
+decreasing the overall level of concurrency. Therefore, if you want to always be able
+to process messages at maximum concurrency (assuming you have enough resources to do it),
+you should increase the concurrency up front to make sure you have enough processors to
+handle the extra messages received from new partitions assigned.
+
+> **Note**: Even if you don't plan to add more partitions to a Kafka topic, your pipeline
+can still receive more assignments than planned. For instance, if another consumer crashes,
+the server will reassign all its topic/partition to other available consumers, including
+any Broadway producer subscribed to the same topic.
+
+There are other options that you may want to take a closer look when tunning your configuration.
+The `:max_bytes` option, for instance, belongs to the `:fetch_config` group and defines the
+maximum amount of data to be fetched at a time from a single partition. The default is
+1048576 (1 MiB). Setting greater values can improve throughput at the cost of more
+memory consumption. For more information and other fetch options, please refer to the
+"Fetch config options" in the official [BroadwayKafka](https://hexdocs.pm/broadway_kafka/)
+documentation.
+
+Other two important options are `:offset_commit_interval_seconds` and `:offset_commit_on_ack`.
+Both belong to the main configuration and they can make a huge impact on performance.
+
+The `:offset_commit_interval_seconds` defines the time interval between two
+OffsetCommitRequest messages. The default is 5s.
+
+The `:offset_commit_on_ack`, when set to `true`, tells Broadway to send an
+OffsetCommitRequest immediately after each acknowledgemnt, bypassing any interval
+defined in `:offset_commit_interval_seconds`. Setting this option to `false` can
+increase performance since any commit requests will start respecting the
+`:offset_commit_interval_seconds` option. This will usually result in fewer
+requests to be sent to the server. However, setting long commit intervals might
+lead to a large number of duplicated records to be processed after a server
+restart or connection loss. If that's the case, make sure your logic is idempotent
+when consuming records to avoid inconsistencies. Also, bear in mind that the negative
+performance impact might be insignificant if you're using batchers since only one
+commit request will be performed per batch. As a rule, always take into account
+the values of `batch_size` and `batch_timeout` whenever you're tuning
+`:offset_commit_interval_seconds` and `:offset_commit_on_ack`
