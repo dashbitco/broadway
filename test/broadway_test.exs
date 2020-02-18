@@ -605,7 +605,7 @@ defmodule BroadwayTest do
             [:broadway, :consumer, :stop],
             [:broadway, :processor, :message, :start],
             [:broadway, :processor, :message, :stop],
-            [:broadway, :processor, :message, :error]
+            [:broadway, :processor, :message, :failure]
           ],
           fn name, measurements, metadata, _ ->
             send(self, {:telemetry_event, name, measurements, metadata})
@@ -671,8 +671,8 @@ defmodule BroadwayTest do
 
       assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :error], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :failure], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, %{}}
       assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
     end
   end

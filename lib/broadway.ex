@@ -457,7 +457,7 @@ defmodule Broadway do
         }
         ```
 
-    * `[:broadway, :processor, :message, :error]` - Dispatched by a Broadway processor
+    * `[:broadway, :processor, :message, :failure]` - Dispatched by a Broadway processor
       if your `c:handle_message/3` callback encounters an error
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`

@@ -135,7 +135,7 @@ defmodule Broadway.Processor do
       kind, reason ->
         reason = Exception.normalize(kind, reason, __STACKTRACE__)
 
-        emit_message_error_event(
+        emit_message_failure_event(
           start_time,
           processor_key,
           name,
@@ -187,7 +187,7 @@ defmodule Broadway.Processor do
     :telemetry.execute([:broadway, :processor, :message, :stop], measurements, metadata)
   end
 
-  defp emit_message_error_event(
+  defp emit_message_failure_event(
          start_time,
          processor_key,
          name,
@@ -208,7 +208,7 @@ defmodule Broadway.Processor do
       stacktrace: stacktrace
     }
 
-    :telemetry.execute([:broadway, :processor, :message, :error], measurements, metadata)
+    :telemetry.execute([:broadway, :processor, :message, :failure], measurements, metadata)
   end
 
   defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do
