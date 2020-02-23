@@ -2154,6 +2154,19 @@ defmodule BroadwayTest do
       assert_receive {:handle_message_called, %Message{data: 3}, _timestamp}
       assert_receive {:handle_message_called, %Message{data: 4}, _timestamp}
     end
+
+    test "invalid options" do
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: new_unique_name(),
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []]
+        )
+
+      assert_raise ArgumentError,
+                   "invalid options, unknown options [:invalid_option], valid options are: [:allowed_messages, :interval]",
+                   fn -> Broadway.update_rate_limiting(broadway, invalid_option: 3) end
+    end
   end
 
   defp new_unique_name() do
