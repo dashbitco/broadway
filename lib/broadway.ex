@@ -50,7 +50,7 @@ defmodule Broadway do
       messages across workers, guaranteeing messages within the same partition
       are processed in order. For example, if you want to guarantee all events
       tied to a given `user_id` are processed in order and not concurrently,
-      you can set the `:partition_by` option. See "Ordering and partitioning".
+      you can set the `:partition_by` option. See ["Ordering and partitioning"](#module-ordering-and-partitioning).
 
     * Rate limiting: Broadway allows developers to rate limit all producers in
       a single node by a given number of messages in a time period, allowing
@@ -59,7 +59,7 @@ defmodule Broadway do
       `start_link/2`.
 
     * Metrics - Broadway uses the `:telemetry` library for instrumentation,
-      see "Telemetry" section below for more information.
+      see ["Telemetry"](#module-telemetry) section below for more information.
 
     * Back-off (TODO)
 
@@ -255,7 +255,7 @@ defmodule Broadway do
         end
       end
 
-  See the callbacks documentation for more information on the
+  See the [callbacks documentation](#callbacks) for more information on the
   arguments given to each callback and their expected return types.
 
   Now you are ready to get started. See the `start_link/2` function
@@ -667,17 +667,17 @@ defmodule Broadway do
     * `:name` - Required. Used for name registration. All processes/stages
       created will be named using this value as prefix.
 
-    * `:producer` - Required. A keyword list of options. See "Producers
-      options" section below. Only a single producer is allowed.
+    * `:producer` - Required. A keyword list of options. See ["Producers
+      options"](#start_link/2-producers-options) section below. Only a single producer is allowed.
 
     * `:processors` - Required. A keyword list of named processors
       where the key is an atom as identifier and the value is another
-      keyword list of options. See "Processors options" section below.
+      keyword list of options. See ["Processors options"](#start_link/2-processors-options) section below.
       Currently only a single processor is allowed.
 
     * `:batchers` - Optional. A keyword list of named batchers
       where the key is an atom as identifier and the value is another
-      keyword list of options. See "Batchers options" section below.
+      keyword list of options. See ["Batchers options"](#start_link/2-batchers-options) section below.
 
     * `:context` - Optional. A user defined data structure that will
       be passed to `handle_message/3` and `handle_batch/4`.
@@ -693,7 +693,7 @@ defmodule Broadway do
       partitioned across all processors and batchers. It receives a
       `Broadway.Message` and it must return a non-negative integer,
       starting with zero, that will be mapped to one of the existing
-      processors. See "Ordering and Partitioning" in the module docs
+      processors. See ["Ordering and Partitioning"](#module-ordering-and-partitioning) in the module docs
       for more information.
 
     * `:hibernate_after` - Optional. If a process does not receive any
@@ -893,7 +893,7 @@ defmodule Broadway do
   It returns a reference that can be used to identify the ack
   messages.
 
-  See "Testing" section in module documentation for more information.
+  See ["Testing"](#module-testing) section in module documentation for more information.
 
   ## Options
 
