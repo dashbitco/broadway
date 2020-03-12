@@ -208,7 +208,7 @@ defmodule Broadway.Processor do
       stacktrace: stacktrace
     }
 
-    :telemetry.execute([:broadway, :processor, :message, :failure], measurements, metadata)
+    :telemetry.execute([:broadway, :processor, :message, :exception], measurements, metadata)
   end
 
   defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do
