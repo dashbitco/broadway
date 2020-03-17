@@ -294,46 +294,102 @@ defmodule Broadway do
   ## Testing
 
   Many producers receive data from external systems and hitting the network
-  is usually undesirable when running the tests. One way to solve this issue
-  would be to not start Broadway pipeline in tests. Another way would be to use
-  a different producer in tests, one that doesn't do anything, and that is
-  exactly what `Broadway.DummyProducer` is for. If the dummy producer doesn't
-  produce any work, how to test that the pipeline is correct? For that, Broadway
-  ships with a `test_messages/2` function.
+  is usually undesirable when running the tests.
 
-  With `test_messages/2`, you can push some sample data into the pipeline and
-  receive a process message when the pipeline acknowledges the data you have
-  pushed has been processed. This is very useful as a synchronization mechanism.
-  Because many pipelines end-up working with side-effects, you can use the
-  test message acknowledgment to guarantee the message has been processed and
-  therefore side-effects should be visible.
+  For testing purposes, we recommend developers to use `Broadway.DummyProducer`.
+  This producer does not produce any messages by itself and instead the
+  `test_message/3` and `test_batch/3` functions should be used to publish
+  messages.
 
-  For example, if you have a pipeline named `MyApp.Broadway` that writes to
-  the database on every message, you could test it as:
+  With `test_message/3`, you can push a message into the pipeline and receive
+  a process message when the pipeline acknowledges the data you have pushed
+  has been processed.
 
-      # Push 3 messages with the data field set to 1, 2, and 3 respectively
-      ref = Broadway.test_messages(MyApp.Broadway, [1, 2, 3])
+  Let's see an example. Imagine the following `Broadway` module:
 
-      # Assert that the messages have been consumed
-      assert_receive {:ack, ^ref, [_, _, _] = _successful, failed}, 1000
+      defmodule MyBroadway do
+        use Broadway
 
-      # Now assert the database side-effects
-      ...
+        def start_link() do
+          Broadway.start_link(__MODULE__,
+            name: __MODULE__,
+            producer: [
+              module: {Broadway.DummyProducer, []}
+            ],
+            processors: [
+              default: []
+            ],
+            batchers: [
+              default: [batch_size: 10]
+            ]
+          )
+        end
 
-  Also note how we have increased the `assert_receive` timeout to 1000ms.
-  The default timeout is 100ms, which may not be enough for some pipelines.
-  You may also increase the `assert_receive` timeout for the whole suite
-  in your `test/test_helper.exs`:
+        @impl true
+        def handle_message(_processor, message, _context) do
+          message
+        end
 
-      ExUnit.configure(assert_receive_timeout: 2000)
+        @impl true
+        def handle_batch(_batcher, messages, _batch_info, _context) do
+          messages
+        end
+      end
 
-  When testing pipelines with batchers there are additional considerations.
-  By default, the batch is only delivered when either its size or its timeout
-  has been reached, but that is often impractical for testing, you may not
-  necessarily want to send a lot of data or wait a lot of time for the batch
-  to flush. For this reason, when using `test_messages/2`, the messages have
-  their `:batch_mode` set to `:flush`, causing the batch to be delivered
-  immediately, without waiting for the batch size or the timeout.
+  Now we can test it like this:
+
+      defmodule MyBroadwayTest do
+        use ExUnit.Case, async: true
+
+        test "test message" do
+          {:ok, pid} = MyBroadway.start_link()
+          ref = Broadway.test_message(pid, 1)
+          assert_receive {:ack, ^ref, [%{data: 1}], []}
+        end
+      end
+
+  Note that at the end we received a message in the format of:
+
+      {:ack, ^ref, successful_messages, failure_messages}
+
+  You can use the acknowledgment to guarantee the message has been
+  processed and therefore any side-effect from the pipeline should be
+  visible.
+
+  When using `test_message/3`, the message will be delivered as soon as
+  possible, without waiting for the pipeline `batch_size` to be reached
+  or without waiting for `batch_timeout`. This behaviour is useful to test
+  and verify single messages, without imposing high timeouts to our test
+  suites.
+
+  In case you want to test multiple messages, then you need to use
+  `test_batch/3`. `test_batch/3` will respect the batching configuration,
+  which most likely means you need to increase your test timeouts:
+
+      test "batch messages" do
+        {:ok, pid} = MyBroadway.start_link()
+        ref = Broadway.test_batch(pid, [1, 2, 3])
+        assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}, %{data: 3}], []}, 1000
+      end
+
+  However, keep in mind that, generally speaking, there is no guarantee
+  the messages will arrive in the same order that you have sent them,
+  especially for large batches, as Broadway will process large batches
+  concurrently and order will be lost.
+  If you want to send more than one test message at once, then we recommend
+  setting the `:batch_mode` to `:bulk`, especially if you want to assert how
+  the code will behave with large batches. Otherwise the batcher will flush
+  messages as soon as possible and in small batches.
+
+  However, keep in mind that, regardless of the `:batch_mode` you cannot
+  rely on ordering, as Broadway pipelines are inherently concurrent. For
+  example, if you send those messages:
+
+      test "multiple batch messages" do
+        {:ok, pid} = MyBroadway.start_link()
+        ref = Broadway.test_messages(pid, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
+        assert_receive {:ack, ^ref, [%{data: 1}], []}, 1000
+      end
 
   ## Ordering and partitioning
 
@@ -882,42 +938,92 @@ defmodule Broadway do
   end
 
   @doc """
-  Sends a list of data as messages to the Broadway pipeline.
+  Sends a test message through the Broadway pipeline.
 
-  This is a convenience used mostly for testing. The given data
+  This is a convenience used for testing. The given data
   is automatically wrapped in a `Broadway.Message` with
   `Broadway.CallerAcknowledger` configured to send a message
   back to the caller once the message has been fully processed.
-  It uses `push_messages/2` for dispatching.
+
+  The message is set to be flushed immediately, without waiting
+  for the Broadway pipeline `batch_size` to be filled or the
+  `batch_timeout` to be triggered.
 
   It returns a reference that can be used to identify the ack
   messages.
 
-  See ["Testing"](#module-testing) section in module documentation for more information.
+  See ["Testing"](#module-testing) section in module documentation
+  for more information.
 
   ## Options
 
-  * `:batch_mode` - when set to `:flush`, the batch the message is
-    in is immediately delivered. When set to `:bulk`, batch is
-    delivered when its size or timeout is reached. Defaults to `:flush`.
-
-  * `:metadata` - optionally a map of additional fields to add to the
-    message. This can be used, for example, when testing
-    `BroadwayRabbitMQ.Producer`.
+    * `:metadata` - optionally a map of additional fields to add to the
+      message. This can be used, for example, when testing
+      `BroadwayRabbitMQ.Producer`.
 
   ## Examples
 
   For example, in your tests, you may do:
 
-      ref = Broadway.test_messages(broadway, [1, 2, 3])
-      assert_receive {:ack, ^ref, successful, failed}
+      ref = Broadway.test_message(broadway, 1)
+      assert_receive {:ack, ^ref, [successful], []}
+
+  """
+  @spec test_message(GenServer.server(), term, opts :: Keyword.t()) :: reference
+  def test_message(broadway, data, opts \\ []) when is_list(opts) do
+    test_messages(broadway, [data], :flush, opts)
+  end
+
+  @doc """
+  Sends a list of data as a batch of messages to the Broadway pipeline.
+
+  This is a convenience used for testing. Each message is automatically
+  wrapped in a `Broadway.Message` with `Broadway.CallerAcknowledger`
+  configured to send a message back to the caller once all batches
+  have been fully processed.
+
+  If there are more messages in the batch than the pipeline `batch_size`
+  or if the messages in the batch take more time to process than
+  `batch_timeout` then the caller will receive multiple messages.
+
+  It returns a reference that can be used to identify the ack
+  messages.
+
+  See ["Testing"](#module-testing) section in module documentation
+  for more information.
+
+  ## Options
+
+    * `:batch_mode` - when set to `:flush`, the batch the message is
+      in is immediately delivered. When set to `:bulk`, batch is
+      delivered when its size or timeout is reached. Defaults to `:bulk`.
+
+    * `:metadata` - optionally a map of additional fields to add to the
+      message. This can be used, for example, when testing
+      `BroadwayRabbitMQ.Producer`.
+
+  ## Examples
+
+  For example, in your tests, you may do:
+
+      ref = Broadway.test_batch(broadway, [1, 2, 3])
+      assert_receive {:ack, ^ref, successful, failed}, 1000
       assert length(successful) == 3
       assert length(failed) == 0
 
   """
-  @spec test_messages(GenServer.server(), data :: [term], opts :: Keyword.t()) :: reference
+  @spec test_batch(GenServer.server(), data :: [term], opts :: Keyword.t()) :: reference
+  def test_batch(broadway, batch_data, opts \\ []) when is_list(batch_data) and is_list(opts) do
+    test_messages(broadway, batch_data, Keyword.get(opts, :batch_mode, :bulk), opts)
+  end
+
+  @doc false
+  @deprecated "Use Broadway.test_message/3 or Broadway.test_batch/3 instead"
   def test_messages(broadway, data, opts \\ []) when is_list(data) and is_list(opts) do
-    batch_mode = Keyword.get(opts, :batch_mode, :flush)
+    test_messages(broadway, data, Keyword.get(opts, :batch_mode, :flush), opts)
+  end
+
+  defp test_messages(broadway, data, batch_mode, opts) do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
 
     ref = make_ref()

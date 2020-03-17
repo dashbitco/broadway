@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.7.0-dev
+
+  * Deprecate `Broadway.test_messages/3` in favor of `Broadway.test_message/3` and `Broadway.test_batch/3`
+
 ## v0.6.0 (2020-02-13)
 
   * Deprecate `:stages` in favor of `:concurrency` for clarity

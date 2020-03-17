@@ -21,7 +21,7 @@ defmodule Broadway.DummyProducerTest do
         ]
       )
 
-    ref = Broadway.test_messages(c.test, [1, 2])
+    ref = Broadway.test_batch(c.test, [1, 2])
     assert_receive {:ack, ^ref, [%{status: :ok}, %{status: :ok}], []}
   end
 end
