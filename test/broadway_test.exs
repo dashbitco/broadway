@@ -552,8 +552,7 @@ defmodule BroadwayTest do
     test "messages are logged on incorrect batcher count",
          %{broadway: broadway, processor: processor} do
       assert capture_log(fn ->
-               ref =
-                 Broadway.test_batch(broadway, [1, :discard_in_batcher, 4])
+               ref = Broadway.test_batch(broadway, [1, :discard_in_batcher, 4])
 
                assert_receive {:ack, ^ref, [%{data: 1}], []}
                assert_receive {:ack, ^ref, [%{data: 4}], []}
@@ -609,8 +608,7 @@ defmodule BroadwayTest do
           nil
         )
 
-      ref =
-        Broadway.test_batch(broadway, [1, 2, :fail, :fail_batcher, :raise])
+      ref = Broadway.test_batch(broadway, [1, 2, :fail, :fail_batcher, :raise])
 
       assert_receive {:batch_handled, [%{data: 1, status: :ok}, %{data: 2, status: :ok}]}
       assert_receive {:batch_handled, [%{data: :fail_batcher, status: :ok}]}
@@ -1680,8 +1678,7 @@ defmodule BroadwayTest do
     end
 
     test "only the messages in the crashing batcher are lost", %{broadway: broadway} do
-      ref =
-        Broadway.test_batch(broadway, [1, 2, :kill_batcher, 3, 4, 5, 6, 7])
+      ref = Broadway.test_batch(broadway, [1, 2, :kill_batcher, 3, 4, 5, 6, 7])
 
       assert_receive {:ack, ^ref, successful, _failed}
       values = Enum.map(successful, & &1.data)
