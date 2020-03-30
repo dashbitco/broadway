@@ -576,6 +576,11 @@ defmodule Broadway do
 
   alias Broadway.{BatchInfo, Message, Options, Server, Producer}
 
+  @typedoc """
+  Returned by `start_link/2`.
+  """
+  @type on_start() :: {:ok, pid()} | :ignore | {:error, {:already_started, pid()} | term()}
+
   @doc """
   Invoked to handle/process individual messages sent from a producer.
 
@@ -855,6 +860,7 @@ defmodule Broadway do
     * `:spawn_opt` - Optional. Overrides the top-level `:spawn_opt`.
 
   """
+  @spec start_link(module(), keyword()) :: on_start()
   def start_link(module, opts) do
     opts =
       case Keyword.pop(opts, :producers) do
