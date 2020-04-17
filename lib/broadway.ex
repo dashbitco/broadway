@@ -311,10 +311,12 @@ defmodule Broadway do
         use Broadway
 
         def start_link() do
+          producer_module = Application.fetch_env!(:my_app, :producer_module)
+
           Broadway.start_link(__MODULE__,
             name: __MODULE__,
             producer: [
-              module: {Broadway.DummyProducer, []}
+              module: producer_module
             ],
             processors: [
               default: []
@@ -336,14 +338,17 @@ defmodule Broadway do
         end
       end
 
-  Now we can test it like this:
+  Now in config/test.exs you could do:
+
+      config :my_app, :producer_module, {Broadway.DummyProducer, []}
+
+  And we can test it like this:
 
       defmodule MyBroadwayTest do
         use ExUnit.Case, async: true
 
         test "test message" do
-          {:ok, pid} = MyBroadway.start_link()
-          ref = Broadway.test_message(pid, 1)
+          ref = Broadway.test_message(MyBroadway, 1)
           assert_receive {:ack, ^ref, [%{data: 1}], []}
         end
       end
@@ -376,6 +381,7 @@ defmodule Broadway do
   the messages will arrive in the same order that you have sent them,
   especially for large batches, as Broadway will process large batches
   concurrently and order will be lost.
+
   If you want to send more than one test message at once, then we recommend
   setting the `:batch_mode` to `:bulk`, especially if you want to assert how
   the code will behave with large batches. Otherwise the batcher will flush
@@ -387,7 +393,7 @@ defmodule Broadway do
 
       test "multiple batch messages" do
         {:ok, pid} = MyBroadway.start_link()
-        ref = Broadway.test_messages(pid, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
+        ref = Broadway.test_batch(pid, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
         assert_receive {:ack, ^ref, [%{data: 1}], []}, 1000
       end
 
