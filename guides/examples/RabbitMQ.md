@@ -67,7 +67,7 @@ Add `:broadway_rabbitmq` to the list of dependencies in `mix.exs`:
     def deps do
       [
         ...
-        {:broadway_rabbitmq, "~> 0.1.0"},
+        {:broadway_rabbitmq, "~> 0.6.0"},
       ]
     end
 
