@@ -62,14 +62,14 @@ defmodule Broadway.Message do
   The batch key identifies the batch the message belongs to, within
   a given batcher. Each batcher then groups batches with the same
   `batch_key`, with size of at most `batch_size` within period
-  `batch_timeout`. Note `batch_timeout` is managed per batch key,
-  so a batcher is capable of grouping multiple batch keys at the
-  same time.
+  `batch_timeout`. Both `batch_size` and `batch_timeout` are managed
+  per batch key, so a batcher is capable of grouping multiple batch
+  keys at the same time, regarddless of the concurrency level.
 
-  If a given batcher has multiple processors (concurrency > 1), all
-  messages with the same batch key are routed to the same processor.
-  So different batch keys may run concurrently but the same batch
-  key is always run serially and in the same batcher processor.
+  If a given batcher has multiple batch processors (concurrency > 1),
+  all messages with the same batch key are routed to the same processor.
+  So different batch keys may run concurrently but the same batch key
+  is always run serially and in the same batcher processor.
   """
   @spec put_batch_key(message :: Message.t(), batch_key :: term) :: Message.t()
   def put_batch_key(%Message{} = message, batch_key) do
