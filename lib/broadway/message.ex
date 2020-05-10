@@ -64,7 +64,7 @@ defmodule Broadway.Message do
   `batch_key`, with size of at most `batch_size` within period
   `batch_timeout`. Both `batch_size` and `batch_timeout` are managed
   per batch key, so a batcher is capable of grouping multiple batch
-  keys at the same time, regarddless of the concurrency level.
+  keys at the same time, regardless of the concurrency level.
 
   If a given batcher has multiple batch processors (concurrency > 1),
   all messages with the same batch key are routed to the same processor.
