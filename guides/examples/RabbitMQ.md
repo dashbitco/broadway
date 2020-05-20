@@ -180,7 +180,7 @@ For more information, see `c:Broadway.handle_message/3` and
 > Note: Since Broadway v0.2, batching is optional. In case you don't need to
 > group messages as batches for further processing/publishing, you can remove
 > the `:batchers` configuration along with the `handle_batch/4` callback. This
-> is perfectly fine for RabbitMQ, where messages are acknowledged invidivually
+> is perfectly fine for RabbitMQ, where messages are acknowledged individually
 > and never as a batch.
 
 ## Run the Broadway pipeline
