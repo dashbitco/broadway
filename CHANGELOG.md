@@ -1,7 +1,8 @@
 # Changelog
 
-## v0.7.0-dev
+## v0.6.1 (2020-06-02)
 
+  * Rename `:failure` Telemetry event to `:exception` so it conforms to the telemetry specification
   * Deprecate `Broadway.test_messages/3` in favor of `Broadway.test_message/3` and `Broadway.test_batch/3`
 
 ## v0.6.0 (2020-02-13)
