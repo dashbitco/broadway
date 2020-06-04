@@ -105,7 +105,7 @@ defmodule BroadwayTest do
     end
   end
 
-  defmodule CustomHandlerWithHandleFailed do
+  defmodule CustomHandlersWithHandleFailed do
     use Broadway
 
     def handle_message(_, message, %{handle_message: handler} = context) do
@@ -118,6 +118,18 @@ defmodule BroadwayTest do
 
     def handle_failed(messages, %{handle_failed: handler} = context) do
       handler.(messages, context)
+    end
+  end
+
+  defmodule CustomHandlersWithPreparedMessages do
+    use Broadway
+
+    def prepare_messages(messages, %{prepare_messages: prepare} = context) do
+      prepare.(messages, context)
+    end
+
+    def handle_message(_, message, %{handle_message: handler} = context) do
+      handler.(message, context)
     end
   end
 
@@ -443,6 +455,94 @@ defmodule BroadwayTest do
       ref = Broadway.test_message(broadway, :message)
 
       assert_receive {:ack, ^ref, [%Message{data: :message, metadata: %{}}], []}
+    end
+  end
+
+  describe "prepare_messages" do
+    setup do
+      prepare_messages = fn messages, _ ->
+        messages
+        |> Enum.reduce([], fn message, acc ->
+          case message.data do
+            :fail ->
+              [Message.failed(%{message | batcher: :unknown}, "Failed preparing message") | acc]
+
+            :raise ->
+              raise "Error raised in preparing message"
+
+            :bad_return ->
+              [:oops | acc]
+
+            :filter ->
+              acc
+
+            _ ->
+              [message | acc]
+          end
+        end)
+        |> Enum.reverse()
+      end
+
+      handle_message = fn
+        message, _ -> message
+      end
+
+      context = %{
+        prepare_messages: prepare_messages,
+        handle_message: handle_message
+      }
+
+      broadway_name = new_unique_name()
+
+      {:ok, broadway} =
+        Broadway.start_link(CustomHandlersWithPreparedMessages,
+          name: broadway_name,
+          context: context,
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []]
+        )
+
+      processor = get_processor(broadway_name, :default)
+      Process.link(Process.whereis(processor))
+      %{broadway: broadway, processor: processor}
+    end
+
+    test "can filter messages", %{broadway: broadway} do
+      ref = Broadway.test_batch(broadway, [1, :filter, 3, 4], batch_mode: :flush)
+
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 3}, %{data: 4}], []}
+    end
+
+    test "failed messages are filtered from success messages", %{broadway: broadway} do
+      ref = Broadway.test_batch(broadway, [1, :fail, :fail, 4], batch_mode: :flush)
+
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], [%{data: :fail}, %{data: :fail}]}
+    end
+
+    test "all messages in the prepare_messages are marked as {kind, reason, stack} when an error is raised",
+         %{broadway: broadway, processor: processor} do
+      ref = Broadway.test_batch(broadway, [1, :raise, 3, 4], batch_mode: :flush)
+      assert_receive {:ack, ^ref, [], [%{data: 1}, %{data: :raise}, %{data: 3}, %{data: 4}]}
+
+      refute_received {:EXIT, _, ^processor}
+    end
+
+    test "all messages in the prepare_messages are marked as {kind, reason, stack} on bad return",
+         %{broadway: broadway, processor: processor} do
+      assert capture_log(fn ->
+               ref = Broadway.test_batch(broadway, [1, :bad_return, 3, 4], batch_mode: :flush)
+
+               assert_receive {:ack, ^ref, [],
+                               [
+                                 %{data: 1, status: {:error, _, _}},
+                                 %{data: :bad_return, status: {:error, _, _}},
+                                 %{data: 3, status: {:error, _, _}},
+                                 %{data: 4, status: {:error, _, _}}
+                               ]}
+             end) =~
+               "[error] ** (RuntimeError) expected a Broadway.Message from prepare_messages/2, got :oops"
+
+      refute_received {:EXIT, _, ^processor}
     end
   end
 
@@ -1237,7 +1337,7 @@ defmodule BroadwayTest do
       end
 
       {:ok, broadway} =
-        Broadway.start_link(CustomHandlerWithHandleFailed,
+        Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{handle_message: handle_message, handle_failed: handle_failed},
           producer: [module: {ManualProducer, []}],
@@ -1267,7 +1367,7 @@ defmodule BroadwayTest do
       end
 
       {:ok, broadway} =
-        Broadway.start_link(CustomHandlerWithHandleFailed,
+        Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{handle_message: handle_message, handle_failed: handle_failed},
           producer: [module: {ManualProducer, []}],
@@ -1296,7 +1396,7 @@ defmodule BroadwayTest do
       end
 
       {:ok, broadway} =
-        Broadway.start_link(CustomHandlerWithHandleFailed,
+        Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{handle_message: handle_message, handle_failed: handle_failed},
           producer: [module: {ManualProducer, []}],
@@ -1328,7 +1428,7 @@ defmodule BroadwayTest do
       end
 
       {:ok, broadway} =
-        Broadway.start_link(CustomHandlerWithHandleFailed,
+        Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{
             handle_message: fn message, _context -> message end,
@@ -1367,7 +1467,7 @@ defmodule BroadwayTest do
 
       assert capture_log(fn ->
                {:ok, broadway} =
-                 Broadway.start_link(CustomHandlerWithHandleFailed,
+                 Broadway.start_link(CustomHandlersWithHandleFailed,
                    name: broadway_name,
                    context: %{
                      handle_message: fn message, _context -> message end,
@@ -1397,7 +1497,7 @@ defmodule BroadwayTest do
 
       assert capture_log(fn ->
                {:ok, broadway} =
-                 Broadway.start_link(CustomHandlerWithHandleFailed,
+                 Broadway.start_link(CustomHandlersWithHandleFailed,
                    name: broadway_name,
                    context: %{
                      handle_message: fn message, _context -> message end,

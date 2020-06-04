@@ -49,7 +49,9 @@ defmodule Broadway.Processor do
     start_time = System.monotonic_time()
     emit_start_event(state.name, start_time, messages)
 
-    {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
+    {prepared_messages, prepared_failed_messages} = maybe_prepare_messages(messages, state)
+    {successful_messages, failed_messages} = handle_messages(prepared_messages, [], [], state)
+    failed_messages = failed_messages ++ prepared_failed_messages
 
     {successful_messages_to_forward, successful_messages_to_ack} =
       case state do
@@ -112,6 +114,31 @@ defmodule Broadway.Processor do
     :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
   end
 
+  defp maybe_prepare_messages(messages, state) do
+    %{module: module, context: context, batchers: batchers} = state
+
+    if function_exported?(module, :prepare_messages, 2) and messages != [] do
+      try do
+        messages
+        |> module.prepare_messages(context)
+        |> Enum.map(&validate_message(&1, batchers, "prepare_messages/2"))
+        |> split_by_status([], [])
+      catch
+        kind, reason ->
+          reason = Exception.normalize(kind, reason, __STACKTRACE__)
+
+          Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+            crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+          )
+
+          messages = Enum.map(messages, &%{&1 | status: {kind, reason, __STACKTRACE__}})
+          {[], messages}
+      end
+    else
+      {messages, []}
+    end
+  end
+
   defp handle_messages([message | messages], successful, failed, state) do
     %{
       module: module,
@@ -127,7 +154,7 @@ defmodule Broadway.Processor do
     try do
       message =
         module.handle_message(processor_key, message, context)
-        |> validate_message(batchers)
+        |> validate_message(batchers, "handle_message/3")
 
       emit_message_stop_event(start_time, processor_key, name, message)
       message
@@ -211,7 +238,7 @@ defmodule Broadway.Processor do
     :telemetry.execute([:broadway, :processor, :message, :exception], measurements, metadata)
   end
 
-  defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do
+  defp validate_message(%Message{batcher: batcher, status: status} = message, batchers, _fn_name) do
     if status == :ok and batchers != :none and batcher not in batchers do
       raise "message was set to unknown batcher #{inspect(batcher)}. " <>
               "The known batchers are #{inspect(batchers)}"
@@ -220,7 +247,19 @@ defmodule Broadway.Processor do
     message
   end
 
-  defp validate_message(message, _batchers) do
-    raise "expected a Broadway.Message from handle_message/3, got #{inspect(message)}"
+  defp validate_message(message, _batchers, fn_name) do
+    raise "expected a Broadway.Message from #{fn_name}, got #{inspect(message)}"
+  end
+
+  defp split_by_status([], successful, failed) do
+    {Enum.reverse(successful), Enum.reverse(failed)}
+  end
+
+  defp split_by_status([%Message{status: :ok} = message | rest], successful, failed) do
+    split_by_status(rest, [message | successful], failed)
+  end
+
+  defp split_by_status([%Message{} = message | rest], successful, failed) do
+    split_by_status(rest, successful, [message | failed])
   end
 end
