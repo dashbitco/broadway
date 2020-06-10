@@ -240,9 +240,9 @@ Now, In the first tab, you should see output similar to:
 Some of the configuration options available for Broadway come already with a "reasonable" default
 value. However those values might not suit your requirements. Depending on the number of messages
 you get, how much processing they need and how much IO work is going to take place, you might need
-completely different values to optimize the flow of your pipeline. The `stages` option available
+completely different values to optimize the flow of your pipeline. The `concurrency` option available
 for every set of producers, processors and batchers, among with `batch_size` and `batch_timeout`
-can give you a great deal of flexibility. The `stages` option controls the concurrency level in
+can give you a great deal of flexibility. The `concurrency` option controls the concurrency level in
 each layer of the pipeline. Here's an example on how you could tune them according to your needs.
 
     defmodule MyBroadway do
