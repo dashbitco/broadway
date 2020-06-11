@@ -1129,7 +1129,6 @@ defmodule Broadway do
       max_seconds: [type: :pos_integer, default: 5],
       resubscribe_interval: [type: :non_neg_integer, default: 100],
       context: [type: :any, default: :context_not_set],
-      telemetry_prefix: [type: :any],
       producer: [
         required: true,
         type: :non_empty_keyword_list,
@@ -1194,6 +1193,7 @@ defmodule Broadway do
         ]
       ],
       partition_by: [type: {:fun, 1}],
+      telemetry_prefix: [type: :any],
       spawn_opt: [type: :keyword_list],
       hibernate_after: [type: :pos_integer, default: 15_000]
     ]

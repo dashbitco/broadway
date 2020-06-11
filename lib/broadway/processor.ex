@@ -20,10 +20,6 @@ defmodule Broadway.Processor do
   def init(args) do
     Process.flag(:trap_exit, true)
     type = args[:type]
-    telemetry_prefix =
-      args[:processor_config]
-      |> Keyword.get(:telemetry_prefix, [])
-      |> Enum.concat([:broadway, :processor])
 
     state = %{
       name: args[:name],
@@ -32,7 +28,7 @@ defmodule Broadway.Processor do
       context: args[:context],
       processor_key: args[:processor_key],
       batchers: args[:batchers],
-      telemetry_prefix: telemetry_prefix
+      telemetry_prefix: extract_telemetry_prefix(args)
     }
 
     case type do
@@ -232,5 +228,12 @@ defmodule Broadway.Processor do
 
   defp validate_message(message, _batchers) do
     raise "expected a Broadway.Message from handle_message/3, got #{inspect(message)}"
+  end
+
+  defp extract_telemetry_prefix(args) do
+    args
+    |> Keyword.merge(args[:processor_config])
+    |> Keyword.get(:telemetry_prefix, [])
+    |> Enum.concat([:broadway, :processor])
   end
 end
