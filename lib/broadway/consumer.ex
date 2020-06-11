@@ -20,10 +20,16 @@ defmodule Broadway.Consumer do
   def init(args) do
     Process.flag(:trap_exit, true)
 
+    telemetry_prefix =
+      args
+      |> Keyword.get(:telemetry_prefix, [])
+      |> Enum.concat([:broadway, :consumer])
+
     state = %{
       name: args[:name],
       module: args[:module],
-      context: args[:context]
+      context: args[:context],
+      telemetry_prefix: telemetry_prefix
     }
 
     {:consumer, state, []}
@@ -40,7 +46,7 @@ defmodule Broadway.Consumer do
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
 
     start_time = System.monotonic_time()
-    emit_start_event(state.name, start_time, messages, batch_info)
+    emit_start_event(state.telemetry_prefix, state.name, start_time, messages, batch_info)
 
     {successful_messages, failed_messages, returned} =
       handle_batch(batcher, messages, batch_info, state)
@@ -69,17 +75,17 @@ defmodule Broadway.Consumer do
         )
     end
 
-    emit_stop_event(state.name, start_time, successful_messages, failed_messages, batch_info)
+    emit_stop_event(state.telemetry_prefix, state.name, start_time, successful_messages, failed_messages, batch_info)
     {:noreply, [], state}
   end
 
-  defp emit_start_event(name, start_time, messages, batch_info) do
+  defp emit_start_event(prefix, name, start_time, messages, batch_info) do
     metadata = %{name: name, messages: messages, batch_info: batch_info}
     measurements = %{time: start_time}
-    :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
+    :telemetry.execute(prefix ++ [:start], measurements, metadata)
   end
 
-  defp emit_stop_event(name, start_time, successful_messages, failed_messages, batch_info) do
+  defp emit_stop_event(prefix, name, start_time, successful_messages, failed_messages, batch_info) do
     metadata = %{
       name: name,
       successful_messages: successful_messages,
@@ -89,7 +95,7 @@ defmodule Broadway.Consumer do
 
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
-    :telemetry.execute([:broadway, :consumer, :stop], measurements, metadata)
+    :telemetry.execute(prefix ++ [:stop], measurements, metadata)
   end
 
   defp handle_batch(batcher, messages, batch_info, state) do

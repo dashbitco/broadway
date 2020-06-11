@@ -18,6 +18,11 @@ defmodule Broadway.Batcher do
 
   @impl true
   def init(args) do
+    telemetry_prefix =
+      args
+      |> Keyword.get(:telemetry_prefix, [])
+      |> Enum.concat([:broadway, :batcher])
+
     Process.put(@all_batches, %{})
 
     {dispatcher, partition_by} =
@@ -40,7 +45,8 @@ defmodule Broadway.Batcher do
       batcher: args[:batcher],
       batch_size: args[:batch_size],
       batch_timeout: args[:batch_timeout],
-      partition_by: partition_by
+      partition_by: partition_by,
+      telemetry_prefix: telemetry_prefix
     }
 
     {:producer_consumer, state, dispatcher: dispatcher}
@@ -49,23 +55,23 @@ defmodule Broadway.Batcher do
   @impl true
   def handle_events(events, _from, state) do
     start_time = System.monotonic_time()
-    emit_start_event(state.name, start_time, events)
+    emit_start_event(state.telemetry_prefix, state.name, start_time, events)
     batches = handle_events_per_batch_key(events, [], state)
-    emit_stop_event(state.name, start_time)
+    emit_stop_event(state.telemetry_prefix, state.name, start_time)
     {:noreply, batches, state}
   end
 
-  defp emit_start_event(name, start_time, events) do
+  defp emit_start_event(prefix, name, start_time, events) do
     metadata = %{name: name, events: events}
     measurements = %{time: start_time}
-    :telemetry.execute([:broadway, :batcher, :start], measurements, metadata)
+    :telemetry.execute(prefix ++ [:start], measurements, metadata)
   end
 
-  defp emit_stop_event(name, start_time) do
+  defp emit_stop_event(prefix, name, start_time) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
     metadata = %{name: name}
-    :telemetry.execute([:broadway, :batcher, :stop], measurements, metadata)
+    :telemetry.execute(prefix ++ [:stop], measurements, metadata)
   end
 
   @impl true

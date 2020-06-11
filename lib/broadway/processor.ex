@@ -20,6 +20,10 @@ defmodule Broadway.Processor do
   def init(args) do
     Process.flag(:trap_exit, true)
     type = args[:type]
+    telemetry_prefix =
+      args[:processor_config]
+      |> Keyword.get(:telemetry_prefix, [])
+      |> Enum.concat([:broadway, :processor])
 
     state = %{
       name: args[:name],
@@ -27,7 +31,8 @@ defmodule Broadway.Processor do
       module: args[:module],
       context: args[:context],
       processor_key: args[:processor_key],
-      batchers: args[:batchers]
+      batchers: args[:batchers],
+      telemetry_prefix: telemetry_prefix
     }
 
     case type do
@@ -47,7 +52,8 @@ defmodule Broadway.Processor do
   @impl true
   def handle_events(messages, _from, state) do
     start_time = System.monotonic_time()
-    emit_start_event(state.name, start_time, messages)
+
+    emit_start_event(state.telemetry_prefix, state.name, start_time, messages)
 
     {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
 
@@ -77,6 +83,7 @@ defmodule Broadway.Processor do
     end
 
     emit_stop_event(
+      state.telemetry_prefix,
       state.name,
       start_time,
       successful_messages_to_ack,
@@ -87,13 +94,14 @@ defmodule Broadway.Processor do
     {:noreply, successful_messages_to_forward, state}
   end
 
-  defp emit_start_event(name, start_time, messages) do
+  defp emit_start_event(prefix, name, start_time, messages) do
     metadata = %{name: name, messages: messages}
     measurements = %{time: start_time}
-    :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
+    :telemetry.execute(prefix ++ [:start], measurements, metadata)
   end
 
   defp emit_stop_event(
+         prefix,
          name,
          start_time,
          successful_messages_to_ack,
@@ -109,7 +117,7 @@ defmodule Broadway.Processor do
 
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
-    :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
+    :telemetry.execute(prefix ++ [:stop], measurements, metadata)
   end
 
   defp handle_messages([message | messages], successful, failed, state) do
@@ -122,20 +130,21 @@ defmodule Broadway.Processor do
     } = state
 
     start_time = System.monotonic_time()
-    emit_message_start_event(start_time, processor_key, name, message)
+    emit_message_start_event(state.telemetry_prefix, start_time, processor_key, name, message)
 
     try do
       message =
         module.handle_message(processor_key, message, context)
         |> validate_message(batchers)
 
-      emit_message_stop_event(start_time, processor_key, name, message)
+      emit_message_stop_event(state.telemetry_prefix, start_time, processor_key, name, message)
       message
     catch
       kind, reason ->
         reason = Exception.normalize(kind, reason, __STACKTRACE__)
 
         emit_message_failure_event(
+          state.telemetry_prefix,
           start_time,
           processor_key,
           name,
@@ -164,17 +173,17 @@ defmodule Broadway.Processor do
     {Enum.reverse(successful), Enum.reverse(failed)}
   end
 
-  defp emit_message_start_event(start_time, processor_key, name, message) do
+  defp emit_message_start_event(prefix, start_time, processor_key, name, message) do
     metadata = %{
       processor_key: processor_key,
       name: name,
       message: message
     }
 
-    :telemetry.execute([:broadway, :processor, :message, :start], %{time: start_time}, metadata)
+    :telemetry.execute(prefix ++ [:message, :start], %{time: start_time}, metadata)
   end
 
-  defp emit_message_stop_event(start_time, processor_key, name, message) do
+  defp emit_message_stop_event(prefix, start_time, processor_key, name, message) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
 
@@ -184,10 +193,11 @@ defmodule Broadway.Processor do
       message: message
     }
 
-    :telemetry.execute([:broadway, :processor, :message, :stop], measurements, metadata)
+    :telemetry.execute(prefix ++ [:message, :stop], measurements, metadata)
   end
 
   defp emit_message_failure_event(
+         prefix,
          start_time,
          processor_key,
          name,
@@ -208,7 +218,7 @@ defmodule Broadway.Processor do
       stacktrace: stacktrace
     }
 
-    :telemetry.execute([:broadway, :processor, :message, :exception], measurements, metadata)
+    :telemetry.execute(prefix ++ [:message, :exception], measurements, metadata)
   end
 
   defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do
