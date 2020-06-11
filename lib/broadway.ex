@@ -903,8 +903,8 @@ defmodule Broadway do
         opts =
           opts
           |> carry_over_one(:producer, [:hibernate_after, :spawn_opt])
-          |> carry_over_many(:processors, [:partition_by, :hibernate_after, :spawn_opt])
-          |> carry_over_many(:batchers, [:partition_by, :hibernate_after, :spawn_opt])
+          |> carry_over_many(:processors, [:partition_by, :hibernate_after, :spawn_opt, :telemetry_prefix])
+          |> carry_over_many(:batchers, [:partition_by, :hibernate_after, :spawn_opt, :telemetry_prefix])
 
         Server.start_link(module, opts)
     end
@@ -1129,6 +1129,7 @@ defmodule Broadway do
       max_seconds: [type: :pos_integer, default: 5],
       resubscribe_interval: [type: :non_neg_integer, default: 100],
       context: [type: :any, default: :context_not_set],
+      telemetry_prefix: [type: :any],
       producer: [
         required: true,
         type: :non_empty_keyword_list,
@@ -1167,7 +1168,8 @@ defmodule Broadway do
             max_demand: [type: :non_neg_integer, default: 10],
             partition_by: [type: {:fun, 1}],
             spawn_opt: [type: :keyword_list],
-            hibernate_after: [type: :pos_integer]
+            hibernate_after: [type: :pos_integer],
+            telemetry_prefix: [type: :any]
           ]
         ]
       ],
@@ -1186,7 +1188,8 @@ defmodule Broadway do
             batch_timeout: [type: :pos_integer, default: 1000],
             partition_by: [type: {:fun, 1}],
             spawn_opt: [type: :keyword_list],
-            hibernate_after: [type: :pos_integer]
+            hibernate_after: [type: :pos_integer],
+            telemetry_prefix: [type: :any]
           ]
         ]
       ],
