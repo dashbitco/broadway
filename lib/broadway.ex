@@ -903,8 +903,18 @@ defmodule Broadway do
         opts =
           opts
           |> carry_over_one(:producer, [:hibernate_after, :spawn_opt])
-          |> carry_over_many(:processors, [:partition_by, :hibernate_after, :spawn_opt, :telemetry_prefix])
-          |> carry_over_many(:batchers, [:partition_by, :hibernate_after, :spawn_opt, :telemetry_prefix])
+          |> carry_over_many(:processors, [
+            :partition_by,
+            :hibernate_after,
+            :spawn_opt,
+            :telemetry_prefix
+          ])
+          |> carry_over_many(:batchers, [
+            :partition_by,
+            :hibernate_after,
+            :spawn_opt,
+            :telemetry_prefix
+          ])
 
         Server.start_link(module, opts)
     end

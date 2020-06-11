@@ -75,7 +75,15 @@ defmodule Broadway.Consumer do
         )
     end
 
-    emit_stop_event(state.telemetry_prefix, state.name, start_time, successful_messages, failed_messages, batch_info)
+    emit_stop_event(
+      state.telemetry_prefix,
+      state.name,
+      start_time,
+      successful_messages,
+      failed_messages,
+      batch_info
+    )
+
     {:noreply, [], state}
   end
 
