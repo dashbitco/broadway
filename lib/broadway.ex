@@ -465,15 +465,15 @@ defmodule Broadway do
 
   Broadway currently exposes following Telemetry events:
 
-    * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor when
-       the internal GenStage `handle_events/3` callback is invoked
+    * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor
+      before the optional `c:prepare_messages/2`
 
       * Measurement: `%{time: System.monotonic_time}`
       * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
 
-    * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor when
-      the internal GenStage `handle_events/3` callback has completed processing
-      all the individual messages
+    * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor
+      after `c:prepare_messages/2` and after all `c:handle_message/2` callback
+      has been invoked for all individual messages
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
 
