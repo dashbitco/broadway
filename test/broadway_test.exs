@@ -464,14 +464,8 @@ defmodule BroadwayTest do
         messages
         |> Enum.reduce([], fn message, acc ->
           case message.data do
-            :fail ->
-              [Message.failed(%{message | batcher: :unknown}, "Failed preparing message") | acc]
-
             :raise ->
               raise "Error raised in preparing message"
-
-            :bad_return ->
-              [:oops | acc]
 
             :filter ->
               acc
@@ -507,16 +501,18 @@ defmodule BroadwayTest do
       %{broadway: broadway, processor: processor}
     end
 
-    test "can filter messages", %{broadway: broadway} do
-      ref = Broadway.test_batch(broadway, [1, :filter, 3, 4], batch_mode: :flush)
+    test "raises if fewer messages are returned from prepare_messages", %{
+      broadway: broadway,
+      processor: processor
+    } do
+      assert capture_log(fn ->
+               ref = Broadway.test_batch(broadway, [1, :filter, 3, 4], batch_mode: :flush)
 
-      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 3}, %{data: 4}], []}
-    end
+               assert_receive {:ack, ^ref, [], [%{}, %{}, %{}, %{}]}
+             end) =~
+               "[error] ** (RuntimeError) expected all messages to be returned from prepared_messages/2"
 
-    test "failed messages are filtered from success messages", %{broadway: broadway} do
-      ref = Broadway.test_batch(broadway, [1, :fail, :fail, 4], batch_mode: :flush)
-
-      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 4}], [%{data: :fail}, %{data: :fail}]}
+      refute_received {:EXIT, _, ^processor}
     end
 
     test "all messages in the prepare_messages are marked as {kind, reason, stack} when an error is raised",
@@ -527,22 +523,9 @@ defmodule BroadwayTest do
       refute_received {:EXIT, _, ^processor}
     end
 
-    test "all messages in the prepare_messages are marked as {kind, reason, stack} on bad return",
-         %{broadway: broadway, processor: processor} do
-      assert capture_log(fn ->
-               ref = Broadway.test_batch(broadway, [1, :bad_return, 3, 4], batch_mode: :flush)
-
-               assert_receive {:ack, ^ref, [],
-                               [
-                                 %{data: 1, status: {:error, _, _}},
-                                 %{data: :bad_return, status: {:error, _, _}},
-                                 %{data: 3, status: {:error, _, _}},
-                                 %{data: 4, status: {:error, _, _}}
-                               ]}
-             end) =~
-               "[error] ** (RuntimeError) expected a Broadway.Message from prepare_messages/2, got :oops"
-
-      refute_received {:EXIT, _, ^processor}
+    test "all prepared messages are passed", %{broadway: broadway} do
+      ref = Broadway.test_batch(broadway, [1, 2], batch_mode: :bulk)
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
     end
   end
 
