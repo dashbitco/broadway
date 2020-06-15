@@ -49,7 +49,9 @@ defmodule Broadway.Processor do
     start_time = System.monotonic_time()
     emit_start_event(state.name, start_time, messages)
 
-    {successful_messages, failed_messages} = handle_messages(messages, [], [], state)
+    {prepared_messages, prepared_failed_messages} = maybe_prepare_messages(messages, state)
+    {successful_messages, failed_messages} = handle_messages(prepared_messages, [], [], state)
+    failed_messages = prepared_failed_messages ++ failed_messages
 
     {successful_messages_to_forward, successful_messages_to_ack} =
       case state do
@@ -110,6 +112,33 @@ defmodule Broadway.Processor do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
     :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
+  end
+
+  defp maybe_prepare_messages(messages, state) do
+    %{module: module, context: context} = state
+
+    if function_exported?(module, :prepare_messages, 2) do
+      try do
+        prepared_messages =
+          messages
+          |> module.prepare_messages(context)
+          |> validate_prepared_messages(messages)
+
+        {prepared_messages, []}
+      catch
+        kind, reason ->
+          reason = Exception.normalize(kind, reason, __STACKTRACE__)
+
+          Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+            crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+          )
+
+          messages = Enum.map(messages, &%{&1 | status: {kind, reason, __STACKTRACE__}})
+          {[], messages}
+      end
+    else
+      {messages, []}
+    end
   end
 
   defp handle_messages([message | messages], successful, failed, state) do
@@ -222,5 +251,13 @@ defmodule Broadway.Processor do
 
   defp validate_message(message, _batchers) do
     raise "expected a Broadway.Message from handle_message/3, got #{inspect(message)}"
+  end
+
+  defp validate_prepared_messages(prepared_messages, messages) do
+    if length(prepared_messages) != length(messages) do
+      raise "expected all messages to be returned from prepared_messages/2"
+    end
+
+    prepared_messages
   end
 end

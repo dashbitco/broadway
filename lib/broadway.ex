@@ -588,6 +588,25 @@ defmodule Broadway do
   @type on_start() :: {:ok, pid()} | :ignore | {:error, {:already_started, pid()} | term()}
 
   @doc """
+  Invoked for preparing messages before handling (if defined).
+
+  It expects:
+
+    * `message` is the `Broadway.Message` struct to be processed.
+    * `context` is the user defined data structure passed to `start_link/2`.
+
+  This is the place to prepare and preload any information that will be used
+  by `handle_message/2`. For example, if you need to query the database,
+  instead of doing it once per message, you can do it on this callback.
+
+  The length of the list of messages received by this callback is based on
+  the `min_demand`/`max_demand` configuration in the processor. This callback
+  must always return all messages it receives, as `handle_message/2` is still
+  called individually for each message afterwards.
+  """
+  @callback prepare_messages(messages :: [Message.t()], context :: term) :: [Message.t()]
+
+  @doc """
   Invoked to handle/process individual messages sent from a producer.
 
   It receives:
@@ -695,7 +714,7 @@ defmodule Broadway do
   @doc since: "0.5.0"
   @callback handle_failed(messages :: [Message.t()], context :: term) :: [Message.t()]
 
-  @optional_callbacks handle_batch: 4, handle_failed: 2
+  @optional_callbacks prepare_messages: 2, handle_batch: 4, handle_failed: 2
 
   @doc false
   defmacro __using__(opts) do
