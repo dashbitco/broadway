@@ -13,23 +13,17 @@ matrix:
       otp_release: "22.3"
     - elixir: "1.8.2"
       otp_release: "20.3"
-      env: CHECK_FORMATTED=true
     - elixir: "1.8.2"
       otp_release: "22.3"
-      env: CHECK_FORMATTED=true
     - elixir: "1.9.4"
       otp_release: "20.3"
-      env: CHECK_FORMATTED=true
     - elixir: "1.9.4"
       otp_release: "22.3"
-      env: CHECK_FORMATTED=true
     - elixir: "1.10.3"
       otp_release: "21.3"
-      env: CHECK_FORMATTED=true
     - elixir: "1.10.3"
       otp_release: "22.3"
-      env: CHECK_FORMATTED=true
 sudo: false
 script:
-  - if [ "$CHECK_FORMATTED" = true ]; then mix format --check-formatted; fi
+  - if [[ $(elixir --version) =~ "1.(8|9|10)." ]]; then mix format --check-formatted; fi
   - mix test
