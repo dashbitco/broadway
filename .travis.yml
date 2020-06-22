@@ -1,12 +1,35 @@
 language: elixir
+matrix:
+  include:
+    - elixir: "1.6.6"
+      otp_release: "19.3"
+    - elixir: "1.6.6"
+      otp_release: "20.3"
+    - elixir: "1.6.6"
+      otp_release: "21.3"
+    - elixir: "1.7.4"
+      otp_release: "19.3"
+    - elixir: "1.7.4"
+      otp_release: "22.3"
+    - elixir: "1.8.2"
+      otp_release: "20.3"
+      env: CHECK_FORMATTED=true
+    - elixir: "1.8.2"
+      otp_release: "22.3"
+      env: CHECK_FORMATTED=true
+    - elixir: "1.9.4"
+      otp_release: "20.3"
+      env: CHECK_FORMATTED=true
+    - elixir: "1.9.4"
+      otp_release: "22.3"
+      env: CHECK_FORMATTED=true
+    - elixir: "1.10.3"
+      otp_release: "21.3"
+      env: CHECK_FORMATTED=true
+    - elixir: "1.10.3"
+      otp_release: "22.3"
+      env: CHECK_FORMATTED=true
 sudo: false
 script:
   - if [ "$CHECK_FORMATTED" = true ]; then mix format --check-formatted; fi
   - mix test
-matrix:
-  include:
-    - elixir: 1.7.1
-      otp_release: 10.3
-    - elixir: 1.9.1
-      otp_release: 22.1
-      env: CHECK_FORMATTED=true
