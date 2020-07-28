@@ -2,7 +2,7 @@
 
 Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. It allows developers to consume data efficiently from different sources, known as producers, such as Amazon SQS, Apache Kafka, Google Cloud PubSub, RabbitMQ, and others.
 
-The name Broadway was taken from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, renowned for its stages and producers. :)
+The name Broadway was taken from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, renowned for its stages, actors, and producers. :)
 
 Documentation, examples, and how tos can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
