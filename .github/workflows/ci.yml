@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  mix_test:
+    name: mix test (Elixir ${{matrix.elixir}} | Erlang/OTP ${{matrix.otp}})
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: 1.7.4
+            otp: 19.3.6.13
+          - elixir: 1.8.2
+            otp: 20.3.8.26
+          - elixir: 1.9.4
+            otp: 20.3.8.26
+            warnings_as_errors: true # not 1.10 as its --warnigs-as-errors has bugs https://github.com/elixir-lang/elixir/issues/10073
+          - elixir: 1.10.4
+            otp: 21.3.8.17
+          - elixir: 1.10.4
+            otp: 23.0.3
+            check_formatted: true
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-elixir@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+      - run: mix format --check-formatted
+        if: matrix.check_formatted
+      - name: Install Dependencies
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get --only test
+      - run: mix compile --warnings-as-errors
+        if: matrix.warnings_as_errors
+      - run: mix test
