@@ -39,6 +39,7 @@ end
 Currently we officially support three Broadway producers:
 
   * Amazon SQS: [Source](https://github.com/dashbitco/broadway_sqs) - [Guide](https://hexdocs.pm/broadway/amazon-sqs.html)
+  * Apache Kafka: [Source](https://github.com/dashbitco/broadway_kafka) - [Guide](https://hexdocs.pm/broadway/apache-kafka.html)
   * Google Cloud Pub/Sub: [Source](https://github.com/dashbitco/broadway_cloud_pub_sub) - [Guide](https://hexdocs.pm/broadway/google-cloud-pubsub.html)
   * RabbitMQ: [Source](https://github.com/dashbitco/broadway_rabbitmq) - [Guide](https://hexdocs.pm/broadway/rabbitmq.html)
 
