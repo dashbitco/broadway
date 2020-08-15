@@ -1,7 +1,8 @@
-defmodule Broadway.ProducerTest do
+defmodule Broadway.Topology.ProducerStageTest do
   use ExUnit.Case, async: true
 
-  alias Broadway.{Producer, Message}
+  alias Broadway.Message
+  alias Broadway.Topology.ProducerStage
 
   defmodule FakeProducer do
     use GenStage
@@ -78,7 +79,9 @@ defmodule Broadway.ProducerTest do
 
   test "init with bad return" do
     args = %{module: {ProducerWithBadReturn, []}, broadway: []}
-    assert Producer.init({args, _index = 0}) == {:stop, {:bad_return_value, {:consumer, nil}}}
+
+    assert ProducerStage.init({args, _index = 0}) ==
+             {:stop, {:bad_return_value, {:consumer, nil}}}
   end
 
   describe "wrap handle_demand" do
@@ -86,7 +89,7 @@ defmodule Broadway.ProducerTest do
       state = %{state | module_state: :return_no_reply}
       new_state = %{state | module_state: :new_module_state}
 
-      assert {:noreply, [%Message{data: 10}], ^new_state} = Producer.handle_demand(10, state)
+      assert {:noreply, [%Message{data: 10}], ^new_state} = ProducerStage.handle_demand(10, state)
     end
 
     test "returning {:noreply, [event], new_state, :hibernate}", %{state: state} do
@@ -94,14 +97,14 @@ defmodule Broadway.ProducerTest do
       new_state = %{state | module_state: :new_module_state}
 
       assert {:noreply, [%Message{data: 10}], ^new_state, :hibernate} =
-               Producer.handle_demand(10, state)
+               ProducerStage.handle_demand(10, state)
     end
 
     test "returning {:stop, reason, new_state}", %{state: state} do
       state = %{state | module_state: :return_stop}
       new_state = %{state | module_state: :new_module_state}
 
-      assert Producer.handle_demand(10, state) == {:stop, "error_on_demand_10", new_state}
+      assert ProducerStage.handle_demand(10, state) == {:stop, "error_on_demand_10", new_state}
     end
 
     test "raise an error if a message is not a %Message{}", %{state: state} do
@@ -109,7 +112,7 @@ defmodule Broadway.ProducerTest do
 
       assert_raise RuntimeError,
                    ~r/the produced message is invalid/,
-                   fn -> Producer.handle_demand(10, state) end
+                   fn -> ProducerStage.handle_demand(10, state) end
     end
 
     test "transform events into %Message{} structs using a transformer", %{state: state} do
@@ -117,7 +120,8 @@ defmodule Broadway.ProducerTest do
       state = %{state | module_state: :do_not_wrap_messages, transformer: transformer}
       new_state = %{state | module_state: :new_module_state}
 
-      assert {:noreply, [%Message{data: "10 ok"}], ^new_state} = Producer.handle_demand(10, state)
+      assert {:noreply, [%Message{data: "10 ok"}], ^new_state} =
+               ProducerStage.handle_demand(10, state)
     end
   end
 
@@ -127,7 +131,7 @@ defmodule Broadway.ProducerTest do
       new_state = %{state | module_state: :new_module_state}
 
       assert {:noreply, [%Message{data: :a_message}], ^new_state} =
-               Producer.handle_info(:a_message, state)
+               ProducerStage.handle_info(:a_message, state)
     end
 
     test "returning {:noreply, [event], new_state, :hibernate}", %{state: state} do
@@ -135,14 +139,15 @@ defmodule Broadway.ProducerTest do
       new_state = %{state | module_state: :new_module_state}
 
       assert {:noreply, [%Message{data: :a_message}], ^new_state, :hibernate} =
-               Producer.handle_info(:a_message, state)
+               ProducerStage.handle_info(:a_message, state)
     end
 
     test "returning {:stop, reason, new_state}", %{state: state} do
       state = %{state | module_state: :return_stop}
       new_state = %{state | module_state: :new_module_state}
 
-      assert Producer.handle_info(:a_message, state) == {:stop, "error_on_a_message", new_state}
+      assert ProducerStage.handle_info(:a_message, state) ==
+               {:stop, "error_on_a_message", new_state}
     end
 
     test "raise an error if a message is not a %Message{}", %{state: state} do
@@ -150,7 +155,7 @@ defmodule Broadway.ProducerTest do
 
       assert_raise RuntimeError,
                    ~r/the produced message is invalid/,
-                   fn -> Producer.handle_info(:not_a_message, state) end
+                   fn -> ProducerStage.handle_info(:not_a_message, state) end
     end
 
     test "transform events into %Message{} structs using a transformer", %{state: state} do
@@ -158,7 +163,8 @@ defmodule Broadway.ProducerTest do
       state = %{state | module_state: :do_not_wrap_messages, transformer: transformer}
       new_state = %{state | module_state: :new_module_state}
 
-      assert {:noreply, [%Message{data: "10 ok"}], ^new_state} = Producer.handle_info(10, state)
+      assert {:noreply, [%Message{data: "10 ok"}], ^new_state} =
+               ProducerStage.handle_info(10, state)
     end
   end
 
@@ -166,16 +172,16 @@ defmodule Broadway.ProducerTest do
     test "forward call to wrapped module" do
       state = %{module: FakeProducer, module_state: :module_state}
 
-      assert Producer.terminate(:normal, state) == {:normal, :module_state}
+      assert ProducerStage.terminate(:normal, state) == {:normal, :module_state}
 
-      assert Producer.terminate({:shutdown, :a_term}, state) ==
+      assert ProducerStage.terminate({:shutdown, :a_term}, state) ==
                {{:shutdown, :a_term}, :module_state}
     end
 
     test "returns :ok when the wrapped module doesn't define a terminate/2 callback" do
       state = %{module: ProducerWithOutTerminate, module_state: :module_state}
 
-      assert Producer.terminate(:normal, state) == :ok
+      assert ProducerStage.terminate(:normal, state) == :ok
     end
   end
 end

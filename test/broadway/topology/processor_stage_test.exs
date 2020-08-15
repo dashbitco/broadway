@@ -1,9 +1,9 @@
-defmodule Broadway.ProcessorTest do
+defmodule Broadway.Topology.ProcessorStageTest do
   use ExUnit.Case, async: true
 
   test "set custom min and max demand" do
     {:ok, pid} =
-      Broadway.Processor.start_link(
+      Broadway.Topology.ProcessorStage.start_link(
         [
           module: __MODULE__,
           context: %{},

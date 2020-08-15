@@ -63,6 +63,7 @@ defmodule Broadway.MixProject do
           Broadway.NoopAcknowledger
         ],
         Producers: [
+          Broadway.Producer,
           Broadway.DummyProducer,
           Broadway.TermStorage
         ]

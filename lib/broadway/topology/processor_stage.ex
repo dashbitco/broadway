@@ -1,4 +1,4 @@
-defmodule Broadway.Processor do
+defmodule Broadway.Topology.ProcessorStage do
   @moduledoc false
   use GenStage
 
@@ -7,7 +7,7 @@ defmodule Broadway.Processor do
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, stage_options) do
-    Broadway.Subscriber.start_link(
+    Broadway.Topology.Subscriber.start_link(
       __MODULE__,
       args[:producers],
       args,

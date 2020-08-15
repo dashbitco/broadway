@@ -1,4 +1,4 @@
-defmodule Broadway.Terminator do
+defmodule Broadway.Topology.Terminator do
   @moduledoc false
   use GenServer
 
@@ -41,7 +41,7 @@ defmodule Broadway.Terminator do
     end
 
     for name <- state.producers, pid = Process.whereis(name) do
-      Broadway.Producer.drain(pid)
+      Broadway.Topology.ProducerStage.drain(pid)
     end
 
     for name <- state.last, pid = Process.whereis(name) do

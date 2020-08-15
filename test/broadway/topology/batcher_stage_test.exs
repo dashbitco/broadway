@@ -1,9 +1,9 @@
-defmodule Broadway.BatcherTest do
+defmodule Broadway.Topology.BatcherStageTest do
   use ExUnit.Case, async: true
 
   test "max_demand defaults to batch_size" do
     {:ok, pid} =
-      Broadway.Batcher.start_link(
+      Broadway.Topology.BatcherStage.start_link(
         [
           module: __MODULE__,
           context: %{},

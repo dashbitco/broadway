@@ -580,7 +580,7 @@ defmodule Broadway do
       * Metadata: `%{name: atom}`
   """
 
-  alias Broadway.{BatchInfo, Message, Options, Server, Producer}
+  alias Broadway.{BatchInfo, Message, Options, Topology}
 
   @typedoc """
   Returned by `start_link/2`.
@@ -925,7 +925,7 @@ defmodule Broadway do
           |> carry_over_many(:processors, [:partition_by, :hibernate_after, :spawn_opt])
           |> carry_over_many(:batchers, [:partition_by, :hibernate_after, :spawn_opt])
 
-        Server.start_link(module, opts)
+        Topology.start_link(module, opts)
     end
   end
 
@@ -951,7 +951,7 @@ defmodule Broadway do
   """
   @spec producer_names(GenServer.server()) :: [atom()]
   def producer_names(broadway) do
-    Server.producer_names(broadway)
+    Topology.producer_names(broadway)
   end
 
   @doc """
@@ -965,7 +965,7 @@ defmodule Broadway do
     broadway
     |> producer_names()
     |> Enum.random()
-    |> Producer.push_messages(messages)
+    |> Topology.ProducerStage.push_messages(messages)
   end
 
   @doc """
@@ -1097,8 +1097,8 @@ defmodule Broadway do
                required(:allowed_messages) => non_neg_integer()
              }
   def get_rate_limiting(broadway) do
-    with {:ok, rate_limiter_name} <- Server.get_rate_limiter(broadway) do
-      {:ok, Broadway.RateLimiter.get_rate_limiting(rate_limiter_name)}
+    with {:ok, rate_limiter_name} <- Topology.get_rate_limiter(broadway) do
+      {:ok, Topology.RateLimiter.get_rate_limiting(rate_limiter_name)}
     end
   end
 
@@ -1129,8 +1129,8 @@ defmodule Broadway do
     ]
 
     with {:validate_opts, {:ok, opts}} <- {:validate_opts, Options.validate(opts, spec)},
-         {:get_name, {:ok, rate_limiter_name}} <- {:get_name, Server.get_rate_limiter(broadway)} do
-      Broadway.RateLimiter.update_rate_limiting(rate_limiter_name, opts)
+         {:get_name, {:ok, rate_limiter_name}} <- {:get_name, Topology.get_rate_limiter(broadway)} do
+      Topology.RateLimiter.update_rate_limiting(rate_limiter_name, opts)
     else
       {:validate_opts, {:error, message}} ->
         raise ArgumentError, "invalid options, " <> message

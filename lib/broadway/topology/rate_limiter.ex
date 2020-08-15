@@ -1,4 +1,4 @@
-defmodule Broadway.RateLimiter do
+defmodule Broadway.Topology.RateLimiter do
   # TODO: Use :counters once we require Erlang/OTP 22+
   @moduledoc false
 

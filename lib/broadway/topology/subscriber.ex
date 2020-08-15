@@ -1,4 +1,4 @@
-defmodule Broadway.Subscriber do
+defmodule Broadway.Topology.Subscriber do
   # This modules defines conveniences for subscribing to producers
   # and how to resubscribe to them in case of crashes.
   #

@@ -1,8 +1,15 @@
-defmodule Broadway.Server do
+defmodule Broadway.Topology do
   @moduledoc false
   @behaviour GenServer
 
-  alias Broadway.{Producer, Processor, Batcher, Consumer, Terminator, RateLimiter}
+  alias Broadway.Topology.{
+    ProducerStage,
+    ProcessorStage,
+    BatcherStage,
+    BatchProcessorStage,
+    Terminator,
+    RateLimiter
+  }
 
   def start_link(module, opts) do
     GenServer.start_link(__MODULE__, {module, opts}, opts)
@@ -64,7 +71,7 @@ defmodule Broadway.Server do
 
   @impl true
   def terminate(reason, %{supervisor_pid: supervisor_pid, terminator: terminator}) do
-    Broadway.Terminator.trap_exit(terminator)
+    Broadway.Topology.Terminator.trap_exit(terminator)
     ref = Process.monitor(supervisor_pid)
     Process.exit(supervisor_pid, reason_to_signal(reason))
 
@@ -171,7 +178,7 @@ defmodule Broadway.Server do
         start_options = start_options(name, producer_config)
 
         spec = %{
-          start: {Producer, :start_link, [args, index, start_options]},
+          start: {ProducerStage, :start_link, [args, index, start_options]},
           id: name,
           shutdown: shutdown
         }
@@ -238,7 +245,7 @@ defmodule Broadway.Server do
         args = [name: name, partition: index] ++ args
 
         %{
-          start: {Processor, :start_link, [args, start_options]},
+          start: {ProcessorStage, :start_link, [args, start_options]},
           id: name,
           shutdown: shutdown
         }
@@ -303,7 +310,7 @@ defmodule Broadway.Server do
     opts = [name: name]
 
     spec = %{
-      start: {Batcher, :start_link, [args, opts]},
+      start: {BatcherStage, :start_link, [args, opts]},
       id: name,
       shutdown: shutdown
     }
@@ -335,7 +342,9 @@ defmodule Broadway.Server do
         start_options = start_options(name, batcher_config)
 
         %{
-          start: {Consumer, :start_link, [[name: name, partition: index] ++ args, start_options]},
+          start:
+            {BatchProcessorStage, :start_link,
+             [[name: name, partition: index] ++ args, start_options]},
           id: name,
           shutdown: shutdown
         }

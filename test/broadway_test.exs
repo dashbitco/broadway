@@ -2285,7 +2285,7 @@ defmodule BroadwayTest do
     send(
       producer,
       {:"$gen_call", {self(), make_ref()},
-       {Broadway.Producer, :push_messages, wrap_messages(list)}}
+       {Broadway.Topology.ProducerStage, :push_messages, wrap_messages(list)}}
     )
   end
 

@@ -1,4 +1,4 @@
-defmodule Broadway.Consumer do
+defmodule Broadway.Topology.BatchProcessorStage do
   @moduledoc false
   use GenStage
   require Logger
@@ -7,7 +7,7 @@ defmodule Broadway.Consumer do
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, stage_options) do
-    Broadway.Subscriber.start_link(
+    Broadway.Topology.Subscriber.start_link(
       __MODULE__,
       [args[:batcher]],
       args,
