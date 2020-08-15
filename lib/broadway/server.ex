@@ -96,7 +96,7 @@ defmodule Broadway.Server do
         build_producer_supervisor_spec(config, producers_specs),
         build_processor_supervisor_spec(config, processors_specs)
       ] ++
-        build_batcher_supervisor_and_terminator_specs(config, producers_names, processors_names)
+        build_batchers_supervisor_and_terminator_specs(config, producers_names, processors_names)
 
     supervisor_opts = [
       name: :"#{name_prefix(config.name)}.Supervisor",
@@ -247,34 +247,34 @@ defmodule Broadway.Server do
     {names, specs}
   end
 
-  defp build_batcher_supervisor_and_terminator_specs(config, producers_names, processors_names) do
+  defp build_batchers_supervisor_and_terminator_specs(config, producers_names, processors_names) do
     if config[:batchers_config] == [] do
       [build_terminator_spec(config, producers_names, processors_names, processors_names)]
     else
-      {consumers_names, batchers_consumers_specs} =
-        build_batchers_consumers_supervisors_specs(config, processors_names)
+      {batch_processors_names, batcher_supervisors_specs} =
+        build_batcher_supervisors_specs(config, processors_names)
 
       [
-        build_batcher_partition_supervisor_spec(config, batchers_consumers_specs),
-        build_terminator_spec(config, producers_names, processors_names, consumers_names)
+        build_batchers_supervisor_spec(config, batcher_supervisors_specs),
+        build_terminator_spec(config, producers_names, processors_names, batch_processors_names)
       ]
     end
   end
 
-  defp build_batchers_consumers_supervisors_specs(config, processors) do
+  defp build_batcher_supervisors_specs(config, processors) do
     names_and_specs =
       for {key, _} = batcher_config <- config.batchers_config do
         {batcher, batcher_spec} = build_batcher_spec(config, batcher_config, processors)
 
         {consumers_names, consumers_specs} =
-          build_consumers_specs(config, batcher_config, batcher)
+          build_batch_processors_specs(config, batcher_config, batcher)
 
         children = [
           batcher_spec,
-          build_consumer_supervisor_spec(config, consumers_specs, key)
+          build_batch_processor_supervisor_spec(config, consumers_specs, key)
         ]
 
-        {consumers_names, build_batcher_consumer_supervisor_spec(config, children, key)}
+        {consumers_names, build_batcher_supervisor_spec(config, children, key)}
       end
 
     {names, specs} = Enum.unzip(names_and_specs)
@@ -311,7 +311,7 @@ defmodule Broadway.Server do
     {name, spec}
   end
 
-  defp build_consumers_specs(config, {key, batcher_config}, batcher) do
+  defp build_batch_processors_specs(config, {key, batcher_config}, batcher) do
     %{
       name: broadway_name,
       module: module,
@@ -320,7 +320,7 @@ defmodule Broadway.Server do
       shutdown: shutdown
     } = config
 
-    names = process_names(broadway_name, "Consumer_#{key}", batcher_config)
+    names = process_names(broadway_name, "BatchProcessor_#{key}", batcher_config)
 
     args = [
       resubscribe: :never,
@@ -401,32 +401,32 @@ defmodule Broadway.Server do
     )
   end
 
-  defp build_batcher_partition_supervisor_spec(config, children) do
+  defp build_batchers_supervisor_spec(config, children) do
     children_count = length(children)
 
     build_supervisor_spec(
       children,
-      :"#{name_prefix(config.name)}.BatcherPartitionSupervisor",
+      :"#{name_prefix(config.name)}.BatchersSupervisor",
       strategy: :one_for_one,
       max_restarts: 2 * children_count,
       max_seconds: children_count
     )
   end
 
-  defp build_batcher_consumer_supervisor_spec(config, children, key) do
+  defp build_batcher_supervisor_spec(config, children, key) do
     build_supervisor_spec(
       children,
-      :"#{name_prefix(config.name)}.BatcherConsumerSupervisor_#{key}",
+      :"#{name_prefix(config.name)}.BatcherSupervisor_#{key}",
       strategy: :rest_for_one,
       max_restarts: 4,
       max_seconds: 2
     )
   end
 
-  defp build_consumer_supervisor_spec(config, children, key) do
+  defp build_batch_processor_supervisor_spec(config, children, key) do
     build_supervisor_spec(
       children,
-      :"#{name_prefix(config.name)}.ConsumerSupervisor_#{key}",
+      :"#{name_prefix(config.name)}.BatchProcessorSupervisor_#{key}",
       strategy: :one_for_all,
       max_restarts: 0
     )

@@ -1531,7 +1531,7 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name)
       processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
-      consumer = get_consumer(broadway_name, :default)
+      consumer = get_batch_processor(broadway_name, :default)
 
       %{
         broadway: broadway,
@@ -1609,7 +1609,7 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name)
       processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
-      consumer = get_consumer(broadway_name, :default)
+      consumer = get_batch_processor(broadway_name, :default)
 
       %{
         broadway: broadway,
@@ -1714,7 +1714,7 @@ defmodule BroadwayTest do
       producer = get_producer(broadway_name)
       processor = get_processor(broadway_name, :default)
       batcher = get_batcher(broadway_name, :default)
-      consumer = get_consumer(broadway_name, :default)
+      consumer = get_batch_processor(broadway_name, :default)
 
       %{
         broadway: broadway,
@@ -1813,7 +1813,7 @@ defmodule BroadwayTest do
           batchers: [default: [batch_size: 4]]
         )
 
-      consumer = get_consumer(broadway_name, :default)
+      consumer = get_batch_processor(broadway_name, :default)
       Process.link(Process.whereis(consumer))
       %{broadway: broadway, consumer: consumer}
     end
@@ -2261,8 +2261,8 @@ defmodule BroadwayTest do
     :"#{broadway_name}.Broadway.Batcher_#{key}"
   end
 
-  defp get_consumer(broadway_name, key, index \\ 0) do
-    :"#{broadway_name}.Broadway.Consumer_#{key}_#{index}"
+  defp get_batch_processor(broadway_name, key, index \\ 0) do
+    :"#{broadway_name}.Broadway.BatchProcessor_#{key}_#{index}"
   end
 
   defp get_rate_limiter(broadway_name) do
@@ -2278,7 +2278,7 @@ defmodule BroadwayTest do
   end
 
   defp get_n_consumers(broadway_name, key) do
-    Supervisor.count_children(:"#{broadway_name}.Broadway.ConsumerSupervisor_#{key}").workers
+    Supervisor.count_children(:"#{broadway_name}.Broadway.BatchProcessorSupervisor_#{key}").workers
   end
 
   defp async_push_messages(producer, list) do

@@ -779,8 +779,8 @@ defmodule Broadway do
       partitioned across all processors and batchers. It receives a
       `Broadway.Message` and it must return a non-negative integer,
       starting with zero, that will be mapped to one of the existing
-      processors. See ["Ordering and Partitioning"](#module-ordering-and-partitioning) in the module docs
-      for more information.
+      processors. See ["Ordering and Partitioning"](#module-ordering-and-partitioning)
+      in the module docs for more information.
 
     * `:hibernate_after` - Optional. If a process does not receive any
       message within this interval, it will hibernate, compacting memory.

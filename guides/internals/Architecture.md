@@ -33,7 +33,7 @@ handle_batch/4 runs here -> [batch processor][batch processor]
     the code from `handle_message/3` runs.
   * `Broadway.Batcher` - Creates batches of messages based on the
     batcher's key. One batcher for each key will be created.
-  * `Broadway.Consumer` - This is where the code from `handle_batch/4` runs.
+  * `Broadway.BatchProcessor` - This is where the code from `handle_batch/4` runs.
 
 ## The supervision tree
 
@@ -53,23 +53,23 @@ is designed as follows:
                        /         |                       |            \
                      /           |                       |               \
                    /             |                       |                  \
-  [ProducerSupervisor]  [ProcessorSupervisor] [BatcherPartitionSupervisor] [Terminator]
+  [ProducerSupervisor]  [ProcessorSupervisor]   [BatchersSupervisor]    [Terminator]
     (:one_for_one)        (:one_for_all)           (:one_for_one)
          / \                    / \                /            \
         /   \                  /   \              /              \
        /     \                /     \            /                \
       /       \              /       \          /                  \
-[Producer_1]  ...    [Processor_1]  ...  [BatcherConsumerSuperv_1]  ...
+[Producer_1]  ...    [Processor_1]  ...  [BatcherSupervisor_1]     ...
                                             (:rest_for_one)
-                                                  /  \
-                                                 /    \
-                                                /      \
-                                          [Batcher] [ConsumerSupervisor]
+                                            /             \
+                                           /               \
+                                          /                 \
+                                     [Batcher]   [BatchProcessorSupervisor]
                                                        (:one_for_all)
-                                                            /  \
-                                                           /    \
-                                                          /      \
-                                                   [Consumer_1]  ...
+                                                        /           \
+                                                       /             \
+                                                      /               \
+                                            [BatchProcessor_1]        ...
 ```
 
 
