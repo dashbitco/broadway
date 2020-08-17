@@ -1,13 +1,41 @@
 defmodule Broadway.Producer do
   @moduledoc """
-  A Broadway.Producer is a `GenStage` producer that emits
+  A Broadway Producer is a `GenStage` producer that emits
   `Broadway.Message` as events.
 
-  Optionally, a `Broadway.Producer` can implement two
-  optional Broadway callbacks: `c:prepare_for_start/2`
-  and `c:prepare_for_draining/2`, which are useful for
-  booting up and shutting down Broadway topologies
-  respectively.
+  The `Broadway.Producer` is declared in a Broadway topology
+  via the `:module` option:
+
+      producer: [
+        module: {MyModule, opts}
+      ]
+
+  Once declared, `MyModule` is expected to implement and
+  behave as a `GenStage` producer. When Broadway starts,
+  the `c:GenStage.init/1` callback will be invoked with the
+  given `opts.`
+
+  If `opts` is a keyword list, a `:broadway` option is injected
+  into such keyword list containing the configuration for the
+  complete Broadway topology. For example, you can use
+  `opts[:broadway][:name]` to uniquely identify the topology,
+  allowing you to write to `persistent_term` or `ets`.
+
+  The `:broadway` configuration also has an `:index` key which
+  is the index of the producer in its supervision tree (starting
+  from 0). This allows a features such having even producers
+  connect to some server while odd producers connect to another.
+
+  If `opts` is any other term, it is passed as is to the `init`
+  callback. All other functions behave precisely as in `GenStage`
+  with the requirements that all events must be `Broadway.Message`
+  structs.
+
+  ## Optional callbacks
+
+  A `Broadway.Producer` can implement two optional Broadway callbacks:
+  `c:prepare_for_start/2` and `c:prepare_for_draining/2`, which are useful
+  for booting up and shutting down Broadway topologies respectively.
   """
 
   @doc """

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.0-dev
+
+  * Remove `Broadway.TermStorage` now that we have Broadway topology information on the producer init callback
+
+## v0.6.2 (2020-08-17)
+
+  * Make `Broadway.Producer` public
+  * Add optional `prepare_messages` callback
+
 ## v0.6.1 (2020-06-02)
 
   * Rename `:failure` Telemetry event to `:exception` so it conforms to the telemetry specification

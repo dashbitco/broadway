@@ -1,7 +1,7 @@
 defmodule Broadway.MixProject do
   use Mix.Project
 
-  @version "0.6.2"
+  @version "0.7.0-dev"
   @description "Build concurrent and multi-stage data ingestion and data processing pipelines"
 
   def project do
@@ -19,8 +19,7 @@ defmodule Broadway.MixProject do
 
   def application do
     [
-      extra_applications: [:logger],
-      mod: {Broadway.Application, []}
+      extra_applications: [:logger]
     ]
   end
 
@@ -64,8 +63,7 @@ defmodule Broadway.MixProject do
         ],
         Producers: [
           Broadway.Producer,
-          Broadway.DummyProducer,
-          Broadway.TermStorage
+          Broadway.DummyProducer
         ]
       ]
     ]

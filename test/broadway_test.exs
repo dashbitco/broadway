@@ -7,13 +7,8 @@ defmodule BroadwayTest do
   alias Broadway.{Message, BatchInfo, CallerAcknowledger}
 
   defmodule ManualProducer do
-    use GenStage
-
     @behaviour Broadway.Producer
-
-    def start_link(args, opts \\ []) do
-      GenStage.start_link(__MODULE__, args, opts)
-    end
+    use GenStage
 
     @impl true
     def init(%{test_pid: test_pid}) do

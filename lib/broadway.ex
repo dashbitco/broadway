@@ -797,15 +797,8 @@ defmodule Broadway do
     * `:module` - Required. A tuple representing a GenStage producer.
       The tuple format should be `{mod, arg}`, where `mod` is the module
       that implements the GenStage behaviour and `arg` the argument that will
-      be passed to the `init/1` callback of the producer. Pay attention that
-      this producer must emit events that are `Broadway.Message` structs.
-      It's recommended that `arg` is a keyword list. In fact, if `arg` is
-      a keyword list, a `:broadway` option is injected into such keyword list
-      containing the configuration for the complete Broadway topology with the
-      addition of an `:index` key, telling the index of the producer in its
-      supervision tree (starting from 0). This allows a features such having
-      even producers connect to some server while odd producers connect to
-      another.
+      be passed to the `init/1` callback of the producer. See `Broadway.Prodycer`
+      for more information.
 
     * `:concurrency` - Optional. The number of concurrent producers that
       will be started by Broadway. Use this option to control the concurrency
