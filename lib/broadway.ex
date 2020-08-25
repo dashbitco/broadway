@@ -880,33 +880,6 @@ defmodule Broadway do
   """
   @spec start_link(module(), keyword()) :: on_start()
   def start_link(module, opts) do
-    opts =
-      case Keyword.pop(opts, :producers) do
-        {nil, opts} ->
-          opts
-
-        {[{_key, producer}], opts} ->
-          IO.warn("""
-          :producers key in Broadway.start_link is deprecated.
-
-          Instead of:
-
-              producers: [
-                default: [
-                  ...
-                ]
-              ]
-
-          Do:
-
-              producer: [
-                ...
-              ]
-          """)
-
-          Keyword.put(opts, :producer, producer)
-      end
-
     case Options.validate(opts, configuration_spec()) do
       {:error, message} ->
         raise ArgumentError, "invalid configuration given to Broadway.start_link/2, " <> message
@@ -1041,12 +1014,6 @@ defmodule Broadway do
     test_messages(broadway, batch_data, Keyword.get(opts, :batch_mode, :bulk), opts)
   end
 
-  @doc false
-  @deprecated "Use Broadway.test_message/3 or Broadway.test_batch/3 instead"
-  def test_messages(broadway, data, opts \\ []) when is_list(data) and is_list(opts) do
-    test_messages(broadway, data, Keyword.get(opts, :batch_mode, :flush), opts)
-  end
-
   defp test_messages(broadway, data, batch_mode, opts) do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
 
@@ -1146,11 +1113,6 @@ defmodule Broadway do
         type: :non_empty_keyword_list,
         keys: [
           module: [required: true, type: :mod_arg],
-          stages: [
-            type: :pos_integer,
-            deprecated: "Use :concurrency instead",
-            rename_to: :concurrency
-          ],
           concurrency: [type: :pos_integer, default: 1],
           transformer: [type: :mfa, default: nil],
           spawn_opt: [type: :keyword_list],
@@ -1169,11 +1131,6 @@ defmodule Broadway do
         type: :non_empty_keyword_list,
         keys: [
           *: [
-            stages: [
-              type: :pos_integer,
-              deprecated: "Use :concurrency instead",
-              rename_to: :concurrency
-            ],
             concurrency: [type: :pos_integer, default: System.schedulers_online() * 2],
             min_demand: [type: :non_neg_integer],
             max_demand: [type: :non_neg_integer, default: 10],
@@ -1188,11 +1145,6 @@ defmodule Broadway do
         type: :keyword_list,
         keys: [
           *: [
-            stages: [
-              type: :pos_integer,
-              deprecated: "Use :concurrency instead",
-              rename_to: :concurrency
-            ],
             concurrency: [type: :pos_integer, default: 1],
             batch_size: [type: :pos_integer, default: 100],
             batch_timeout: [type: :pos_integer, default: 1000],

@@ -2,6 +2,8 @@
 
 ## v0.7.0-dev
 
+Broadway v0.7 requires Erlang/OTP 21.3+.
+
   * Remove `Broadway.TermStorage` now that we have Broadway topology information on the producer init callback
 
 ## v0.6.2 (2020-08-17)
