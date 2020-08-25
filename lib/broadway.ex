@@ -942,8 +942,8 @@ defmodule Broadway do
       [MyBroadway.Producer_0, MyBroadway.Producer_1, ..., MyBroadway.Producer_7]
 
   """
-  @spec producer_names(GenServer.server()) :: [atom()]
-  def producer_names(broadway) do
+  @spec producer_names(broadway :: atom()) :: [atom()]
+  def producer_names(broadway) when is_atom(broadway) do
     Topology.producer_names(broadway)
   end
 
@@ -953,8 +953,8 @@ defmodule Broadway do
   The producer is randomly chosen among all sets of producers/stages.
   This is used to send out of band data to a Broadway pipeline.
   """
-  @spec push_messages(GenServer.server(), messages :: [Message.t()]) :: :ok
-  def push_messages(broadway, messages) when is_list(messages) do
+  @spec push_messages(broadway :: atom(), messages :: [Message.t()]) :: :ok
+  def push_messages(broadway, messages) when is_atom(broadway) and is_list(messages) do
     broadway
     |> producer_names()
     |> Enum.random()
@@ -993,7 +993,7 @@ defmodule Broadway do
       assert_receive {:ack, ^ref, [successful], []}
 
   """
-  @spec test_message(GenServer.server(), term, opts :: Keyword.t()) :: reference
+  @spec test_message(broadway :: atom(), term, opts :: Keyword.t()) :: reference
   def test_message(broadway, data, opts \\ []) when is_list(opts) do
     test_messages(broadway, [data], :flush, opts)
   end
@@ -1036,7 +1036,7 @@ defmodule Broadway do
       assert length(failed) == 0
 
   """
-  @spec test_batch(GenServer.server(), data :: [term], opts :: Keyword.t()) :: reference
+  @spec test_batch(broadway :: atom(), data :: [term], opts :: Keyword.t()) :: reference
   def test_batch(broadway, batch_data, opts \\ []) when is_list(batch_data) and is_list(opts) do
     test_messages(broadway, batch_data, Keyword.get(opts, :batch_mode, :bulk), opts)
   end
@@ -1083,13 +1083,13 @@ defmodule Broadway do
 
   """
   @doc since: "0.6.0"
-  @spec get_rate_limiting(GenServer.server()) ::
+  @spec get_rate_limiting(server :: atom()) ::
           {:ok, rate_limiting_info} | {:error, :rate_limiting_not_enabled}
         when rate_limiting_info: %{
                required(:interval) => non_neg_integer(),
                required(:allowed_messages) => non_neg_integer()
              }
-  def get_rate_limiting(broadway) do
+  def get_rate_limiting(broadway) when is_atom(broadway) do
     with {:ok, rate_limiter_name} <- Topology.get_rate_limiter(broadway) do
       {:ok, Topology.RateLimiter.get_rate_limiting(rate_limiter_name)}
     end
@@ -1113,9 +1113,9 @@ defmodule Broadway do
 
   """
   @doc since: "0.6.0"
-  @spec update_rate_limiting(GenServer.server(), opts :: Keyword.t()) ::
+  @spec update_rate_limiting(server :: atom(), opts :: Keyword.t()) ::
           :ok | {:error, :rate_limiting_not_enabled}
-  def update_rate_limiting(broadway, opts) when is_list(opts) do
+  def update_rate_limiting(broadway, opts) when is_atom(broadway) and is_list(opts) do
     spec = [
       allowed_messages: [type: :pos_integer],
       interval: [type: :pos_integer]

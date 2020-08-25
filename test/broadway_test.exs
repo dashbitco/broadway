@@ -395,16 +395,16 @@ defmodule BroadwayTest do
   end
 
   test "push_messages/2" do
-    {:ok, pid} =
+    {:ok, _broadway} =
       Broadway.start_link(Forwarder,
-        name: new_unique_name(),
+        name: broadway_name = new_unique_name(),
         context: %{test_pid: self()},
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [default: [batch_size: 2]]
       )
 
-    Broadway.push_messages(pid, [
+    Broadway.push_messages(broadway_name, [
       %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
       %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
     ])
@@ -427,7 +427,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -435,7 +435,7 @@ defmodule BroadwayTest do
           processors: [default: [concurrency: 1, min_demand: 1, max_demand: 2]]
         )
 
-      %{broadway: broadway}
+      %{broadway: broadway_name}
     end
 
     test "metadata field is added to message if specified",
@@ -483,7 +483,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlersWithPreparedMessages,
           name: broadway_name,
           context: context,
@@ -493,7 +493,7 @@ defmodule BroadwayTest do
 
       processor = get_processor(broadway_name, :default)
       Process.link(Process.whereis(processor))
-      %{broadway: broadway, processor: processor}
+      %{broadway: broadway_name, processor: processor}
     end
 
     test "raises if fewer messages are returned from prepare_messages", %{
@@ -558,7 +558,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -569,7 +569,7 @@ defmodule BroadwayTest do
 
       processor = get_processor(broadway_name, :default)
       Process.link(Process.whereis(processor))
-      %{broadway: broadway, processor: processor}
+      %{broadway: broadway_name, processor: processor}
     end
 
     test "successful messages are marked as :ok", %{broadway: broadway} do
@@ -764,7 +764,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlersWithoutHandleBatch,
           name: broadway_name,
           context: context,
@@ -773,11 +773,11 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name)
-      %{broadway_name: broadway_name, broadway: broadway, producer: producer}
+      %{broadway: broadway_name, producer: producer}
     end
 
-    test "no batcher supervisor is initialized", %{broadway_name: broadway_name} do
-      assert Process.whereis(:"#{broadway_name}.Broadway.BatcherPartitionSupervisor") == nil
+    test "no batcher supervisor is initialized", %{broadway: broadway} do
+      assert Process.whereis(:"#{broadway}.Broadway.BatcherPartitionSupervisor") == nil
     end
 
     test "successful messages are marked as :ok", %{broadway: broadway} do
@@ -796,7 +796,7 @@ defmodule BroadwayTest do
       # We suspend the producer to make sure that it doesn't process the messages early on
       :sys.suspend(producer)
       async_push_messages(producer, [1, 2, 3, 4])
-      Process.exit(broadway, :shutdown)
+      Process.exit(Process.whereis(broadway), :shutdown)
       :sys.resume(producer)
 
       assert_receive {:ack, _, [%{data: 1}], []}
@@ -827,7 +827,7 @@ defmodule BroadwayTest do
         end
       }
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -839,7 +839,7 @@ defmodule BroadwayTest do
           ]
         )
 
-      %{broadway: broadway}
+      %{broadway: broadway_name}
     end
 
     test "generate batches based on :batch_size", %{broadway: broadway} do
@@ -897,7 +897,7 @@ defmodule BroadwayTest do
         end
       }
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -906,7 +906,7 @@ defmodule BroadwayTest do
           batchers: [default: [batch_size: 2, batch_timeout: 20]]
         )
 
-      %{broadway: broadway}
+      %{broadway: broadway_name}
     end
 
     test "generate batches based on :batch_size", %{broadway: broadway} do
@@ -959,7 +959,7 @@ defmodule BroadwayTest do
 
       partition_by = fn msg -> msg.data end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -981,7 +981,7 @@ defmodule BroadwayTest do
           partition_by: partition_by
         )
 
-      %{broadway: broadway}
+      %{broadway: broadway_name}
     end
 
     def shuffle_data(msg), do: if(msg.data <= 6, do: 0, else: 1)
@@ -1084,7 +1084,7 @@ defmodule BroadwayTest do
         end
       }
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -1093,7 +1093,7 @@ defmodule BroadwayTest do
           batchers: [default: [batch_size: 2, batch_timeout: 20]]
         )
 
-      %{broadway: broadway}
+      %{broadway: broadway_name}
     end
 
     test "flush by default", %{broadway: broadway} do
@@ -1132,7 +1132,7 @@ defmodule BroadwayTest do
         message
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: %{handle_message: handle_message},
@@ -1140,7 +1140,7 @@ defmodule BroadwayTest do
           processors: [default: []]
         )
 
-      ref = Broadway.test_message(broadway, 1)
+      ref = Broadway.test_message(broadway_name, 1)
 
       assert_receive {:ack, ^ref, [%Message{data: 1}], []}
       assert_receive :manually_acked
@@ -1167,7 +1167,7 @@ defmodule BroadwayTest do
         batch
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: %{handle_message: handle_message, handle_batch: handle_batch},
@@ -1176,7 +1176,7 @@ defmodule BroadwayTest do
           batchers: [default: [batch_size: 4, batch_timeout: 1000]]
         )
 
-      ref = Broadway.test_batch(broadway, [:ok, :ok, :fail, :ok])
+      ref = Broadway.test_batch(broadway_name, [:ok, :ok, :fail, :ok])
 
       assert_receive {:ack, ^ref, [_, _, _], [_]}
       assert_receive :manually_acked
@@ -1200,7 +1200,7 @@ defmodule BroadwayTest do
         Message.configure_ack(message, test_pid: self())
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: %{handle_message: handle_message},
@@ -1210,7 +1210,7 @@ defmodule BroadwayTest do
 
       log =
         capture_log(fn ->
-          Broadway.push_messages(broadway, [
+          Broadway.push_messages(broadway_name, [
             %Message{data: 1, acknowledger: {NonConfigurableAcker, self(), :unused}}
           ])
 
@@ -1229,7 +1229,7 @@ defmodule BroadwayTest do
         Message.configure_ack(message, configure_options)
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: %{handle_message: handle_message},
@@ -1237,7 +1237,7 @@ defmodule BroadwayTest do
           processors: [default: []]
         )
 
-      ref = Broadway.test_message(broadway, 1)
+      ref = Broadway.test_message(broadway_name, 1)
 
       assert_receive {:configure, ^ref, ^configure_options}
       assert_receive {:ack, ^ref, [success], _failed = []}
@@ -1314,7 +1314,7 @@ defmodule BroadwayTest do
         [Message.update_data(message, fn _ -> :updated end)]
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{handle_message: handle_message, handle_failed: handle_failed},
@@ -1322,7 +1322,7 @@ defmodule BroadwayTest do
           processors: [default: []]
         )
 
-      ref = Broadway.test_batch(broadway, [1, :fail], batch_mode: :flush)
+      ref = Broadway.test_batch(broadway_name, [1, :fail], batch_mode: :flush)
 
       assert_receive {:handle_failed_called, %Message{data: :fail}}
       assert_receive {:ack, ^ref, [successful], [failed]}
@@ -1344,7 +1344,7 @@ defmodule BroadwayTest do
         [Message.update_data(message, fn _ -> :updated end)]
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{handle_message: handle_message, handle_failed: handle_failed},
@@ -1353,7 +1353,7 @@ defmodule BroadwayTest do
         )
 
       assert capture_log(fn ->
-               ref = Broadway.test_batch(broadway, [1, :fail], batch_mode: :flush)
+               ref = Broadway.test_batch(broadway_name, [1, :fail], batch_mode: :flush)
 
                assert_receive {:handle_failed_called, %Message{data: :fail}}
                assert_receive {:ack, ^ref, [successful], [failed]}
@@ -1373,7 +1373,7 @@ defmodule BroadwayTest do
         raise "error in handle_failed"
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{handle_message: handle_message, handle_failed: handle_failed},
@@ -1382,7 +1382,7 @@ defmodule BroadwayTest do
         )
 
       assert capture_log(fn ->
-               ref = Broadway.test_message(broadway, :fail)
+               ref = Broadway.test_message(broadway_name, :fail)
                assert_receive {:ack, ^ref, [], [%{data: :fail, status: {:failed, _}}]}
              end) =~ "(RuntimeError) error in handle_failed"
     end
@@ -1405,7 +1405,7 @@ defmodule BroadwayTest do
         Enum.map(messages, &Message.update_data(&1, fn _ -> :updated end))
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlersWithHandleFailed,
           name: broadway_name,
           context: %{
@@ -1419,7 +1419,7 @@ defmodule BroadwayTest do
         )
 
       assert capture_log(fn ->
-               ref = Broadway.test_batch(broadway, [1, :fail, :fail, 2], batch_mode: :flush)
+               ref = Broadway.test_batch(broadway_name, [1, :fail, :fail, 2], batch_mode: :flush)
 
                assert_receive {:handle_failed_called, messages}
                assert [%Message{data: :fail}, %Message{data: :fail}] = messages
@@ -1444,7 +1444,7 @@ defmodule BroadwayTest do
       end
 
       assert capture_log(fn ->
-               {:ok, broadway} =
+               {:ok, _broadway} =
                  Broadway.start_link(CustomHandlersWithHandleFailed,
                    name: broadway_name,
                    context: %{
@@ -1457,7 +1457,7 @@ defmodule BroadwayTest do
                    batchers: [default: []]
                  )
 
-               ref = Broadway.test_batch(broadway, [1, 2], batch_mode: :flush)
+               ref = Broadway.test_batch(broadway_name, [1, 2], batch_mode: :flush)
 
                assert_receive {:handle_failed_called, [_, _]}
 
@@ -1474,7 +1474,7 @@ defmodule BroadwayTest do
       end
 
       assert capture_log(fn ->
-               {:ok, broadway} =
+               {:ok, _broadway} =
                  Broadway.start_link(CustomHandlersWithHandleFailed,
                    name: broadway_name,
                    context: %{
@@ -1487,7 +1487,7 @@ defmodule BroadwayTest do
                    batchers: [default: []]
                  )
 
-               ref = Broadway.test_batch(broadway, [1, 2], batch_mode: :flush)
+               ref = Broadway.test_batch(broadway_name, [1, 2], batch_mode: :flush)
 
                assert_receive {:ack, ^ref, _successful = [], failed}
                assert [%{data: 1}, %{data: 2}] = failed
@@ -1511,7 +1511,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           resubscribe_interval: 0,
@@ -1529,7 +1529,7 @@ defmodule BroadwayTest do
       consumer = get_batch_processor(broadway_name, :default)
 
       %{
-        broadway: broadway,
+        broadway: broadway_name,
         producer: producer,
         processor: processor,
         batcher: batcher,
@@ -1592,7 +1592,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -1607,7 +1607,7 @@ defmodule BroadwayTest do
       consumer = get_batch_processor(broadway_name, :default)
 
       %{
-        broadway: broadway,
+        broadway: broadway_name,
         producer: producer,
         processor: processor,
         batcher: batcher,
@@ -1697,7 +1697,7 @@ defmodule BroadwayTest do
         handle_message: fn message, _ -> message end
       }
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -1712,7 +1712,7 @@ defmodule BroadwayTest do
       consumer = get_batch_processor(broadway_name, :default)
 
       %{
-        broadway: broadway,
+        broadway: broadway_name,
         producer: producer,
         processor: processor,
         batcher: batcher,
@@ -1799,7 +1799,7 @@ defmodule BroadwayTest do
 
       broadway_name = new_unique_name()
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           context: context,
@@ -1810,7 +1810,7 @@ defmodule BroadwayTest do
 
       consumer = get_batch_processor(broadway_name, :default)
       Process.link(Process.whereis(consumer))
-      %{broadway: broadway, consumer: consumer}
+      %{broadway: broadway_name, consumer: consumer}
     end
 
     test "messages are grouped by ack_ref + status (successful or failed) before sent for acknowledgement",
@@ -1907,7 +1907,7 @@ defmodule BroadwayTest do
         handle_batch: fn _, batch, _, _ -> batch end
       }
 
-      {:ok, broadway} =
+      {:ok, _} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           producer: [module: {ManualProducer, %{test_pid: self()}}],
@@ -1918,22 +1918,24 @@ defmodule BroadwayTest do
         )
 
       producer = get_producer(broadway_name)
-      %{broadway: broadway, producer: producer}
+      %{broadway: broadway_name, producer: producer}
     end
 
     test "killing the supervisor brings down the broadway GenServer",
          %{broadway: broadway} do
-      %{supervisor_pid: supervisor_pid} = :sys.get_state(broadway)
+      pid = Process.whereis(broadway)
+      %{supervisor_pid: supervisor_pid} = :sys.get_state(pid)
       Process.exit(supervisor_pid, :kill)
-      assert_receive {:EXIT, ^broadway, :killed}
+      assert_receive {:EXIT, ^pid, :killed}
     end
 
     test "shutting down broadway waits until the Broadway.Supervisor is down",
          %{broadway: broadway} do
       %{supervisor_pid: supervisor_pid} = :sys.get_state(broadway)
-      Process.exit(broadway, :shutdown)
+      pid = Process.whereis(broadway)
+      Process.exit(pid, :shutdown)
 
-      assert_receive {:EXIT, ^broadway, :shutdown}
+      assert_receive {:EXIT, ^pid, :shutdown}
       refute Process.alive?(supervisor_pid)
     end
 
@@ -1942,7 +1944,7 @@ defmodule BroadwayTest do
       # We suspend the producer to make sure that it doesn't process the messages early on
       :sys.suspend(producer)
       async_push_messages(producer, [1, 2, 3, 4])
-      Process.exit(broadway, :shutdown)
+      Process.exit(Process.whereis(broadway), :shutdown)
       :sys.resume(producer)
       assert_receive {:ack, _, [%{data: 1}, %{data: 2}, %{data: 3}, %{data: 4}], []}
     end
@@ -1950,24 +1952,26 @@ defmodule BroadwayTest do
     test "shutting down broadway waits until all events are processed even on incomplete batches",
          %{broadway: broadway} do
       ref = Broadway.test_batch(broadway, [1, 2])
-      Process.exit(broadway, :shutdown)
+      Process.exit(Process.whereis(broadway), :shutdown)
       assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
     end
 
     test "shutting down broadway cancels producers and waits for messages sent during cancellation",
          %{broadway: broadway} do
-      Process.exit(broadway, :shutdown)
+      pid = Process.whereis(broadway)
+      Process.exit(pid, :shutdown)
 
       assert_receive {:ack, _, [%{data: :message_during_cancel}], []}
-      assert_receive {:EXIT, ^broadway, :shutdown}
+      assert_receive {:EXIT, ^pid, :shutdown}
       refute_received {:ack, _, [%{data: :message_after_cancel}], []}
     end
 
     @tag shutdown: 1
     test "shutting down broadway respects shutdown value", %{broadway: broadway} do
       Broadway.test_batch(broadway, [:sleep, 1, 2, 3], batch_mode: :flush)
-      Process.exit(broadway, :shutdown)
-      assert_receive {:EXIT, ^broadway, :shutdown}
+      pid = Process.whereis(broadway)
+      Process.exit(pid, :shutdown)
+      assert_receive {:EXIT, ^pid, :shutdown}
     end
   end
 
@@ -2187,7 +2191,7 @@ defmodule BroadwayTest do
         message
       end
 
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
           name: broadway_name,
           producer: [
@@ -2199,7 +2203,8 @@ defmodule BroadwayTest do
           context: %{handle_message: handle_message}
         )
 
-      assert Broadway.get_rate_limiting(broadway) == {:ok, %{allowed_messages: 1, interval: 5000}}
+      assert Broadway.get_rate_limiting(broadway_name) ==
+               {:ok, %{allowed_messages: 1, interval: 5000}}
 
       send(
         get_producer(broadway_name),
@@ -2216,8 +2221,10 @@ defmodule BroadwayTest do
 
       refute_received {:handle_message_called, _message, _timestamp}
 
-      assert :ok = Broadway.update_rate_limiting(broadway, allowed_messages: 3)
-      assert Broadway.get_rate_limiting(broadway) == {:ok, %{allowed_messages: 3, interval: 5000}}
+      assert :ok = Broadway.update_rate_limiting(broadway_name, allowed_messages: 3)
+
+      assert Broadway.get_rate_limiting(broadway_name) ==
+               {:ok, %{allowed_messages: 3, interval: 5000}}
 
       send(get_rate_limiter(broadway_name), :reset_limit)
 
@@ -2227,16 +2234,16 @@ defmodule BroadwayTest do
     end
 
     test "invalid options" do
-      {:ok, broadway} =
+      {:ok, _broadway} =
         Broadway.start_link(CustomHandlers,
-          name: new_unique_name(),
+          name: broadway_name = new_unique_name(),
           producer: [module: {ManualProducer, []}],
           processors: [default: []]
         )
 
       assert_raise ArgumentError,
                    "invalid options, unknown options [:invalid_option], valid options are: [:allowed_messages, :interval]",
-                   fn -> Broadway.update_rate_limiting(broadway, invalid_option: 3) end
+                   fn -> Broadway.update_rate_limiting(broadway_name, invalid_option: 3) end
     end
   end
 

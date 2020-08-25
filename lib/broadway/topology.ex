@@ -16,11 +16,19 @@ defmodule Broadway.Topology do
   end
 
   def producer_names(server) do
-    GenServer.call(server, :producer_names)
+    config(server).producer_names
   end
 
   def get_rate_limiter(server) do
-    GenServer.call(server, :get_rate_limiter)
+    if name = config(server).rate_limiter_name do
+      {:ok, name}
+    else
+      {:error, :rate_limiting_not_enabled}
+    end
+  end
+
+  defp config(server) do
+    :persistent_term.get(server, nil) || exit({:noproc, {__MODULE__, :config, [server]}})
   end
 
   ## Callbacks
@@ -29,6 +37,12 @@ defmodule Broadway.Topology do
   def init({module, opts}) do
     Process.flag(:trap_exit, true)
 
+    if :erlang.system_info(:otp_release) < '21.3' do
+      require Logger
+      Logger.error("Broadway requires Erlang/OTP 21.3+")
+      raise "Broadway requires Erlang/OTP 21.3+"
+    end
+
     # We want to invoke this as early as possible otherwise the
     # stacktrace gets deeper and deeper in case of errors.
     {child_specs, opts} = prepare_for_start(module, opts)
@@ -36,14 +50,20 @@ defmodule Broadway.Topology do
     config = init_config(module, opts)
     {:ok, supervisor_pid} = start_supervisor(child_specs, config, opts)
 
+    :persistent_term.put(config.name, %{
+      context: config.context,
+      producer_names: process_names(config.name, "Producer", config.producer_config),
+      batchers_names:
+        Enum.map(config.batchers_config, &process_name(config.name, "Batcher", elem(&1, 0))),
+      rate_limiter_name:
+        config.producer_config[:rate_limiting] && RateLimiter.table_name(opts[:name])
+    })
+
     {:ok,
      %{
        supervisor_pid: supervisor_pid,
        terminator: config.terminator,
-       name: opts[:name],
-       producers_names: process_names(opts[:name], "Producer", config.producer_config),
-       rate_limiter_name:
-         config.producer_config[:rate_limiting] && RateLimiter.table_name(opts[:name])
+       name: config.name
      }}
   end
 
@@ -57,27 +77,16 @@ defmodule Broadway.Topology do
   end
 
   @impl true
-  def handle_call(:producer_names, _from, state) do
-    {:reply, state.producers_names, state}
-  end
-
-  def handle_call(:get_rate_limiter, _from, %{rate_limiter_name: rate_limiter_name} = state) do
-    if rate_limiter_name do
-      {:reply, {:ok, rate_limiter_name}, state}
-    else
-      {:reply, {:error, :rate_limiting_not_enabled}, state}
-    end
-  end
-
-  @impl true
-  def terminate(reason, %{supervisor_pid: supervisor_pid, terminator: terminator}) do
+  def terminate(reason, %{name: name, supervisor_pid: supervisor_pid, terminator: terminator}) do
     Broadway.Topology.Terminator.trap_exit(terminator)
     ref = Process.monitor(supervisor_pid)
     Process.exit(supervisor_pid, reason_to_signal(reason))
 
     receive do
-      {:DOWN, ^ref, _, _, _} -> :ok
+      {:DOWN, ^ref, _, _, _} -> :persistent_term.erase(name)
     end
+
+    :ok
   end
 
   defp reason_to_signal(:killed), do: :kill
@@ -255,7 +264,7 @@ defmodule Broadway.Topology do
   end
 
   defp build_batchers_supervisor_and_terminator_specs(config, producers_names, processors_names) do
-    if config[:batchers_config] == [] do
+    if config.batchers_config == [] do
       [build_terminator_spec(config, producers_names, processors_names, processors_names)]
     else
       {batch_processors_names, batcher_supervisors_specs} =
