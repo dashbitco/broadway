@@ -36,7 +36,7 @@ end
 
 ## Official Broadway Producers
 
-Currently we officially support three Broadway producers:
+Currently we officially support four Broadway producers:
 
   * Amazon SQS: [Source](https://github.com/dashbitco/broadway_sqs) - [Guide](https://hexdocs.pm/broadway/amazon-sqs.html)
   * Apache Kafka: [Source](https://github.com/dashbitco/broadway_kafka) - [Guide](https://hexdocs.pm/broadway/apache-kafka.html)
