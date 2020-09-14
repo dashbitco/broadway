@@ -175,6 +175,27 @@ defmodule BroadwayTest do
                    fn -> Broadway.start_link(Forwarder, name: 1) end
     end
 
+    test "invalid nested configuration options" do
+      opts = [
+        name: MyBroadway,
+        producer: [module: {ManualProducer, []}],
+        processors: [default: []],
+        batchers: [
+          sqs: [concurrency: 2, batch_sizy: 10]
+        ]
+      ]
+
+      message = """
+      invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
+      unknown options [:batch_sizy], valid options are: \
+      [:concurrency, :batch_size, :batch_timeout, :partition_by, :spawn_opt, :hibernate_after]\
+      """
+
+      assert_raise ArgumentError, message, fn ->
+        Broadway.start_link(Forwarder, opts)
+      end
+    end
+
     test "default number of producers is 1" do
       broadway = new_unique_name()
 

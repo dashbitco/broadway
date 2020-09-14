@@ -580,7 +580,8 @@ defmodule Broadway do
       * Metadata: `%{name: atom}`
   """
 
-  alias Broadway.{BatchInfo, Message, Options, Topology}
+  alias Broadway.{BatchInfo, Message, Topology}
+  alias NimbleOptions.ValidationError
 
   @typedoc """
   Returned by `start_link/2`.
@@ -750,139 +751,14 @@ defmodule Broadway do
 
   The broadway options are:
 
-    * `:name` - Required. Used for name registration. All processes/stages
-      created will be named using this value as prefix.
-
-    * `:producer` - Required. A keyword list of options. See ["Producers
-      options"](#start_link/2-producers-options) section below. Only a single producer is allowed.
-
-    * `:processors` - Required. A keyword list of named processors
-      where the key is an atom as identifier and the value is another
-      keyword list of options. See ["Processors options"](#start_link/2-processors-options) section below.
-      Currently only a single processor is allowed.
-
-    * `:batchers` - Optional. A keyword list of named batchers
-      where the key is an atom as identifier and the value is another
-      keyword list of options. See ["Batchers options"](#start_link/2-batchers-options) section below.
-
-    * `:context` - Optional. A user defined data structure that will
-      be passed to `handle_message/3` and `handle_batch/4`.
-
-    * `:shutdown` - Optional. The time in milliseconds given for Broadway to
-      gracefully shutdown without discarding events. Defaults to `30_000`(ms).
-
-    * `:resubscribe_interval` - Optional. The interval in milliseconds that
-      processors wait until they resubscribe to a failed producers. Defaults
-      to `100`(ms).
-
-    * `:partition_by` - Optional. A function that controls how data is
-      partitioned across all processors and batchers. It receives a
-      `Broadway.Message` and it must return a non-negative integer,
-      starting with zero, that will be mapped to one of the existing
-      processors. See ["Ordering and Partitioning"](#module-ordering-and-partitioning)
-      in the module docs for more information.
-
-    * `:hibernate_after` - Optional. If a process does not receive any
-      message within this interval, it will hibernate, compacting memory.
-      Applies to producers, processors, and batchers. Defaults to `15_000`(ms).
-
-    * `:spawn_opt` - Optional. Low-level options given when starting a
-      process. Applies to producers, processors, and batchers.
-      See `erlang:spawn_opt/2` for more information.
-
-  ### Producers options
-
-  The producer options are:
-
-    * `:module` - Required. A tuple representing a GenStage producer.
-      The tuple format should be `{mod, arg}`, where `mod` is the module
-      that implements the GenStage behaviour and `arg` the argument that will
-      be passed to the `init/1` callback of the producer. See `Broadway.Prodycer`
-      for more information.
-
-    * `:concurrency` - Optional. The number of concurrent producers that
-      will be started by Broadway. Use this option to control the concurrency
-      level of each set of producers. The default value is `1`.
-
-    * `:transformer` - Optional. A tuple representing a transformer
-       that translates a produced GenStage event into a `%Broadway.Message{}`.
-       The tuple format should be `{mod, fun, opts}` and the function should have
-       the following spec `(event :: term, opts :: term) :: Broadway.Message.t`
-       This function must be used sparingly and exclusively to convert regular
-       messages into `Broadway.Message`. That's because a failure in the
-       `:transformer` callback will cause the whole producer to terminate,
-       possibly leaving unacknowledged messages along the way.
-
-    * `:rate_limiting` - Optional. A list of options to enable and configure
-      rate limiting for producing. If this option is present, rate limiting is
-      enabled, otherwise it isn't. Rate limiting refers to the rate at which
-      producers will forward messages to the rest of the pipeline. The rate
-      limiting is applied to and shared by all producers within the time limit.
-      The following options are supported:
-
-        * `:allowed_messages` - Required. An integer that describes how many
-          messages are allowed in the specified interval.
-
-        * `:interval` - Required. An integer that describes the interval
-         (in milliseconds) during which the number of allowed messages is
-         allowed. If the producer produces more than `allowed_messages`
-         in `interval`, only `allowed_messages` will be published until
-         the end of `interval`, and then more messages will be published.
-
-    * `:hibernate_after` - Optional. Overrides the top-level `:hibernate_after`.
-
-    * `:spawn_opt` - Optional. Overrides the top-level `:spawn_opt`.
-
-  ### Processors options
-
-  The processors options are:
-
-    * `:concurrency` - Optional. The number of concurrent process that will
-      be started by Broadway. Use this option to control the concurrency level
-      of the processors. The default value is `System.schedulers_online() * 2`.
-
-    * `:min_demand` - Optional. Set the minimum demand of all processors
-      stages. Default value is `5`.
-
-    * `:max_demand` - Optional. Set the maximum demand of all processors
-      stages. Default value is `10`.
-
-    * `:partition_by` - Optional. Overrides the top-level `:partition_by`.
-
-    * `:hibernate_after` - Optional. Overrides the top-level `:hibernate_after`.
-
-    * `:spawn_opt` - Optional. Overrides the top-level `:spawn_opt`.
-
-  ### Batchers options
-
-    * `:concurrency` - Optional. The number of concurrent batch processors
-      that will be started by Broadway. Use this option to control the
-      concurrency level. Note that this only sets the numbers of batch
-      processors for each batcher group, not the number of batchers.
-      The number of batchers will always be one for each batcher key
-      defined. The default value is `1`.
-
-    * `:batch_size` - Optional. The size of the generated batches.
-      Default value is `100`.
-
-    * `:batch_timeout` - Optional. The time, in milliseconds, that the
-      batcher waits before flushing the list of messages. When this timeout
-      is reached, a new batch is generated and sent downstream, no matter
-      if the `:batch_size` has been reached or not. Default value is `1000`
-      (1 second).
-
-    * `:partition_by` - Optional. Overrides the top-level `:partition_by`.
-
-    * `:hibernate_after` - Optional. Overrides the top-level `:hibernate_after`.
-
-    * `:spawn_opt` - Optional. Overrides the top-level `:spawn_opt`.
+  #{NimbleOptions.Docs.generate(Broadway.Options.definition())}
 
   """
   @spec start_link(module(), keyword()) :: on_start()
   def start_link(module, opts) do
-    case Options.validate(opts, configuration_spec()) do
-      {:error, message} ->
-        raise ArgumentError, "invalid configuration given to Broadway.start_link/2, " <> message
+    case NimbleOptions.validate(opts, Broadway.Options.definition()) do
+      {:error, error} ->
+        raise ArgumentError, format_error(error)
 
       {:ok, opts} ->
         opts =
@@ -893,6 +769,15 @@ defmodule Broadway do
 
         Topology.start_link(module, opts)
     end
+  end
+
+  defp format_error(%ValidationError{keys_path: [], message: message}) do
+    "invalid configuration given to Broadway.start_link/2, " <> message
+  end
+
+  defp format_error(%ValidationError{keys_path: keys_path, message: message}) do
+    "invalid configuration given to Broadway.start_link/2 for key #{inspect(keys_path)}, " <>
+      message
   end
 
   defp carry_over_one(opts, key, keys) do
@@ -1083,80 +968,21 @@ defmodule Broadway do
   @spec update_rate_limiting(server :: atom(), opts :: Keyword.t()) ::
           :ok | {:error, :rate_limiting_not_enabled}
   def update_rate_limiting(broadway, opts) when is_atom(broadway) and is_list(opts) do
-    spec = [
+    definition = [
       allowed_messages: [type: :pos_integer],
       interval: [type: :pos_integer]
     ]
 
-    with {:validate_opts, {:ok, opts}} <- {:validate_opts, Options.validate(opts, spec)},
+    with {:validate_opts, {:ok, opts}} <-
+           {:validate_opts, NimbleOptions.validate(opts, definition)},
          {:get_name, {:ok, rate_limiter_name}} <- {:get_name, Topology.get_rate_limiter(broadway)} do
       Topology.RateLimiter.update_rate_limiting(rate_limiter_name, opts)
     else
-      {:validate_opts, {:error, message}} ->
+      {:validate_opts, {:error, %ValidationError{message: message}}} ->
         raise ArgumentError, "invalid options, " <> message
 
       {:get_name, {:error, reason}} ->
         {:error, reason}
     end
-  end
-
-  defp configuration_spec() do
-    [
-      name: [required: true, type: :atom],
-      shutdown: [type: :pos_integer, default: 30000],
-      max_restarts: [type: :non_neg_integer, default: 3],
-      max_seconds: [type: :pos_integer, default: 5],
-      resubscribe_interval: [type: :non_neg_integer, default: 100],
-      context: [type: :any, default: :context_not_set],
-      producer: [
-        required: true,
-        type: :non_empty_keyword_list,
-        keys: [
-          module: [required: true, type: :mod_arg],
-          concurrency: [type: :pos_integer, default: 1],
-          transformer: [type: :mfa, default: nil],
-          spawn_opt: [type: :keyword_list],
-          hibernate_after: [type: :pos_integer],
-          rate_limiting: [
-            type: :non_empty_keyword_list,
-            keys: [
-              allowed_messages: [required: true, type: :pos_integer],
-              interval: [required: true, type: :pos_integer]
-            ]
-          ]
-        ]
-      ],
-      processors: [
-        required: true,
-        type: :non_empty_keyword_list,
-        keys: [
-          *: [
-            concurrency: [type: :pos_integer, default: System.schedulers_online() * 2],
-            min_demand: [type: :non_neg_integer],
-            max_demand: [type: :non_neg_integer, default: 10],
-            partition_by: [type: {:fun, 1}],
-            spawn_opt: [type: :keyword_list],
-            hibernate_after: [type: :pos_integer]
-          ]
-        ]
-      ],
-      batchers: [
-        default: [],
-        type: :keyword_list,
-        keys: [
-          *: [
-            concurrency: [type: :pos_integer, default: 1],
-            batch_size: [type: :pos_integer, default: 100],
-            batch_timeout: [type: :pos_integer, default: 1000],
-            partition_by: [type: {:fun, 1}],
-            spawn_opt: [type: :keyword_list],
-            hibernate_after: [type: :pos_integer]
-          ]
-        ]
-      ],
-      partition_by: [type: {:fun, 1}],
-      spawn_opt: [type: :keyword_list],
-      hibernate_after: [type: :pos_integer, default: 15_000]
-    ]
   end
 end

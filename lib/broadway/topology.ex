@@ -129,7 +129,7 @@ defmodule Broadway.Topology do
       name: opts[:name],
       module: module,
       producer_config: opts[:producer],
-      processors_config: opts[:processors],
+      processors_config: init_processors_config(opts[:processors]),
       batchers_config: opts[:batchers],
       context: opts[:context],
       terminator: :"#{name_prefix(opts[:name])}.Terminator",
@@ -138,6 +138,12 @@ defmodule Broadway.Topology do
       shutdown: opts[:shutdown],
       resubscribe_interval: opts[:resubscribe_interval]
     }
+  end
+
+  defp init_processors_config(config) do
+    Enum.map(config, fn {key, opts} ->
+      {key, Keyword.put_new(opts, :concurrency, System.schedulers_online() * 2)}
+    end)
   end
 
   defp start_options(name, config) do

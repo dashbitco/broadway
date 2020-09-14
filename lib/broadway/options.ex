@@ -1,183 +1,293 @@
 defmodule Broadway.Options do
   @moduledoc false
 
-  @basic_types [
-    :any,
-    :keyword_list,
-    :non_empty_keyword_list,
-    :atom,
-    :non_neg_integer,
-    :pos_integer,
-    :mfa,
-    :mod_arg
-  ]
+  def definition() do
+    [
+      name: [
+        required: true,
+        type: :atom,
+        doc: """
+        Used for name registration. All processes/stages
+        created will be named using this value as prefix.
+        """
+      ],
+      shutdown: [
+        type: :pos_integer,
+        default: 30000,
+        doc: """
+        Optional. The time in milliseconds given for Broadway to
+        gracefully shutdown without discarding events. Defaults to `30_000`(ms).
+        """
+      ],
+      max_restarts: [type: :non_neg_integer, default: 3],
+      max_seconds: [type: :pos_integer, default: 5],
+      resubscribe_interval: [
+        type: :non_neg_integer,
+        default: 100,
+        doc: """
+        The interval in milliseconds that
+        processors wait until they resubscribe to a failed producers. Defaults
+        to `100`(ms).
+        """
+      ],
+      context: [
+        type: :any,
+        default: :context_not_set,
+        doc: """
+        A user defined data structure that will be passed to handle_message/3 and handle_batch/4.
+        """
+      ],
+      producer: [
+        required: true,
+        type: :non_empty_keyword_list,
+        doc: """
+        A keyword list of options. See ["Producers options"](#start_link/2-producers-options)
+        section below. Only a single producer is allowed.
+        """,
+        subsection: """
+        ### Producers options
 
-  def validate(opts, spec) do
-    case validate_unknown_options(opts, spec) do
-      :ok -> validate_options(spec, opts)
-      error -> error
-    end
-  end
+        The producer options allow users to set up the producer.
 
-  defp validate_unknown_options(opts, spec) do
-    valid_opts = Keyword.keys(spec)
+        The available options are:
+        """,
+        keys: [
+          module: [
+            required: true,
+            type: :mod_arg,
+            doc: """
+            A tuple representing a GenStage producer.
+            The tuple format should be `{mod, arg}`, where `mod` is the module
+            that implements the GenStage behaviour and `arg` the argument that will
+            be passed to the `init/1` callback of the producer. See `Broadway.Prodycer`
+            for more information.
+            """
+          ],
+          concurrency: [
+            type: :pos_integer,
+            default: 1,
+            doc: """
+            The number of concurrent producers that
+            will be started by Broadway. Use this option to control the concurrency
+            level of each set of producers. The default value is `1`.
+            """
+          ],
+          transformer: [
+            type: :mfa,
+            default: nil,
+            doc: """
+            A tuple representing a transformer that translates a produced GenStage event into a
+            `%Broadway.Message{}`. The tuple format should be `{mod, fun, opts}` and the function
+            should have the following spec `(event :: term, opts :: term) :: Broadway.Message.t`
+            This function must be used sparingly and exclusively to convert regular
+            messages into `Broadway.Message`. That's because a failure in the
+            `:transformer` callback will cause the whole producer to terminate,
+            possibly leaving unacknowledged messages along the way.
+            """
+          ],
+          spawn_opt: [
+            type: :keyword_list,
+            doc: """
+            Overrides the top-level `:spawn_opt`.
+            """
+          ],
+          hibernate_after: [
+            type: :pos_integer,
+            doc: """
+            Overrides the top-level `:hibernate_after`.
+            """
+          ],
+          rate_limiting: [
+            type: :non_empty_keyword_list,
+            doc: """
+            A list of options to enable and configure rate limiting for producing.
+            If this option is present, rate limiting is enabled, otherwise it isn't.
+            Rate limiting refers to the rate at which producers will forward
+            messages to the rest of the pipeline. The rate limiting is applied to
+            and shared by all producers within the time limit.
+            The following options are supported:
+            """,
+            keys: [
+              allowed_messages: [
+                required: true,
+                type: :pos_integer,
+                doc: """
+                An integer that describes how many messages are allowed in the specified interval.
+                """
+              ],
+              interval: [
+                required: true,
+                type: :pos_integer,
+                doc: """
+                An integer that describes the interval (in milliseconds)
+                during which the number of allowed messages is allowed.
+                If the producer produces more than `allowed_messages`
+                in `interval`, only `allowed_messages` will be published until
+                the end of `interval`, and then more messages will be published.
+                """
+              ]
+            ]
+          ]
+        ]
+      ],
+      processors: [
+        required: true,
+        type: :non_empty_keyword_list,
+        doc: """
+        A keyword list of named processors where the key is an atom as identifier and
+        the value is another keyword list of options.
+        See ["Processors options"](#start_link/2-processors-options)
+        section below. Currently only a single processor is allowed.
+        """,
+        subsection: """
+        ### Processors options
 
-    case Keyword.keys(opts) -- valid_opts do
-      [] ->
-        :ok
+        """,
+        keys: [
+          *: [
+            type: :keyword_list,
+            keys: [
+              concurrency: [
+                type: :pos_integer,
+                doc: """
+                The number of concurrent process that will
+                be started by Broadway. Use this option to control the concurrency level
+                of the processors. The default value is `System.schedulers_online() * 2`.
+                """
+              ],
+              min_demand: [
+                type: :non_neg_integer,
+                doc: """
+                Set the minimum demand of all processors
+                stages. Default value is `5`.
+                """
+              ],
+              max_demand: [
+                type: :non_neg_integer,
+                default: 10,
+                doc: """
+                Set the maximum demand of all processors
+                stages. Default value is `10`.
+                """
+              ],
+              partition_by: [
+                type: {:fun, 1},
+                doc: """
+                Overrides the top-level `:partition_by`.
+                """
+              ],
+              spawn_opt: [
+                type: :keyword_list,
+                doc: """
+                Overrides the top-level `:spawn_opt`.
+                """
+              ],
+              hibernate_after: [
+                type: :pos_integer,
+                doc: """
+                Overrides the top-level `:hibernate_after`.
+                """
+              ]
+            ]
+          ]
+        ]
+      ],
+      batchers: [
+        default: [],
+        type: :keyword_list,
+        doc: """
+        A keyword list of named batchers
+        where the key is an atom as identifier and the value is another
+        keyword list of options. See ["Batchers options"](#start_link/2-batchers-options)
+        section below.
+        """,
+        subsection: """
+        ### Batchers options
 
-      keys ->
-        {:error, "unknown options #{inspect(keys)}, valid options are: #{inspect(valid_opts)}"}
-    end
-  end
-
-  defp validate_options(spec, opts) do
-    case Enum.reduce_while(spec, opts, &reduce_options/2) do
-      {:error, _} = result -> result
-      result -> {:ok, result}
-    end
-  end
-
-  defp reduce_options({key, spec_opts}, opts) do
-    case validate_option(opts, key, spec_opts) do
-      {:error, _} = result ->
-        {:halt, result}
-
-      {:ok, value} ->
-        actual_key = spec_opts[:rename_to] || key
-        {:cont, Keyword.update(opts, actual_key, value, fn _ -> value end)}
-
-      :no_value ->
-        if Keyword.has_key?(spec_opts, :default) do
-          {:cont, Keyword.put(opts, key, spec_opts[:default])}
-        else
-          {:cont, opts}
-        end
-    end
-  end
-
-  defp validate_option(opts, key, spec) do
-    with {:ok, value} <- validate_value(opts, key, spec),
-         :ok <- validate_type(spec[:type], key, value) do
-      if spec[:keys] do
-        keys = normalize_keys(spec[:keys], value)
-        validate(value, keys)
-      else
-        {:ok, value}
-      end
-    end
-  end
-
-  defp validate_value(opts, key, spec) do
-    cond do
-      Keyword.has_key?(opts, key) ->
-        if message = Keyword.get(spec, :deprecated) do
-          IO.warn("#{inspect(key)} is deprecated. " <> message)
-        end
-
-        {:ok, opts[key]}
-
-      Keyword.get(spec, :required, false) ->
-        {:error,
-         "required option #{inspect(key)} not found, received options: " <>
-           inspect(Keyword.keys(opts))}
-
-      true ->
-        :no_value
-    end
-  end
-
-  defp validate_type(:non_neg_integer, key, value) when not is_integer(value) or value < 0 do
-    {:error, "expected #{inspect(key)} to be a non negative integer, got: #{inspect(value)}"}
-  end
-
-  defp validate_type(:pos_integer, key, value) when not is_integer(value) or value < 1 do
-    {:error, "expected #{inspect(key)} to be a positive integer, got: #{inspect(value)}"}
-  end
-
-  defp validate_type(:atom, key, value) when not is_atom(value) do
-    {:error, "expected #{inspect(key)} to be an atom, got: #{inspect(value)}"}
-  end
-
-  defp validate_type(:keyword_list, key, value) do
-    if keyword_list?(value) do
-      :ok
-    else
-      {:error, "expected #{inspect(key)} to be a keyword list, got: #{inspect(value)}"}
-    end
-  end
-
-  defp validate_type(:non_empty_keyword_list, key, value) do
-    if keyword_list?(value) && value != [] do
-      :ok
-    else
-      {:error, "expected #{inspect(key)} to be a non-empty keyword list, got: #{inspect(value)}"}
-    end
-  end
-
-  defp validate_type(:mfa, _key, {m, f, args}) when is_atom(m) and is_atom(f) and is_list(args) do
-    :ok
-  end
-
-  defp validate_type(:mfa, key, value) when not is_nil(value) do
-    {:error, "expected #{inspect(key)} to be a tuple {Mod, Fun, Args}, got: #{inspect(value)}"}
-  end
-
-  defp validate_type(:mod_arg, _key, {m, _arg}) when is_atom(m) do
-    :ok
-  end
-
-  defp validate_type(:mod_arg, key, value) do
-    {:error, "expected #{inspect(key)} to be a tuple {Mod, Arg}, got: #{inspect(value)}"}
-  end
-
-  defp validate_type({:fun, arity}, key, value) when is_integer(arity) and arity >= 0 do
-    expected = "expected #{inspect(key)} to be a function of arity #{arity}, "
-
-    if is_function(value) do
-      case :erlang.fun_info(value, :arity) do
-        {:arity, ^arity} ->
-          :ok
-
-        {:arity, fun_arity} ->
-          {:error, expected <> "got: function of arity #{inspect(fun_arity)}"}
-      end
-    else
-      {:error, expected <> "got: #{inspect(value)}"}
-    end
-  end
-
-  defp validate_type(nil, key, value) do
-    validate_type(:any, key, value)
-  end
-
-  defp validate_type(type, _key, _value) when type in @basic_types do
-    :ok
-  end
-
-  defp validate_type(type, _key, _value) do
-    {:error, "invalid option type #{inspect(type)}, available types: #{available_types()}"}
-  end
-
-  defp tagged_tuple?({key, _value}) when is_atom(key), do: true
-  defp tagged_tuple?(_), do: false
-
-  defp keyword_list?(value) do
-    is_list(value) && Enum.all?(value, &tagged_tuple?/1)
-  end
-
-  defp normalize_keys(keys, opts) do
-    case keys[:*] do
-      nil ->
-        keys
-
-      spec_opts ->
-        Enum.map(opts, fn {k, _} -> {k, [type: :keyword_list, keys: spec_opts]} end)
-    end
-  end
-
-  defp available_types() do
-    types = Enum.map(@basic_types, &inspect/1) ++ ["{:fun, arity}"]
-    Enum.join(types, ", ")
+        """,
+        keys: [
+          *: [
+            type: :keyword_list,
+            keys: [
+              concurrency: [
+                type: :pos_integer,
+                default: 1,
+                doc: """
+                The number of concurrent batch processors
+                that will be started by Broadway. Use this option to control the
+                concurrency level. Note that this only sets the numbers of batch
+                processors for each batcher group, not the number of batchers.
+                The number of batchers will always be one for each batcher key
+                defined. The default value is `1`.
+                """
+              ],
+              batch_size: [
+                type: :pos_integer,
+                default: 100,
+                doc: """
+                The size of the generated batches. Default value is `100`.
+                """
+              ],
+              batch_timeout: [
+                type: :pos_integer,
+                default: 1000,
+                doc: """
+                The time, in milliseconds, that the batcher waits before flushing
+                the list of messages. When this timeout is reached, a new batch
+                is generated and sent downstream, no matter if the `:batch_size`
+                has been reached or not. Default value is `1000` (1 second).
+                """
+              ],
+              partition_by: [
+                type: {:fun, 1},
+                doc: """
+                Optional. Overrides the top-level `:partition_by`.
+                """
+              ],
+              spawn_opt: [
+                type: :keyword_list,
+                doc: """
+                Overrides the top-level `:spawn_opt`.
+                """
+              ],
+              hibernate_after: [
+                type: :pos_integer,
+                doc: """
+                Overrides the top-level `:hibernate_after`.
+                """
+              ]
+            ]
+          ]
+        ]
+      ],
+      partition_by: [
+        type: {:fun, 1},
+        doc: """
+        A function that controls how data is
+        partitioned across all processors and batchers. It receives a
+        `Broadway.Message` and it must return a non-negative integer,
+        starting with zero, that will be mapped to one of the existing
+        processors. See ["Ordering and Partitioning"](#module-ordering-and-partitioning)
+        in the module docs for more information.
+        """
+      ],
+      spawn_opt: [
+        type: :keyword_list,
+        doc: """
+        Low-level options given when starting a
+        process. Applies to producers, processors, and batchers.
+        See `erlang:spawn_opt/2` for more information.
+        """
+      ],
+      hibernate_after: [
+        type: :pos_integer,
+        default: 15_000,
+        doc: """
+        If a process does not receive any message within this interval, it will hibernate,
+        compacting memory. Applies to producers, processors, and batchers.
+        Defaults to `15_000`(ms).
+        """
+      ]
+    ]
   end
 end
