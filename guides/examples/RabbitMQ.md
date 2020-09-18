@@ -223,7 +223,7 @@ following code:
     end)
     AMQP.Connection.close(connection)
 
-Use should see the output showing the generated batches:
+You should see the output showing the generated batches:
 
     Got batch: [
       {"7", 14},
