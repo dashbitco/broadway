@@ -56,7 +56,7 @@ defmodule Broadway.Topology.BatcherStage do
   end
 
   defp emit_start_event(name, start_time, events) do
-    metadata = %{name: name, events: events}
+    metadata = %{name: name, messages: events}
     measurements = %{time: start_time}
     :telemetry.execute([:broadway, :batcher, :start], measurements, metadata)
   end

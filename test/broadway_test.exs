@@ -743,11 +743,11 @@ defmodule BroadwayTest do
       assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
       assert [] = metadata.failed_messages
 
-      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{events: [_]}}
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{messages: [_]}}
       assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{events: [_]}}
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{messages: [_]}}
       assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{events: [_]}}
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{messages: [_]}}
       assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
 
       assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{},

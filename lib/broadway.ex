@@ -571,7 +571,7 @@ defmodule Broadway do
       handling events
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, events: [{Broadway.Message.t}]}`
+      * Metadata: `%{name: atom, messages: [{Broadway.Message.t}]}`
 
     * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
       handling events
