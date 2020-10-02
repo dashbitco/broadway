@@ -13,8 +13,8 @@ own our pipeline.
                                             |
                                             |   (demand dispatcher)
                                             |
-       handle_message/3 runs here ->   [processors]
-                                           / \
+   handle_message/3 and  ---------->   [processors]
+   prepare_messages/2 run here             / \
                                           /   \   (partition dispatcher)
                                          /     \
                                    [batcher]   [batcher]   <- one for each batcher key

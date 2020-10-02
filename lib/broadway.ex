@@ -472,7 +472,7 @@ defmodule Broadway do
       * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
 
     * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor
-      after `c:prepare_messages/2` and after all `c:handle_message/2` callback
+      after `c:prepare_messages/2` and after all `c:handle_message/3` callback
       has been invoked for all individual messages
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
@@ -597,12 +597,12 @@ defmodule Broadway do
     * `context` is the user defined data structure passed to `start_link/2`.
 
   This is the place to prepare and preload any information that will be used
-  by `handle_message/2`. For example, if you need to query the database,
+  by `c:handle_message/3`. For example, if you need to query the database,
   instead of doing it once per message, you can do it on this callback.
 
   The length of the list of messages received by this callback is based on
   the `min_demand`/`max_demand` configuration in the processor. This callback
-  must always return all messages it receives, as `handle_message/2` is still
+  must always return all messages it receives, as `c:handle_message/3` is still
   called individually for each message afterwards.
   """
   @callback prepare_messages(messages :: [Message.t()], context :: term) :: [Message.t()]
