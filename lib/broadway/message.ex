@@ -120,7 +120,7 @@ defmodule Broadway.Message do
   Failed messages are sent directly to the related acknowledger so they're not
   forwarded to the next step in the pipeline.
   """
-  @spec failed(message :: Message.t(), reason :: term) :: Message.t()
+  @spec failed(message :: Message.t(), reason :: binary) :: Message.t()
   def failed(%Message{} = message, reason) do
     %Message{message | status: {:failed, reason}}
   end
