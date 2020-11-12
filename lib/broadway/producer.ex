@@ -34,7 +34,7 @@ defmodule Broadway.Producer do
   ## Optional callbacks
 
   A `Broadway.Producer` can implement two optional Broadway callbacks:
-  `c:prepare_for_start/2` and `c:prepare_for_draining/2`, which are useful
+  `c:prepare_for_start/2` and `c:prepare_for_draining/1`, which are useful
   for booting up and shutting down Broadway topologies respectively.
   """
 
