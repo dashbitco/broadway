@@ -22,12 +22,14 @@ jobs:
             otp: 21.3.8.17
           - elixir: 1.9.4
             otp: 21.3.8.17
-            warnings_as_errors: true # not 1.10 as its --warnigs-as-errors has bugs https://github.com/elixir-lang/elixir/issues/10073
           - elixir: 1.10.4
             otp: 21.3.8.17
           - elixir: 1.10.4
             otp: 23.0.3
+          - elixir: 1.11.2
+            otp: 23.0.3
             check_formatted: true
+            warnings_as_errors: true
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-elixir@v1
