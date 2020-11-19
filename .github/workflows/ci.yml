@@ -24,8 +24,8 @@ jobs:
             otp: 21.3.8.17
           - elixir: 1.10.4
             otp: 21.3.8.17
-          - elixir: 1.10.4
-            otp: 23.0.3
+          - elixir: 1.11.2
+            otp: 21.3.8.17
           - elixir: 1.11.2
             otp: 23.0.3
             check_formatted: true
