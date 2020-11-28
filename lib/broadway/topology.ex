@@ -93,10 +93,19 @@ defmodule Broadway.Topology do
   defp reason_to_signal(other), do: other
 
   defp prepare_for_start(module, opts) do
-    {mod, _} = opts[:producer][:module]
+    {producer_mod, _producer_opts} = opts[:producer][:module]
 
-    if Code.ensure_loaded?(mod) and function_exported?(mod, :prepare_for_start, 2) do
-      mod.prepare_for_start(module, opts)
+    if Code.ensure_loaded?(producer_mod) and
+         function_exported?(producer_mod, :prepare_for_start, 2) do
+      case producer_mod.prepare_for_start(module, opts) do
+        {child_specs, opts} when is_list(child_specs) ->
+          {child_specs, NimbleOptions.validate!(opts, Broadway.Options.definition())}
+
+        other ->
+          raise ArgumentError,
+                "expected #{Exception.format_mfa(producer_mod, :prepare_for_start, 2)} " <>
+                  "to return {child_specs, options}, got: #{inspect(other)}"
+      end
     else
       {[], opts}
     end

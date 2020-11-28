@@ -350,6 +350,56 @@ defmodule BroadwayTest do
                Supervisor.which_children(Module.concat(broadway, "Broadway.Supervisor"))
     end
 
+    test "the return value of the prepare_for_start callback is validated" do
+      defmodule BadPrepareProducer do
+        @behaviour Broadway.Producer
+
+        def prepare_for_start(Forwarder, opts) do
+          opts[:context][:prepare_for_start_return_value]
+        end
+      end
+
+      broadway = new_unique_name()
+
+      Process.flag(:trap_exit, true)
+
+      assert {:error, {%ArgumentError{} = error, _stacktrace}} =
+               Broadway.start_link(Forwarder,
+                 name: broadway,
+                 producer: [module: {BadPrepareProducer, []}],
+                 processors: [default: []],
+                 context: %{prepare_for_start_return_value: :bad_return_value}
+               )
+
+      assert Exception.message(error) ==
+               "expected BroadwayTest.BadPrepareProducer.prepare_for_start/2 to " <>
+                 "return {child_specs, options}, got: :bad_return_value"
+    end
+
+    test "prepare_for_start callback validates options again" do
+      defmodule BadPrepareProducerOptions do
+        @behaviour Broadway.Producer
+
+        def prepare_for_start(Forwarder, opts) do
+          opts[:context][:prepare_for_start_return_value]
+        end
+      end
+
+      broadway = new_unique_name()
+
+      Process.flag(:trap_exit, true)
+
+      assert {:error, {%NimbleOptions.ValidationError{} = error, _stacktrace}} =
+               Broadway.start_link(Forwarder,
+                 name: broadway,
+                 producer: [module: {BadPrepareProducerOptions, []}],
+                 processors: [default: []],
+                 context: %{prepare_for_start_return_value: {[], _bad_opts = []}}
+               )
+
+      assert Exception.message(error) == "required option :name not found, received options: []"
+    end
+
     test "injects the :broadway option when the producer config is a kw list" do
       defmodule ProducerWithTopologyIndex do
         @behaviour Broadway.Producer
