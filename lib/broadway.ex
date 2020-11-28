@@ -751,7 +751,7 @@ defmodule Broadway do
 
   The broadway options are:
 
-  #{NimbleOptions.Docs.generate(Broadway.Options.definition())}
+  #{NimbleOptions.docs(Broadway.Options.definition())}
 
   """
   @spec start_link(module(), keyword()) :: on_start()
