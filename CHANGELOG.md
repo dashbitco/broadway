@@ -5,6 +5,7 @@
 Broadway v0.7 requires Erlang/OTP 21.3+.
 
   * Remove `Broadway.TermStorage` now that we have Broadway topology information on the producer init callback
+  * Rename :events to :messages in batcher telemetry event
 
 ## v0.6.2 (2020-08-17)
 
