@@ -673,7 +673,7 @@ defmodule Broadway do
 
   It must return an updated list of messages. All messages received must be returned,
   otherwise an error will be logged. All messages after this step will be acknowledged
-  acccording to their status.
+  according to their status.
 
   In case of errors in this callback, the error will be logged and the whole
   batch will be failed. This callback also traps exits, so failures due to broken
