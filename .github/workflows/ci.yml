@@ -7,9 +7,8 @@ on:
       - master
 
 jobs:
-  mix_test:
-    name: mix test (Elixir ${{matrix.elixir}} | Erlang/OTP ${{matrix.otp}})
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-16.04
     env:
       MIX_ENV: test
       GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -17,37 +16,37 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - elixir: 1.7.4
-            otp: 21.3.8.17
-          - elixir: 1.8.2
-            otp: 21.3.8.17
-          - elixir: 1.9.4
-            otp: 21.3.8.17
-          - elixir: 1.10.4
-            otp: 21.3.8.17
-          - elixir: 1.11.2
-            otp: 21.3.8.17
-          - elixir: 1.11.2
-            otp: 23.0.3
-            check_formatted: true
-            warnings_as_errors: true
-            coverage: true
+          - pair:
+              elixir: 1.7.4
+              otp: 21.3.8.17
+          - pair:
+              elixir: 1.11.3
+              otp: 23.2.5
+            lint: lint
+            coverage: coverage
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-elixir@v1
+
+      - uses: erlef/setup-elixir@v1
         with:
-          otp-version: ${{matrix.otp}}
-          elixir-version: ${{matrix.elixir}}
-      - run: mix format --check-formatted
-        if: matrix.check_formatted
+          otp-version: ${{matrix.pair.otp}}
+          elixir-version: ${{matrix.pair.elixir}}
+
       - name: Install Dependencies
-        run: |
-          mix local.hex --force
-          mix local.rebar --force
-          mix deps.get --only test
+        run: mix deps.get --only test
+
+      - run: mix format --check-formatted
+        if: ${{ matrix.lint }}
+
+      - run: mix deps.get && mix deps.unlock --check-unused
+        if: ${{ matrix.lint }}
+
+      - run: mix deps.compile
+
       - run: mix compile --warnings-as-errors
-        if: matrix.warnings_as_errors
+        if: ${{ matrix.lint }}
+
       - run: mix test
-        if: ${{!matrix.coverage}}
+
       - run: mix coveralls.github
         if: ${{matrix.coverage}}
