@@ -251,18 +251,24 @@ requirements. Depending on the number of messages you get, how much processing
 they need and how much IO work is going to take place, you might need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, among with
-`batch_size` and `batch_timeout` can give you a great deal of flexibility.
-The `concurrency` option controls the concurrency level in each layer of
-the pipeline.
+`max_demand`, `batch_size`, and `batch_timeout` can give you a great deal
+of flexibility. The `concurrency` option controls the concurrency level in
+each layer of the pipeline.
 
 Another important option to take into account is the `:prefetch_count`. Note
 that unlike the RabittMQ client that has a default `:prefetch_count` = 0, which
 disables back-pressure, BroadwayRabbitMQ overwrite the default value to `50`
-enabling the back-pressure mechanism. You can see more details in the
-["Back-pressure and :prefetch_count"](https://hexdocs.pm/broadway_rabbitmq/BroadwayRabbitMQ.Producer.html#module-back-pressure-and-prefetch_count)
+enabling the back-pressure mechanism. In order to keep your pipeline fully
+busy, you likely want to set it to `num_servers * num_processors * max_demand`.
+However, a large `prefetch_count` may mean messages sit idle on the processor
+inbox, leading to worse distribution. So in some cases you rather want to reduce
+the number of processors and `max_demand` rather than increase `prefetch_count`.
+You can see more details in the ["Back-pressure and :prefetch_count"](https://hexdocs.pm/broadway_rabbitmq/BroadwayRabbitMQ.Producer.html#module-back-pressure-and-prefetch_count)
 section of the `BroadwayRabbitMQ` documentation.
 
 In order to get a good set of configurations for your pipeline, it's
 important to respect the limitations of the servers you're running,
 as well as the limitations of the services you're providing/consuming
-data to/from.
+data to/from. Broadway comes with telemetry, so you can measure your
+pipeline and help ensure your changes are effective.
+

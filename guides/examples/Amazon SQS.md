@@ -192,7 +192,9 @@ requirements. Depending on the number of messages you get, how much processing
 they need and how much IO work is going to take place, you might need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, among with
-`batch_size` and `batch_timeout` can give you a great deal of flexibility.
+`max_demand`, `batch_size`, and `batch_timeout` can give you a great deal
+of flexibility.
+
 The `concurrency` option controls the concurrency level in each layer of
 the pipeline. Here's an example on how you could tune them according to
 your needs.
@@ -205,17 +207,18 @@ your needs.
           name: __MODULE__,
           producer: [
             ...
-            concurrency: 60,
+            concurrency: 10,
           ],
           processors: [
             default: [
               concurrency: 100,
+              max_demand: 1,
             ]
           ],
           batchers: [
             default: [
               batch_size: 10,
-              concurrency: 80,
+              concurrency: 10,
             ]
           ]
         )
@@ -227,4 +230,5 @@ your needs.
 In order to get a good set of configurations for your pipeline, it's
 important to respect the limitations of the servers you're running,
 as well as the limitations of the services you're providing/consuming
-data to/from.
+data to/from. Broadway comes with telemetry, so you can measure your
+pipeline and help ensure your changes are effective.

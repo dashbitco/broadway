@@ -89,7 +89,7 @@ Assuming we want to consume messages from a topic called
               group_id: "group_1",
               topics: ["test"],
             ]},
-            concurrency: 10
+            concurrency: 1
           ],
           processors: [
             default: [

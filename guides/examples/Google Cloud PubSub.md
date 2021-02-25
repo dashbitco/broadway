@@ -237,13 +237,18 @@ Now, In the first tab, you should see output similar to:
 
 ## Tuning the configuration
 
-Some of the configuration options available for Broadway come already with a "reasonable" default
-value. However those values might not suit your requirements. Depending on the number of messages
-you get, how much processing they need and how much IO work is going to take place, you might need
-completely different values to optimize the flow of your pipeline. The `concurrency` option available
-for every set of producers, processors and batchers, among with `batch_size` and `batch_timeout`
-can give you a great deal of flexibility. The `concurrency` option controls the concurrency level in
-each layer of the pipeline. Here's an example on how you could tune them according to your needs.
+Some of the configuration options available for Broadway come already with a
+"reasonable" default value. However those values might not suit your
+requirements. Depending on the number of messages you get, how much processing
+they need and how much IO work is going to take place, you might need completely
+different values to optimize the flow of your pipeline. The `concurrency` option
+available for every set of producers, processors and batchers, among with
+`max_demand`, `batch_size`, and `batch_timeout` can give you a great deal
+of flexibility.
+
+The `concurrency` option controls the concurrency level in each layer of
+the pipeline. Here's an example on how you could tune them according to
+your needs.
 
     defmodule MyBroadway do
       use Broadway
@@ -253,17 +258,18 @@ each layer of the pipeline. Here's an example on how you could tune them accordi
           name: __MODULE__,
           producer: [
             ...
-            concurrency: 60,
+            concurrency: 10,
           ],
           processors: [
             default: [
               concurrency: 100,
+              max_demand: 1,
             ]
           ],
           batchers: [
             default: [
               batch_size: 10,
-              concurrency: 80,
+              concurrency: 10,
             ]
           ]
         )
@@ -272,6 +278,8 @@ each layer of the pipeline. Here's an example on how you could tune them accordi
       ...callbacks...
     end
 
-In order to get a good set of configurations for your pipeline, it's important to respect the
-limitations of the servers you're running, as well as the limitations of the services you're
-providing/consuming data to/from.
+In order to get a good set of configurations for your pipeline, it's
+important to respect the limitations of the servers you're running,
+as well as the limitations of the services you're providing/consuming
+data to/from. Broadway comes with telemetry, so you can measure your
+pipeline and help ensure your changes are effective.
