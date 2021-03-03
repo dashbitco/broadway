@@ -196,7 +196,12 @@ available for every set of producers, processors and batchers, among with
 of flexibility.
 
 The `concurrency` option controls the concurrency level in each layer of
-the pipeline. Here's an example on how you could tune them according to
+the pipeline.
+See the notes on [`Producer concurrency`](https://hexdocs.pm/broadway/Broadway.html#module-producer-concurrency)
+and [`Batcher concurrency`](https://hexdocs.pm/broadway/Broadway.html#module-batcher-concurrency)
+for details.
+
+Here's an example on how you could tune them according to
 your needs.
 
     defmodule MyBroadway do
