@@ -301,7 +301,7 @@ defmodule Broadway do
   can't be delivered to another processor which may be available or become
   available first.
 
-  One posible cause of internal queueing is multiple producers. This is because
+  One possible cause of internal queueing is multiple producers. This is because
   each processor's demand will be sent to all producers. For example, if a
   processor demands `2` messages and there are `2` producers, each producer
   will try to produce `2` messages (for example, by pulling from a queue or
@@ -310,7 +310,7 @@ defmodule Broadway do
 
   Setting producer `concurrency: 1` will reduce internal queueing. This is
   likely a good choice for producers which take minimal time to produce a
-  messsage, such as `BroadwayRabbitMQ`, which receives messages as they are
+  message, such as `BroadwayRabbitMQ`, which receives messages as they are
   pushed by RabbitMQ and can specify how many to prefetch.
 
   On the other hand, when using a producer such as `BroadwaySQS` which must
