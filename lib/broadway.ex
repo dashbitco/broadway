@@ -291,6 +291,45 @@ defmodule Broadway do
   is your responsibility to configure a dead-letter queue as target
   for those messages.
 
+  ## Producer concurrency
+
+  Setting producer concurrency is a tradeoff between latency and internal
+  queueing.
+
+  For efficiency, you should generally limit the amount of internal queueing.
+  Whenever additional messages are sitting in a busy processor's mailbox, they
+  can't be delivered to another processor which may be available or become
+  available first.
+
+  One posible cause of internal queueing is multiple producers. This is because
+  each processor's demand will be sent to all producers. For example, if a
+  processor demands `2` messages and there are `2` producers, each producer
+  will try to produce `2` messages (for example, by pulling from a queue or
+  whatever the specific producer does) and give them to the processor. So the
+  processor may receive `max_demand * <producer concurrency>` messages.
+
+  Setting producer `concurrency: 1` will reduce internal queueing. This is
+  likely a good choice for producers which take minimal time to produce a
+  messsage, such as `BroadwayRabbitMQ`, which receives messages as they are
+  pushed by RabbitMQ and can specify how many to prefetch.
+
+  On the other hand, when using a producer such as `BroadwaySQS` which must
+  make a network round trip to fetch from an external source, it may be better
+  to use multiple producers and accept some internal queueing to avoid having
+  fetch messages whenever there is new demand.
+
+  Measure your system to decide which setting is most appropriate.
+
+  Adding another single-producer pipeline, or another node running the
+  pipeline, are other ways you may consider to increase throughput.
+
+  ## Batcher concurrency
+
+  If a batcher's `concurrency` is greater than `1`, Broadway will use as few of
+  the batcher processes as possible at any given moment, attempting to satisfy
+  the `batch_size` of one batcher process within the `batch_timeout` before
+  sending messages to another.
+
   ## Testing
 
   Many producers receive data from external systems and hitting the network

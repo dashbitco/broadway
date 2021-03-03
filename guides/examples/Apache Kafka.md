@@ -233,6 +233,9 @@ they need and how much IO work is going to take place, you might need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, along with
 `batch_size` and `batch_timeout` can give you a great deal of flexibility.
+See the notes on [`Producer concurrency`](https://hexdocs.pm/broadway/Broadway.html#module-producer-concurrency)
+and [`Batcher concurrency`](https://hexdocs.pm/broadway/Broadway.html#module-batcher-concurrency)
+for details.
 
 By setting the `concurrency` option, you define the number of concurrent process
 that will be started by Broadway, allowing you to have full control over the
