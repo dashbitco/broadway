@@ -50,6 +50,11 @@ defmodule Broadway.Topology do
     config = init_config(module, opts)
     {:ok, supervisor_pid} = start_supervisor(child_specs, config, opts)
 
+    :telemetry.execute([:broadway, :supervisor, :init], %{}, %{
+      config: config,
+      supervisor_pid: supervisor_pid
+    })
+
     :persistent_term.put(config.name, %{
       context: config.context,
       producer_names: process_names(config.name, "Producer", config.producer_config),
