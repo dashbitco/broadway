@@ -50,10 +50,7 @@ defmodule Broadway.Topology do
     config = init_config(module, opts)
     {:ok, supervisor_pid} = start_supervisor(child_specs, config, opts)
 
-    :telemetry.execute([:broadway, :supervisor, :init], %{}, %{
-      config: config,
-      supervisor_pid: supervisor_pid
-    })
+    emit_init_event(opts, supervisor_pid)
 
     :persistent_term.put(config.name, %{
       context: config.context,
@@ -158,6 +155,17 @@ defmodule Broadway.Topology do
     Enum.map(config, fn {key, opts} ->
       {key, Keyword.put_new(opts, :concurrency, System.schedulers_online() * 2)}
     end)
+  end
+
+  defp emit_init_event(user_config, supervisor_pid) do
+    measurements = %{time: System.monotonic_time()}
+
+    metadata = %{
+      config: user_config,
+      supervisor_pid: supervisor_pid
+    }
+
+    :telemetry.execute([:broadway, :supervisor, :init], measurements, metadata)
   end
 
   defp start_options(name, config) do

@@ -241,17 +241,12 @@ defmodule BroadwayTest do
 
       Enum.each(
         [
-          :batchers_config,
           :name,
-          :max_restarts,
-          :max_seconds,
-          :module,
-          :processors_config,
-          :producer_config,
-          :shutdown
+          :producer,
+          :processors
         ],
         fn key ->
-          assert Map.has_key?(config, key)
+          assert Keyword.has_key?(config, key)
         end
       )
     end
