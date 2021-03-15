@@ -56,7 +56,7 @@ defmodule Broadway.Topology do
       batchers_names:
         Enum.map(config.batchers_config, &process_name(config.name, "Batcher", elem(&1, 0))),
       rate_limiter_name:
-        config.producer_config[:rate_limiting] && RateLimiter.table_name(opts[:name])
+        config.producer_config[:rate_limiting] && RateLimiter.rate_limiter_name(opts[:name])
     })
 
     {:ok,

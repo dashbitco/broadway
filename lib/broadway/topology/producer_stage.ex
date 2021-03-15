@@ -45,10 +45,15 @@ defmodule Broadway.Topology.ProducerStage do
 
     rate_limiting_state =
       if rate_limiting_options do
+        rate_limiter =
+          broadway_name
+          |> RateLimiter.rate_limiter_name()
+          |> RateLimiter.get_rate_limiter_ref()
+
         %{
           state: :open,
           draining?: false,
-          table_name: RateLimiter.table_name(broadway_name),
+          rate_limiter: rate_limiter,
           # A queue of "batches" of messages that we buffered.
           message_buffer: :queue.new(),
           # A queue of demands (integers) that we buffered.
@@ -295,10 +300,10 @@ defmodule Broadway.Topology.ProducerStage do
   end
 
   defp rate_limit_and_buffer_messages(%{rate_limiting: rate_limiting} = state) do
-    %{message_buffer: buffer, table_name: table_name, draining?: draining?} = rate_limiting
+    %{message_buffer: buffer, rate_limiter: rate_limiter, draining?: draining?} = rate_limiting
 
     {rate_limiting, messages_to_emit} =
-      case RateLimiter.get_currently_allowed(table_name) do
+      case RateLimiter.get_currently_allowed(rate_limiter) do
         # No point in trying to emit messages if no messages are allowed. In that case,
         # we close the rate limiting and don't emit anything.
         allowed when allowed <= 0 ->
@@ -309,7 +314,7 @@ defmodule Broadway.Topology.ProducerStage do
 
           {rate_limiting_state, messages_to_emit, messages_to_buffer} =
             rate_limit_messages(
-              table_name,
+              rate_limiter,
               probably_emittable,
               _probably_emittable_count = allowed - allowed_left
             )
@@ -373,8 +378,8 @@ defmodule Broadway.Topology.ProducerStage do
     {:open, [], []}
   end
 
-  defp rate_limit_messages(table_name, messages, message_count) do
-    case RateLimiter.rate_limit(table_name, message_count) do
+  defp rate_limit_messages(rate_limiter, messages, message_count) do
+    case RateLimiter.rate_limit(rate_limiter, message_count) do
       # If no more messages are allowed, we're rate limited but we're able
       # to emit all messages that we have.
       0 ->
