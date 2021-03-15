@@ -237,7 +237,23 @@ defmodule BroadwayTest do
 
       assert_receive {:telemetry_event, [:broadway, :supervisor, :init], %{},
                       %{config: config, supervisor_pid: supervisor_pid}}
-                     when is_pid(supervisor_pid) and is_map(config)
+                     when is_pid(supervisor_pid)
+
+      Enum.each(
+        [
+          :batchers_config,
+          :name,
+          :max_restarts,
+          :max_seconds,
+          :module,
+          :processors_config,
+          :producer_config,
+          :shutdown
+        ],
+        fn key ->
+          assert Map.has_key?(config, key)
+        end
+      )
     end
 
     test "default number of processors is schedulers_online * 2" do
