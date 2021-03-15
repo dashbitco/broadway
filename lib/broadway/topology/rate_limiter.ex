@@ -1,9 +1,9 @@
 defmodule Broadway.Topology.RateLimiter do
-  # TODO: Use :counters once we require Erlang/OTP 22+
   @moduledoc false
 
   use GenServer
-  @row_name :rate_limit_counter
+
+  @atomics_index 1
 
   def start_link(opts) do
     case Keyword.fetch!(opts, :rate_limiting) do
@@ -16,20 +16,20 @@ defmodule Broadway.Topology.RateLimiter do
         name = Keyword.fetch!(opts, :name)
         producers_names = Keyword.fetch!(opts, :producers_names)
         args = {name, rate_limiting_opts, producers_names}
-        GenServer.start_link(__MODULE__, args, name: table_name(name))
+        GenServer.start_link(__MODULE__, args, name: rate_limiter_name(name))
     end
   end
 
-  def rate_limit(table_name, amount)
-      when is_atom(table_name) and is_integer(amount) and amount > 0 do
-    :ets.update_counter(table_name, @row_name, -amount)
+  def rate_limit(counter, amount)
+      when is_reference(counter) and is_integer(amount) and amount > 0 do
+    :atomics.sub_get(counter, @atomics_index, amount)
   end
 
-  def get_currently_allowed(table_name) when is_atom(table_name) do
-    :ets.lookup_element(table_name, @row_name, 2)
+  def get_currently_allowed(counter) when is_reference(counter) do
+    :atomics.get(counter, @atomics_index)
   end
 
-  def table_name(broadway_name) when is_atom(broadway_name) do
+  def rate_limiter_name(broadway_name) when is_atom(broadway_name) do
     Module.concat(broadway_name, RateLimiter)
   end
 
@@ -41,13 +41,17 @@ defmodule Broadway.Topology.RateLimiter do
     GenServer.call(rate_limiter, :get_rate_limiting)
   end
 
+  def get_rate_limiter_ref(rate_limiter) do
+    GenServer.call(rate_limiter, :get_rate_limiter_ref)
+  end
+
   @impl true
-  def init({broadway_name, rate_limiting_opts, producers_names}) do
+  def init({_broadway_name, rate_limiting_opts, producers_names}) do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
     allowed = Keyword.fetch!(rate_limiting_opts, :allowed_messages)
 
-    table = :ets.new(table_name(broadway_name), [:named_table, :public, :set])
-    :ets.insert(table, {@row_name, allowed})
+    counter = :atomics.new(@atomics_index, [])
+    :atomics.put(counter, @atomics_index, allowed)
 
     _ = schedule_next_reset(interval)
 
@@ -55,7 +59,7 @@ defmodule Broadway.Topology.RateLimiter do
       interval: interval,
       allowed: allowed,
       producers_names: producers_names,
-      table: table
+      counter: counter
     }
 
     {:ok, state}
@@ -79,12 +83,16 @@ defmodule Broadway.Topology.RateLimiter do
     {:reply, %{interval: interval, allowed_messages: allowed}, state}
   end
 
+  def handle_call(:get_rate_limiter_ref, _from, %{counter: counter} = state) do
+    {:reply, counter, state}
+  end
+
   @impl true
   def handle_info(:reset_limit, state) do
-    %{producers_names: producers_names, interval: interval, allowed: allowed, table: table} =
+    %{producers_names: producers_names, interval: interval, allowed: allowed, counter: counter} =
       state
 
-    true = :ets.insert(table, {@row_name, allowed})
+    :atomics.put(counter, @atomics_index, allowed)
 
     for name <- producers_names,
         pid = Process.whereis(name),
