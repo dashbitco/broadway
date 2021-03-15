@@ -3,6 +3,8 @@ defmodule Broadway.Topology.RateLimiter do
 
   use GenServer
 
+  @atomics_index 1
+
   def start_link(opts) do
     case Keyword.fetch!(opts, :rate_limiting) do
       # If we don't have rate limiting options, we don't even need to start this rate
@@ -20,11 +22,11 @@ defmodule Broadway.Topology.RateLimiter do
 
   def rate_limit(counter, amount)
       when is_reference(counter) and is_integer(amount) and amount > 0 do
-    :atomics.sub_get(counter, 1, amount)
+    :atomics.sub_get(counter, @atomics_index, amount)
   end
 
   def get_currently_allowed(counter) when is_reference(counter) do
-    :atomics.get(counter, 1)
+    :atomics.get(counter, @atomics_index)
   end
 
   def rate_limiter_name(broadway_name) when is_atom(broadway_name) do
@@ -48,8 +50,8 @@ defmodule Broadway.Topology.RateLimiter do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
     allowed = Keyword.fetch!(rate_limiting_opts, :allowed_messages)
 
-    counter = :atomics.new(1, [])
-    :atomics.put(counter, 1, allowed)
+    counter = :atomics.new(@atomics_index, [])
+    :atomics.put(counter, @atomics_index, allowed)
 
     _ = schedule_next_reset(interval)
 
@@ -90,7 +92,7 @@ defmodule Broadway.Topology.RateLimiter do
     %{producers_names: producers_names, interval: interval, allowed: allowed, counter: counter} =
       state
 
-    :atomics.put(counter, 1, allowed)
+    :atomics.put(counter, @atomics_index, allowed)
 
     for name <- producers_names,
         pid = Process.whereis(name),
