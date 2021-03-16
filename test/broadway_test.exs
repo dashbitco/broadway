@@ -211,8 +211,18 @@ defmodule BroadwayTest do
       assert length(Broadway.producer_names(broadway)) == 1
     end
 
-    test "set number of producers" do
+    test "set number of producers", %{test: test} do
       broadway = new_unique_name()
+      self = self()
+
+      :telemetry.attach(
+        "#{test}",
+        [:broadway, :topology, :init],
+        fn name, measurements, metadata, _ ->
+          send(self, {:telemetry_event, name, measurements, metadata})
+        end,
+        nil
+      )
 
       Broadway.start_link(Forwarder,
         name: broadway,
@@ -224,6 +234,21 @@ defmodule BroadwayTest do
 
       assert get_n_producers(broadway) == 3
       assert length(Broadway.producer_names(broadway)) == 3
+
+      assert_receive {:telemetry_event, [:broadway, :topology, :init], %{},
+                      %{config: config, supervisor_pid: supervisor_pid}}
+                     when is_pid(supervisor_pid)
+
+      Enum.each(
+        [
+          :name,
+          :producer,
+          :processors
+        ],
+        fn key ->
+          assert Keyword.has_key?(config, key)
+        end
+      )
     end
 
     test "default number of processors is schedulers_online * 2" do
