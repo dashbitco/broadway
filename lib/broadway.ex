@@ -504,8 +504,8 @@ defmodule Broadway do
 
   Broadway currently exposes following Telemetry events:
 
-    * `[:broadway, :supervisor, :init]` - Dispatched when the supervision tree
-      for a Broadway module is initialized. The config key in the metadata
+    * `[:broadway, :topology, :init]` - Dispatched when the topology for
+      a Broadway pipeline is initialized. The config key in the metadata
       contains the configuration options that were provided to
       `Broadway.start_link/2`.
 

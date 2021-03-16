@@ -217,7 +217,7 @@ defmodule BroadwayTest do
 
       :telemetry.attach(
         "#{test}",
-        [:broadway, :supervisor, :init],
+        [:broadway, :topology, :init],
         fn name, measurements, metadata, _ ->
           send(self, {:telemetry_event, name, measurements, metadata})
         end,
@@ -235,7 +235,7 @@ defmodule BroadwayTest do
       assert get_n_producers(broadway) == 3
       assert length(Broadway.producer_names(broadway)) == 3
 
-      assert_receive {:telemetry_event, [:broadway, :supervisor, :init], %{},
+      assert_receive {:telemetry_event, [:broadway, :topology, :init], %{},
                       %{config: config, supervisor_pid: supervisor_pid}}
                      when is_pid(supervisor_pid)
 

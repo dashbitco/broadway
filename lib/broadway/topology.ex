@@ -165,7 +165,7 @@ defmodule Broadway.Topology do
       supervisor_pid: supervisor_pid
     }
 
-    :telemetry.execute([:broadway, :supervisor, :init], measurements, metadata)
+    :telemetry.execute([:broadway, :topology, :init], measurements, metadata)
   end
 
   defp start_options(name, config) do
