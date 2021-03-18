@@ -950,7 +950,9 @@ defmodule Broadway do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
 
     ref = make_ref()
-    ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
+
+    default_ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
+    ack = Keyword.get(opts, :ack, default_ack)
 
     messages =
       Enum.map(
