@@ -547,6 +547,31 @@ defmodule BroadwayTest do
 
       assert_receive {:ack, ^ref, [%Message{data: :message, metadata: %{}}], []}
     end
+
+    test "ack field is added to message if specified",
+         %{broadway: broadway} do
+      defmodule AckMod do
+        defdelegate ack(conf, successful, failed), to: Broadway.CallerAcknowledger
+      end
+
+      opts = [
+        acknowledger_module: AckMod,
+        acknowledger_data: :data
+      ]
+
+      ref = Broadway.test_message(broadway, :message, opts)
+
+      assert_receive {:ack, ^ref, [%Message{data: :message, acknowledger: ack}], []}
+      assert {AckMod, _, :data} = ack
+    end
+
+    test "ack field in message defaults to Broadway.CallerAcknowledger if not specified",
+         %{broadway: broadway} do
+      ref = Broadway.test_message(broadway, :message)
+
+      assert_receive {:ack, ^ref, [%Message{data: :message, acknowledger: ack}], []}
+      assert {Broadway.CallerAcknowledger, {_, _}, :ok} = ack
+    end
   end
 
   describe "prepare_messages" do

@@ -890,6 +890,14 @@ defmodule Broadway do
       message. This can be used, for example, when testing
       `BroadwayRabbitMQ.Producer`.
 
+    * `:acknowledger_module` - optionally a module implementing a
+      `Broadway.Acknowledger` behaviour. It will be attached to the message
+      and `c:Broadway.Acknowledger.ack/3` of that module will be invoked
+      instead of the `Broadway.CallerAcknowledger`.
+
+    * `:acknowledger_data` - optionally a term that will be attached to
+      acknowledger field in the message.
+
   ## Examples
 
   For example, in your tests, you may do:
@@ -931,6 +939,14 @@ defmodule Broadway do
       message. This can be used, for example, when testing
       `BroadwayRabbitMQ.Producer`.
 
+    * `:acknowledger_module` - optionally a module implementing a
+      `Broadway.Acknowledger` behaviour. It will be attached to the message
+      and `c:Broadway.Acknowledger.ack/3` of that module will be invoked
+      instead of the `Broadway.CallerAcknowledger`.
+
+    * `:acknowledger_data` - optionally a term that will be attached to
+      acknowledger field in the message.
+
   ## Examples
 
   For example, in your tests, you may do:
@@ -951,8 +967,10 @@ defmodule Broadway do
 
     ref = make_ref()
 
-    default_ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
-    ack = Keyword.get(opts, :ack, default_ack)
+    ack_module = Keyword.get(opts, :acknowledger_module, Broadway.CallerAcknowledger)
+    ack_data = Keyword.get(opts, :acknowledger_data, :ok)
+
+    ack = {ack_module, {self(), ref}, ack_data}
 
     messages =
       Enum.map(
