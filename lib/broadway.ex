@@ -890,13 +890,10 @@ defmodule Broadway do
       message. This can be used, for example, when testing
       `BroadwayRabbitMQ.Producer`.
 
-    * `:acknowledger_module` - optionally a module implementing a
-      `Broadway.Acknowledger` behaviour. It will be attached to the message
-      and `c:Broadway.Acknowledger.ack/3` of that module will be invoked
-      instead of the `Broadway.CallerAcknowledger`.
-
-    * `:acknowledger_data` - optionally a term that will be attached to
-      acknowledger field in the message.
+    * `:acknowledger` - optionally a function that generates `ack` fields of
+    `Broadway.Message.t()` that is sent. This function should have following
+    spec `(data :: term, {pid, reference()}) :: {module, ack_ref :: term,
+    data :: term}`.
 
   ## Examples
 
@@ -904,6 +901,11 @@ defmodule Broadway do
 
       ref = Broadway.test_message(broadway, 1)
       assert_receive {:ack, ^ref, [successful], []}
+
+  or if you want to override which acknowledger shall be called, you may do:
+
+      acknowledger = fn data, ack_ref -> {MyAck, ack_ref, :ok} end
+      Broadway.test_message(broadway, 1, acknowledger: acknowledger)
 
   """
   @spec test_message(broadway :: atom(), term, opts :: Keyword.t()) :: reference
@@ -939,13 +941,10 @@ defmodule Broadway do
       message. This can be used, for example, when testing
       `BroadwayRabbitMQ.Producer`.
 
-    * `:acknowledger_module` - optionally a module implementing a
-      `Broadway.Acknowledger` behaviour. It will be attached to the message
-      and `c:Broadway.Acknowledger.ack/3` of that module will be invoked
-      instead of the `Broadway.CallerAcknowledger`.
-
-    * `:acknowledger_data` - optionally a term that will be attached to
-      acknowledger field in the message.
+    * `:acknowledger` - optionally a function that generates `ack` fields of
+    `Broadway.Message.t()` that is sent. This function should have following
+    spec `(data :: term, {pid, reference()}) :: {module, ack_ref :: term,
+    data :: term}`. See `test_message/3` for an example.
 
   ## Examples
 
@@ -964,23 +963,22 @@ defmodule Broadway do
 
   defp test_messages(broadway, data, batch_mode, opts) do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
+    acknowledger = Keyword.get(opts, :acknowledger)
 
     ref = make_ref()
 
-    ack_module = Keyword.get(opts, :acknowledger_module, Broadway.CallerAcknowledger)
-    ack_data = Keyword.get(opts, :acknowledger_data, :ok)
-
-    ack = {ack_module, {self(), ref}, ack_data}
-
     messages =
-      Enum.map(
-        data,
-        &%Message{data: &1, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
-      )
+      Enum.map(data, fn data ->
+        ack = make_ack(acknowledger, {self(), ref}, data)
+        %Message{data: data, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
+      end)
 
     :ok = push_messages(broadway, messages)
     ref
   end
+
+  defp make_ack(nil, ack_ref, _), do: {Broadway.CallerAcknowledger, ack_ref, :ok}
+  defp make_ack(acknowledger, ack_ref, data), do: acknowledger.(data, ack_ref)
 
   @doc """
   Gets the current values used for the producer rate limiting of the given pipeline.

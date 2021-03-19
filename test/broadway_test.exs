@@ -555,8 +555,7 @@ defmodule BroadwayTest do
       end
 
       opts = [
-        acknowledger_module: AckMod,
-        acknowledger_data: :data
+        acknowledger: fn _data, ack_ref -> {AckMod, ack_ref, :data} end
       ]
 
       ref = Broadway.test_message(broadway, :message, opts)
