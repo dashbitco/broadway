@@ -892,8 +892,8 @@ defmodule Broadway do
 
     * `:acknowledger` - optionally a function that generates `ack` fields of
     `Broadway.Message.t()` that is sent. This function should have following
-    spec `(data :: term, {pid, reference()}) :: {module, ack_ref :: term,
-    data :: term}`.
+    spec `(data :: term, {pid, reference()} -> {module, ack_ref :: term,
+    data :: term})`.
 
   ## Examples
 
@@ -943,8 +943,8 @@ defmodule Broadway do
 
     * `:acknowledger` - optionally a function that generates `ack` fields of
     `Broadway.Message.t()` that is sent. This function should have following
-    spec `(data :: term, {pid, reference()}) :: {module, ack_ref :: term,
-    data :: term}`. See `test_message/3` for an example.
+    spec `(data :: term, {pid, reference()} -> {module, ack_ref :: term,
+    data :: term})`. See `test_message/3` for an example.
 
   ## Examples
 
