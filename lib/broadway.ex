@@ -963,22 +963,23 @@ defmodule Broadway do
 
   defp test_messages(broadway, data, batch_mode, opts) do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
-    acknowledger = Keyword.get(opts, :acknowledger)
+
+    acknowledger =
+      Keyword.get(opts, :acknowledger, fn _, ack_ref ->
+        {Broadway.CallerAcknowledger, ack_ref, :ok}
+      end)
 
     ref = make_ref()
 
     messages =
       Enum.map(data, fn data ->
-        ack = make_ack(acknowledger, {self(), ref}, data)
+        ack = acknowledger.(data, {self(), ref})
         %Message{data: data, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
       end)
 
     :ok = push_messages(broadway, messages)
     ref
   end
-
-  defp make_ack(nil, ack_ref, _), do: {Broadway.CallerAcknowledger, ack_ref, :ok}
-  defp make_ack(acknowledger, ack_ref, data), do: acknowledger.(data, ack_ref)
 
   @doc """
   Gets the current values used for the producer rate limiting of the given pipeline.
