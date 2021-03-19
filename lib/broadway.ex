@@ -890,12 +890,22 @@ defmodule Broadway do
       message. This can be used, for example, when testing
       `BroadwayRabbitMQ.Producer`.
 
+    * `:acknowledger` - optionally a function that generates `ack` fields of
+    `Broadway.Message.t()` that is sent. This function should have following
+    spec `(data :: term, {pid, reference()} -> {module, ack_ref :: term,
+    data :: term})`.
+
   ## Examples
 
   For example, in your tests, you may do:
 
       ref = Broadway.test_message(broadway, 1)
       assert_receive {:ack, ^ref, [successful], []}
+
+  or if you want to override which acknowledger shall be called, you may do:
+
+      acknowledger = fn data, ack_ref -> {MyAck, ack_ref, :ok} end
+      Broadway.test_message(broadway, 1, acknowledger: acknowledger)
 
   """
   @spec test_message(broadway :: atom(), term, opts :: Keyword.t()) :: reference
@@ -931,6 +941,11 @@ defmodule Broadway do
       message. This can be used, for example, when testing
       `BroadwayRabbitMQ.Producer`.
 
+    * `:acknowledger` - optionally a function that generates `ack` fields of
+    `Broadway.Message.t()` that is sent. This function should have following
+    spec `(data :: term, {pid, reference()} -> {module, ack_ref :: term,
+    data :: term})`. See `test_message/3` for an example.
+
   ## Examples
 
   For example, in your tests, you may do:
@@ -949,14 +964,18 @@ defmodule Broadway do
   defp test_messages(broadway, data, batch_mode, opts) do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
 
+    acknowledger =
+      Keyword.get(opts, :acknowledger, fn _, ack_ref ->
+        {Broadway.CallerAcknowledger, ack_ref, :ok}
+      end)
+
     ref = make_ref()
-    ack = {Broadway.CallerAcknowledger, {self(), ref}, :ok}
 
     messages =
-      Enum.map(
-        data,
-        &%Message{data: &1, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
-      )
+      Enum.map(data, fn data ->
+        ack = acknowledger.(data, {self(), ref})
+        %Message{data: data, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
+      end)
 
     :ok = push_messages(broadway, messages)
     ref
