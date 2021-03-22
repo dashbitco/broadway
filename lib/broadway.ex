@@ -907,6 +907,8 @@ defmodule Broadway do
       acknowledger = fn data, ack_ref -> {MyAck, ack_ref, :ok} end
       Broadway.test_message(broadway, 1, acknowledger: acknowledger)
 
+  Note that messages sent using this function will ignore demand and :transform
+  option specified in :producer option in `Broadway.start_link/2`.
   """
   @spec test_message(broadway :: atom(), term, opts :: Keyword.t()) :: reference
   def test_message(broadway, data, opts \\ []) when is_list(opts) do
@@ -955,6 +957,8 @@ defmodule Broadway do
       assert length(successful) == 3
       assert length(failed) == 0
 
+  Note that messages sent using this function will ignore demand and :transform
+  option specified in :producer option in `Broadway.start_link/2`.
   """
   @spec test_batch(broadway :: atom(), data :: [term], opts :: Keyword.t()) :: reference
   def test_batch(broadway, batch_data, opts \\ []) when is_list(batch_data) and is_list(opts) do
