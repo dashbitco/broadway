@@ -59,7 +59,7 @@ defmodule Broadway.Options do
             A tuple representing a GenStage producer.
             The tuple format should be `{mod, arg}`, where `mod` is the module
             that implements the GenStage behaviour and `arg` the argument that will
-            be passed to the `init/1` callback of the producer. See `Broadway.Prodycer`
+            be passed to the `init/1` callback of the producer. See `Broadway.Producer`
             for more information.
             """
           ],
