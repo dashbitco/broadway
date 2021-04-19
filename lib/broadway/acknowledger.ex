@@ -84,7 +84,7 @@ defmodule Broadway.Acknowledger do
   @doc false
   # Builds a crash reason used in Logger reporting.
   def crash_reason(:throw, reason, stack), do: {{:nocatch, reason}, stack}
-  def crash_reason(:error, reason, stack), do: {reason, stack}
+  def crash_reason(:error, reason, stack), do: {Exception.normalize(:error, reason, stack), stack}
   def crash_reason(:exit, reason, stack), do: {reason, stack}
 
   # Used by the processor and the batcher to maybe call c:handle_failed/2
