@@ -144,7 +144,7 @@ defmodule Broadway do
   increase throughput and consequently improve the overall performance of
   your pipeline.
 
-  To create batches, define the `batchers` configuration option:
+  To create batches, define the `:batchers` configuration option:
 
       defmodule MyBroadway do
         use Broadway
@@ -166,7 +166,7 @@ defmodule Broadway do
           )
         end
 
-        ...callbacks...
+        # ...callbacks...
       end
 
   The configuration above defines a pipeline with:
@@ -200,7 +200,7 @@ defmodule Broadway do
      [batch_sqs_1] [batch_sqs_2]    [batch_s3_1] <- process each batch
   ```
 
-  Additionally, define the `c:handle_batch/4` callback,
+  Additionally, you have to define the `c:handle_batch/4` callback,
   which batch processors invoke for each batch. You can then
   call `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to
   control which batcher the message should go to.
@@ -210,10 +210,10 @@ defmodule Broadway do
   goal is to create a batch with at most `batch_size` entries within
   `batch_timeout` milliseconds. Each message goes into a particular batch,
   controlled by calling `Broadway.Message.put_batch_key/2` in
-  `c:handle_message/3`. Once a batch is created, it is sent to a separate
-  process that will call `c:handle_batch/4`, passing the batcher, the
-  batch itself (i.e. a list of messages), a `Broadway.BatchInfo` struct
-  and the Broadway context.
+  `c:handle_message/3`. Once a batch is created in the batcher, it is sent
+  to a separate process (the batch processor) that will call `c:handle_batch/4`,
+  passing the batcher, the batch itself (a list of messages), a `Broadway.BatchInfo`
+  struct, and the Broadway context.
 
   For example, imagine your producer generates integers as `data`.
   You want to route the odd integers to SQS and the even ones to
@@ -225,7 +225,7 @@ defmodule Broadway do
 
         alias Broadway.Message
 
-        ...start_link...
+        # ...start_link...
 
         @impl true
         def handle_message(_, %Message{data: data} = message, _) when is_odd(data) do
@@ -257,6 +257,53 @@ defmodule Broadway do
 
   See the [callbacks documentation](#callbacks) for more information on the
   arguments given to each callback and their expected return types.
+
+  ### The default batcher
+
+  Once you define the `:batchers` configuration key for your Broadway pipeline,
+  then **all messages get batched**. By default, unless you call
+  `Broadway.Message.put_batcher/2`, messages have their batcher set to the
+  `:default` batcher. If you don't define configuration for it, Broadway is going
+  to raise an error.
+
+  For example, imagine you want to batch "special" messages and handle them differently
+  then all other messages. You can configure your pipeline like this:
+
+      defmodule MyBroadway do
+        use Broadway
+
+        def start_link(_opts) do
+          Broadway.start_link(MyBroadway,
+            name: MyBroadwayExample,
+            producer: [
+              module: {Counter, []},
+              concurrency: 1
+            ],
+            processors: [
+              default: [concurrency: 2]
+            ],
+            batchers: [
+              special: [concurrency: 2, batch_size: 10],
+              default: [concurrency: 1, batch_size: 10]
+            ]
+          )
+        end
+
+        def handle_message(_, message, _) do
+          if special?(message) do
+            Broadway.Message.put_batcher(:special)
+          else
+            message
+          end
+        end
+
+        def handle_batch(:special, messages, _batch_info, _context) do
+          # Handle special batch
+        end
+
+        def handle_batch(:default, messages, _batch_info, _context) do
+          # Handle all other messages in batches
+        end
 
   Now you are ready to get started. See the `start_link/2` function
   for a complete reference on the arguments and options allowed.
@@ -725,6 +772,9 @@ defmodule Broadway do
   In case of errors in this callback, the error will be logged and the whole
   batch will be failed. This callback also traps exits, so failures due to broken
   links between processes do not automatically cascade.
+
+  For more information on batching, see the "Batching" section in the `Broadway`
+  documentation.
   """
   @callback handle_batch(
               batcher :: atom,
