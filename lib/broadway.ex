@@ -262,7 +262,7 @@ defmodule Broadway do
 
   Once you define the `:batchers` configuration key for your Broadway pipeline,
   then **all messages get batched**. By default, unless you call
-  `Broadway.Message.put_patcher/2`, messages have their batcher set to the
+  `Broadway.Message.put_batcher/2`, messages have their batcher set to the
   `:default` batcher. If you don't define configuration for it, Broadway is going
   to raise an error.
 
