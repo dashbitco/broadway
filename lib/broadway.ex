@@ -903,6 +903,56 @@ defmodule Broadway do
   end
 
   @doc """
+  Returns the topology details for a pipeline.
+
+  The stages that have the "concurrency" field indicates a list of
+  processes running with that name prefix. Each process has "name" as
+  prefix plus "_" and the index of `0..(concurrency - 1)`, as atom.
+
+  For example, a producer named `MyBroadway.Broadway.Producer` with
+  concurrency of 1 represents only a process named
+  `MyBroadway.Broadway.Producer_0`.
+
+  Note that `Broadway` does not accept multiple producers neither
+  multiple processors. But we choose to keep in a list for simplicity
+  and future proof.
+
+  ## Examples
+
+      iex> Broadway.topology(MyBroadway)
+      [
+        producers: [%{name: MyBroadway.Broadway.Producer, concurrency: 1}],
+        processors: [%{name: MyBroadway.Broadway.Processor_default, concurrency: 10}],
+        batchers: [
+          %{
+            batcher_name: MyBroadway.Broadway.Batcher_default,
+            name: MyBroadway.Broadway.BatchProcessor_default,
+            concurrency: 5
+          },
+          %{
+            batcher_name: MyBroadway.Broadway.Batcher_s3,
+            name: MyBroadway.Broadway.BatchProcessor_s3,
+            concurrency: 3
+          }
+        ]
+      ]
+
+  """
+  @spec topology(broadway :: atom()) :: [
+          {atom(),
+           [
+             %{
+               required(:name) => atom(),
+               optional(:concurrency) => pos_integer(),
+               optional(:batcher_name) => atom()
+             }
+           ]}
+        ]
+  def topology(broadway) when is_atom(broadway) do
+    Topology.topology(broadway)
+  end
+
+  @doc """
   Sends a list of `Broadway.Message`s to the Broadway pipeline.
 
   The producer is randomly chosen among all sets of producers/stages.
