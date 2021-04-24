@@ -2367,6 +2367,80 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "topology/1" do
+    test "default config" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        context: %{test_pid: self()},
+        producer: [module: {ManualProducer, []}],
+        processors: [default: []],
+        batchers: [default: []]
+      )
+
+      topology = Broadway.topology(broadway)
+
+      assert topology[:producers] == [%{name: :"#{broadway}.Broadway.Producer", concurrency: 1}]
+
+      assert [%{name: default_processor_name, concurrency: processors_concurrency}] =
+               topology[:processors]
+
+      assert get_n_processors(broadway) == processors_concurrency
+      assert default_processor_name == :"#{broadway}.Broadway.Processor_default"
+
+      assert topology[:batchers] == [
+               %{
+                 name: :"#{broadway}.Broadway.BatchProcessor_default",
+                 batcher_name: :"#{broadway}.Broadway.Batcher_default",
+                 concurrency: 1
+               }
+             ]
+    end
+
+    test "without batchers" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        context: %{test_pid: self()},
+        producer: [module: {ManualProducer, []}],
+        processors: [default: []]
+      )
+
+      topology = Broadway.topology(broadway)
+
+      assert topology[:batchers] == []
+    end
+
+    test "with multiple batchers" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        context: %{test_pid: self()},
+        producer: [module: {ManualProducer, []}],
+        processors: [default: [concurrency: 20]],
+        batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
+      )
+
+      topology = Broadway.topology(broadway)
+
+      assert topology[:batchers] == [
+               %{
+                 batcher_name: :"#{broadway}.Broadway.Batcher_default",
+                 name: :"#{broadway}.Broadway.BatchProcessor_default",
+                 concurrency: 12
+               },
+               %{
+                 batcher_name: :"#{broadway}.Broadway.Batcher_b1",
+                 name: :"#{broadway}.Broadway.BatchProcessor_b1",
+                 concurrency: 13
+               }
+             ]
+    end
+  end
+
   defp new_unique_name() do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end

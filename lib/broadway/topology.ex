@@ -27,6 +27,10 @@ defmodule Broadway.Topology do
     end
   end
 
+  def topology(server) do
+    config(server).topology
+  end
+
   defp config(server) do
     :persistent_term.get(server, nil) || exit({:noproc, {__MODULE__, :config, [server]}})
   end
@@ -54,6 +58,7 @@ defmodule Broadway.Topology do
 
     :persistent_term.put(config.name, %{
       context: config.context,
+      topology: build_topology_details(config),
       producer_names: process_names(config.name, "Producer", config.producer_config),
       batchers_names:
         Enum.map(config.batchers_config, &process_name(config.name, "Batcher", elem(&1, 0))),
@@ -409,6 +414,36 @@ defmodule Broadway.Topology do
       id: name,
       shutdown: shutdown
     }
+  end
+
+  defp build_topology_details(config) do
+    [
+      producers: [
+        %{
+          name: topology_name(config.name, "Producer"),
+          concurrency: config.producer_config[:concurrency]
+        }
+      ],
+      processors:
+        Enum.map(config.processors_config, fn {name, processor_config} ->
+          %{
+            name: topology_name(config.name, "Processor_#{name}"),
+            concurrency: processor_config[:concurrency]
+          }
+        end),
+      batchers:
+        Enum.map(config.batchers_config, fn {name, batcher_config} ->
+          %{
+            batcher_name: topology_name(config.name, "Batcher_#{name}"),
+            name: topology_name(config.name, "BatchProcessor_#{name}"),
+            concurrency: batcher_config[:concurrency]
+          }
+        end)
+    ]
+  end
+
+  defp topology_name(prefix, type) do
+    :"#{name_prefix(prefix)}.#{type}"
   end
 
   defp name_prefix(prefix) do
