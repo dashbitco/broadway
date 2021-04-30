@@ -917,6 +917,9 @@ defmodule Broadway do
   multiple processors. But we choose to keep in a list for simplicity
   and future proof.
 
+  This function accepts a Broadway name or a tuple in the format of
+  `{MyBroadway, node}` for pipelines running on remote nodes.
+
   ## Examples
 
       iex> Broadway.topology(MyBroadway)
@@ -938,7 +941,7 @@ defmodule Broadway do
       ]
 
   """
-  @spec topology(broadway :: atom()) :: [
+  @spec topology(atom() | {atom(), Node.t()}) :: [
           {atom(),
            [
              %{
@@ -948,7 +951,7 @@ defmodule Broadway do
              }
            ]}
         ]
-  def topology(broadway) when is_atom(broadway) do
+  def topology(broadway) do
     Topology.topology(broadway)
   end
 

@@ -28,7 +28,7 @@ defmodule Broadway.Topology do
   end
 
   def topology(server) do
-    config(server).topology
+    GenServer.call(server, :topology, 1_000)
   end
 
   defp config(server) do
@@ -72,6 +72,13 @@ defmodule Broadway.Topology do
        terminator: config.terminator,
        name: config.name
      }}
+  end
+
+  @impl true
+  def handle_call(:topology, _, state) do
+    topology = config(state.name).topology
+
+    {:reply, topology, state}
   end
 
   @impl true
