@@ -36,11 +36,12 @@ defmodule Broadway.MixProject do
 
   defp docs do
     [
-      main: "Broadway",
+      main: "introduction",
       source_ref: "v#{@version}",
       source_url: "https://github.com/dashbitco/broadway",
       extra_section: "Guides",
       extras: [
+        "guides/examples/Introduction.md",
         "guides/examples/Amazon SQS.md",
         "guides/examples/Apache Kafka.md",
         "guides/examples/Google Cloud PubSub.md",

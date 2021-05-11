@@ -4,7 +4,7 @@ Build concurrent and multi-stage data ingestion and data processing pipelines wi
 
 The name Broadway was taken from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, renowned for its stages, actors, and producers. :)
 
-Documentation, examples, and how tos can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
+Documentation, examples, and how-tos can be found at [https://hexdocs.pm/broadway](https://hexdocs.pm/broadway).
 
 ## Built-in features
 
@@ -20,7 +20,6 @@ Broadway takes the burden of defining concurrent GenStage topologies and provide
   * Ordering and partitioning
   * Rate-limiting
   * Metrics
-  * Back-off (TODO)
 
 ## Installation
 
@@ -34,18 +33,7 @@ def deps do
 end
 ```
 
-## Official Broadway Producers
-
-Currently we officially support four Broadway producers:
-
-  * Amazon SQS: [Source](https://github.com/dashbitco/broadway_sqs) - [Guide](https://hexdocs.pm/broadway/amazon-sqs.html)
-  * Apache Kafka: [Source](https://github.com/dashbitco/broadway_kafka) - [Guide](https://hexdocs.pm/broadway/apache-kafka.html)
-  * Google Cloud Pub/Sub: [Source](https://github.com/dashbitco/broadway_cloud_pub_sub) - [Guide](https://hexdocs.pm/broadway/google-cloud-pubsub.html)
-  * RabbitMQ: [Source](https://github.com/dashbitco/broadway_rabbitmq) - [Guide](https://hexdocs.pm/broadway/rabbitmq.html)
-
-More producers are on the way.
-
-### A quick example: SQS integration
+## A quick example: SQS integration
 
 Assuming you have added [`broadway_sqs`](https://github.com/dashbitco/broadway_sqs) as a dependency and configured your SQS credentials accordingly, you can consume Amazon SQS events in only 20 LOCs:
 
@@ -88,14 +76,7 @@ end
 
 Once your Broadway module is defined, you just need to add it as a child of your application supervision tree as `{MyBroadway, []}`.
 
-## Non-official (Off-Broadway) Producers
-
-For those interested in rolling their own Broadway Producers (which we actively encourage!), we recommend using the `OffBroadway` namespace, mirroring the [Off-Broadway theaters](https://en.wikipedia.org/wiki/Off-Broadway). For example, if you want to publish your own integration with Amazon SQS, you can package it as `off_broadway_sqs`, which uses the `OffBroadway.SQS` namespace.
-
-The following Off-Broadway libraries are available (feel free to send a PR adding your own in alphabetical order):
-
-  * [off_broadway_kafka](https://github.com/bbalser/off_broadway_kafka): [Guide](https://hexdocs.pm/off_broadway_kafka/)
-  * [off_broadway_redis](https://github.com/amokan/off_broadway_redis): [Guide](https://hexdocs.pm/off_broadway_redis/)
+[See the docs for detailed how-tos and supported adapters](https://hexdocs.pm/broadway).
 
 ## Comparison to Flow
 

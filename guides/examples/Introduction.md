@@ -1,0 +1,19 @@
+# Introduction
+
+Currently we officially support four Broadway producers:
+
+  * Amazon SQS: [Source](https://github.com/dashbitco/broadway_sqs) - [Guide](amazon-sqs.md)
+  * Apache Kafka: [Source](https://github.com/dashbitco/broadway_kafka) - [Guide](apache-kafka.md)
+  * Google Cloud Pub/Sub: [Source](https://github.com/dashbitco/broadway_cloud_pub_sub) - [Guide](google-cloud-pubsub.html)
+  * RabbitMQ: [Source](https://github.com/dashbitco/broadway_rabbitmq) - [Guide](rabbitmq.html)
+
+The guides links above will help you get started with your adapter of choice. For API reference, you can check out the `Broadway` module.
+
+## Non-official (Off-Broadway) Producers
+
+For those interested in rolling their own Broadway Producers (which we actively encourage!), we recommend using the `OffBroadway` namespace, mirroring the [Off-Broadway theaters](https://en.wikipedia.org/wiki/Off-Broadway). For example, if you want to publish your own integration with Amazon SQS, you can package it as `off_broadway_sqs`, which uses the `OffBroadway.SQS` namespace.
+
+The following Off-Broadway libraries are available (feel free to send a PR adding your own in alphabetical order):
+
+  * [off_broadway_kafka](https://github.com/bbalser/off_broadway_kafka): [Guide](https://hexdocs.pm/off_broadway_kafka/)
+  * [off_broadway_redis](https://github.com/amokan/off_broadway_redis): [Guide](https://hexdocs.pm/off_broadway_redis/)
