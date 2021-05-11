@@ -4,8 +4,8 @@ Currently we officially support four Broadway producers:
 
   * Amazon SQS: [Source](https://github.com/dashbitco/broadway_sqs) - [Guide](amazon-sqs.md)
   * Apache Kafka: [Source](https://github.com/dashbitco/broadway_kafka) - [Guide](apache-kafka.md)
-  * Google Cloud Pub/Sub: [Source](https://github.com/dashbitco/broadway_cloud_pub_sub) - [Guide](google-cloud-pubsub.html)
-  * RabbitMQ: [Source](https://github.com/dashbitco/broadway_rabbitmq) - [Guide](rabbitmq.html)
+  * Google Cloud Pub/Sub: [Source](https://github.com/dashbitco/broadway_cloud_pub_sub) - [Guide](google-cloud-pubsub.md)
+  * RabbitMQ: [Source](https://github.com/dashbitco/broadway_rabbitmq) - [Guide](rabbitmq.md)
 
 The guides links above will help you get started with your adapter of choice. For API reference, you can check out the `Broadway` module.
 

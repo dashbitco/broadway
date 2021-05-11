@@ -41,13 +41,13 @@ defmodule Broadway.MixProject do
       source_url: "https://github.com/dashbitco/broadway",
       extra_section: "Guides",
       extras: [
-        "guides/examples/Introduction.md",
-        "guides/examples/Amazon SQS.md",
-        "guides/examples/Apache Kafka.md",
-        "guides/examples/Google Cloud PubSub.md",
-        "guides/examples/RabbitMQ.md",
-        "guides/examples/Custom Producers.md",
-        "guides/internals/Architecture.md"
+        "guides/examples/introduction.md",
+        "guides/examples/amazon-sqs.md",
+        "guides/examples/apache-kafka.md",
+        "guides/examples/google-cloud-pubsub.md",
+        "guides/examples/rabbitmq.md",
+        "guides/examples/custom-producers.md",
+        "guides/internals/architecture.md"
       ],
       groups_for_extras: [
         Examples: Path.wildcard("guides/examples/*.md"),
