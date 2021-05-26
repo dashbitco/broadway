@@ -1184,6 +1184,9 @@ defmodule BroadwayTest do
 
       assert processor_1 != processor_2
       assert batch_processor_1 != batch_processor_2
+
+      # NOTE: we need to stop this one because is not stopping alone and causing intermittence.
+      GenServer.stop(broadway)
     end
   end
 
@@ -2438,6 +2441,42 @@ defmodule BroadwayTest do
                  concurrency: 13
                }
              ]
+    end
+  end
+
+  describe "all/0" do
+    test "return running pipeline names" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        context: %{test_pid: self()},
+        producer: [module: {ManualProducer, []}],
+        processors: [default: [concurrency: 20]],
+        batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
+      )
+
+      assert Broadway.all() == [broadway]
+
+      broadway2 = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway2,
+        context: %{test_pid: self()},
+        producer: [module: {ManualProducer, []}],
+        processors: [default: [concurrency: 20]],
+        batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
+      )
+
+      assert Enum.sort(Broadway.all()) == [broadway, broadway2]
+
+      GenServer.stop(broadway2)
+
+      assert Broadway.all() == [broadway]
+
+      GenServer.stop(broadway)
+
+      assert Broadway.all() == []
     end
   end
 

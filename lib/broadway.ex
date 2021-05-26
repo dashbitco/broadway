@@ -953,6 +953,27 @@ defmodule Broadway do
   end
 
   @doc """
+  Returns all running Broadway names.
+
+  It's important to notice that no order is guaranteed.
+  """
+  def all do
+    Enum.reduce(:persistent_term.get(), [], fn key_value, names ->
+      case key_value do
+        {{Broadway, name}, %Broadway.Topology.Config{}} ->
+          if Process.whereis(name) do
+            [name | names]
+          else
+            names
+          end
+
+        _ ->
+          names
+      end
+    end)
+  end
+
+  @doc """
   Sends a list of `Broadway.Message`s to the Broadway pipeline.
 
   The producer is randomly chosen among all sets of producers/stages.
