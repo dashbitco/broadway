@@ -11,6 +11,12 @@ defmodule Broadway.Topology do
     RateLimiter
   }
 
+  defmodule Config do
+    @moduledoc false
+
+    defstruct [:context, :topology, :producer_names, :batchers_names, :rate_limiter_name]
+  end
+
   def start_link(module, opts) do
     GenServer.start_link(__MODULE__, {module, opts}, opts)
   end
@@ -32,7 +38,8 @@ defmodule Broadway.Topology do
   end
 
   defp config(server) do
-    :persistent_term.get(server, nil) || exit({:noproc, {__MODULE__, :config, [server]}})
+    :persistent_term.get({Broadway, server}, nil) ||
+      exit({:noproc, {__MODULE__, :config, [server]}})
   end
 
   ## Callbacks
@@ -56,7 +63,7 @@ defmodule Broadway.Topology do
 
     emit_init_event(opts, supervisor_pid)
 
-    :persistent_term.put(config.name, %{
+    :persistent_term.put({Broadway, config.name}, %Config{
       context: config.context,
       topology: build_topology_details(config),
       producer_names: process_names(config.name, "Producer", config.producer_config),
@@ -90,7 +97,7 @@ defmodule Broadway.Topology do
     Process.exit(supervisor_pid, reason_to_signal(reason))
 
     receive do
-      {:DOWN, ^ref, _, _, _} -> :persistent_term.erase(name)
+      {:DOWN, ^ref, _, _, _} -> :persistent_term.erase({Broadway, name})
     end
 
     :ok
