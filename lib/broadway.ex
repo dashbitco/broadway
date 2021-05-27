@@ -958,19 +958,9 @@ defmodule Broadway do
   It's important to notice that no order is guaranteed.
   """
   def all do
-    Enum.reduce(:persistent_term.get(), [], fn key_value, names ->
-      case key_value do
-        {{Broadway, name}, %Broadway.Topology.Config{}} ->
-          if Process.whereis(name) do
-            [name | names]
-          else
-            names
-          end
-
-        _ ->
-          names
-      end
-    end)
+    for {{Broadway, name}, %Broadway.Topology.Config{}} <- :persistent_term.get(),
+        Process.whereis(name),
+        do: name
   end
 
   @doc """
