@@ -1208,9 +1208,6 @@ defmodule BroadwayTest do
 
       assert processor_1 != processor_2
       assert batch_processor_1 != batch_processor_2
-
-      # NOTE: we need to stop this one because is not stopping alone and causing intermittence.
-      GenServer.stop(broadway)
     end
   end
 
