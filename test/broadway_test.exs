@@ -2444,7 +2444,7 @@ defmodule BroadwayTest do
     end
   end
 
-  describe "all/0" do
+  describe "all_running/0" do
     test "return running pipeline names" do
       broadway = new_unique_name()
 
@@ -2456,7 +2456,7 @@ defmodule BroadwayTest do
         batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
       )
 
-      assert Broadway.all() == [broadway]
+      assert Broadway.all_running() == [broadway]
 
       broadway2 = new_unique_name()
 
@@ -2468,15 +2468,15 @@ defmodule BroadwayTest do
         batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
       )
 
-      assert Enum.sort(Broadway.all()) == [broadway, broadway2]
+      assert Enum.sort(Broadway.all_running()) == [broadway, broadway2]
 
       GenServer.stop(broadway2)
 
-      assert Broadway.all() == [broadway]
+      assert Broadway.all_running() == [broadway]
 
       GenServer.stop(broadway)
 
-      assert Broadway.all() == []
+      assert Broadway.all_running() == []
     end
   end
 

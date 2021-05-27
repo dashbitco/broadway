@@ -957,8 +957,8 @@ defmodule Broadway do
 
   It's important to notice that no order is guaranteed.
   """
-  def all do
-    for {{Broadway, name}, %Broadway.Topology.Config{}} <- :persistent_term.get(),
+  def all_running do
+    for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
         Process.whereis(name),
         do: name
   end

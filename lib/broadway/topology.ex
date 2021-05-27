@@ -11,11 +11,7 @@ defmodule Broadway.Topology do
     RateLimiter
   }
 
-  defmodule Config do
-    @moduledoc false
-
-    defstruct [:context, :topology, :producer_names, :batchers_names, :rate_limiter_name]
-  end
+  defstruct [:context, :topology, :producer_names, :batchers_names, :rate_limiter_name]
 
   def start_link(module, opts) do
     GenServer.start_link(__MODULE__, {module, opts}, opts)
@@ -63,7 +59,7 @@ defmodule Broadway.Topology do
 
     emit_init_event(opts, supervisor_pid)
 
-    :persistent_term.put({Broadway, config.name}, %Config{
+    :persistent_term.put({Broadway, config.name}, %__MODULE__{
       context: config.context,
       topology: build_topology_details(config),
       producer_names: process_names(config.name, "Producer", config.producer_config),
