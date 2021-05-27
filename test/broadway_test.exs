@@ -1053,6 +1053,41 @@ defmodule BroadwayTest do
   describe "partition_by" do
     @describetag processors_options: [], batchers_options: []
 
+    defmodule CustomHandlersForPartition do
+      use Broadway
+
+      def start_link(opts) do
+        Broadway.start_link(__MODULE__,
+          name: opts[:broadway_name],
+          context: opts[:context],
+          producer: [module: {ManualProducer, []}],
+          processors: [
+            default:
+              [
+                concurrency: 2
+              ] ++ opts[:tags].processors_options
+          ],
+          batchers: [
+            default:
+              [
+                concurrency: 2,
+                batch_size: Map.get(opts[:tags], :batch_size, 2),
+                batch_timeout: 80
+              ] ++ opts[:tags].batchers_options
+          ],
+          partition_by: opts[:partition_by]
+        )
+      end
+
+      def handle_message(_, message, %{handle_message: handler} = context) do
+        handler.(message, context)
+      end
+
+      def handle_batch(batcher, messages, batch_info, %{handle_batch: handler} = context) do
+        handler.(batcher, messages, batch_info, context)
+      end
+    end
+
     setup tags do
       test_pid = self()
       broadway_name = new_unique_name()
@@ -1080,25 +1115,14 @@ defmodule BroadwayTest do
       partition_by = fn msg -> msg.data end
 
       {:ok, _broadway} =
-        Broadway.start_link(CustomHandlers,
-          name: broadway_name,
-          context: context,
-          producer: [module: {ManualProducer, []}],
-          processors: [
-            default:
-              [
-                concurrency: 2
-              ] ++ tags.processors_options
-          ],
-          batchers: [
-            default:
-              [
-                concurrency: 2,
-                batch_size: Map.get(tags, :batch_size, 2),
-                batch_timeout: 80
-              ] ++ tags.batchers_options
-          ],
-          partition_by: partition_by
+        start_supervised(
+          {CustomHandlersForPartition,
+           [
+             broadway_name: broadway_name,
+             context: context,
+             tags: tags,
+             partition_by: partition_by
+           ]}
         )
 
       %{broadway: broadway_name}
@@ -2438,6 +2462,42 @@ defmodule BroadwayTest do
                  concurrency: 13
                }
              ]
+    end
+  end
+
+  describe "all_running/0" do
+    test "return running pipeline names" do
+      broadway = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway,
+        context: %{test_pid: self()},
+        producer: [module: {ManualProducer, []}],
+        processors: [default: [concurrency: 20]],
+        batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
+      )
+
+      assert Broadway.all_running() == [broadway]
+
+      broadway2 = new_unique_name()
+
+      Broadway.start_link(Forwarder,
+        name: broadway2,
+        context: %{test_pid: self()},
+        producer: [module: {ManualProducer, []}],
+        processors: [default: [concurrency: 20]],
+        batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
+      )
+
+      assert Enum.sort(Broadway.all_running()) == [broadway, broadway2]
+
+      GenServer.stop(broadway2)
+
+      assert Broadway.all_running() == [broadway]
+
+      GenServer.stop(broadway)
+
+      assert Broadway.all_running() == []
     end
   end
 

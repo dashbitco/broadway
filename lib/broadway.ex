@@ -953,6 +953,17 @@ defmodule Broadway do
   end
 
   @doc """
+  Returns all running Broadway names.
+
+  It's important to notice that no order is guaranteed.
+  """
+  def all_running do
+    for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
+        Process.whereis(name),
+        do: name
+  end
+
+  @doc """
   Sends a list of `Broadway.Message`s to the Broadway pipeline.
 
   The producer is randomly chosen among all sets of producers/stages.
