@@ -869,6 +869,8 @@ defmodule BroadwayTest do
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :exception], %{}, %{}}
       assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, %{}}
       assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
+
+      :telemetry.detach("#{test}")
     end
   end
 
