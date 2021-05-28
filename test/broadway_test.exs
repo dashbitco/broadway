@@ -801,7 +801,19 @@ defmodule BroadwayTest do
             [:broadway, :processor, :message, :exception]
           ],
           fn name, measurements, metadata, _ ->
+            assert metadata.name
             assert metadata.broadway_name == broadway
+
+            case name do
+              [:broadway, stage, _] when stage in [:processor, :consumer] ->
+                assert is_integer(metadata.partition)
+
+              [:broadway, :processor, :message, _] ->
+                assert is_integer(metadata.partition)
+
+              _ ->
+                :ok
+            end
 
             send(self, {:telemetry_event, name, measurements, metadata})
           end,

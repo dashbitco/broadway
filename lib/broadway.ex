@@ -658,6 +658,7 @@ defmodule Broadway do
         %{
           broadway_name: atom,
           name: atom,
+          partition: non_neg_integer,
           messages: [Broadway.Message.t],
           batch_info: Broadway.BatchInfo.t
         }
@@ -674,6 +675,7 @@ defmodule Broadway do
         %{
           broadway_name: atom,
           name: atom,
+          partition: non_neg_integer,
           successful_messages: [Broadway.Message.t],
           failed_messages: [Broadway.Message.t],
           batch_info: Broadway.BatchInfo.t
@@ -690,7 +692,6 @@ defmodule Broadway do
         %{
           broadway_name: atom,
           name: atom,
-          partition: non_neg_integer,
           messages: [{Broadway.Message.t}]
         }
         ```
@@ -699,7 +700,7 @@ defmodule Broadway do
       handling events
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
-      * Metadata: `%{broadway_name: atom, name: atom, partition: non_neg_integer}`
+      * Metadata: `%{broadway_name: atom, name: atom}`
   """
 
   alias Broadway.{BatchInfo, Message, Topology}

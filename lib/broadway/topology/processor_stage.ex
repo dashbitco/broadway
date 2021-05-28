@@ -92,8 +92,15 @@ defmodule Broadway.Topology.ProcessorStage do
   end
 
   defp emit_start_event(state, start_time, messages) do
-    metadata = %{broadway_name: state.broadway_name, name: state.name, messages: messages}
+    metadata = %{
+      broadway_name: state.broadway_name,
+      name: state.name,
+      partition: state.partition,
+      messages: messages
+    }
+
     measurements = %{time: start_time}
+
     :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
   end
 
