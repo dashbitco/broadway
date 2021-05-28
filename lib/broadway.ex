@@ -643,6 +643,7 @@ defmodule Broadway do
 
         ```
         %{
+          broadway_name: atom,
           name: atom,
           messages: [Broadway.Message.t],
           batch_info: Broadway.BatchInfo.t
@@ -658,6 +659,7 @@ defmodule Broadway do
 
         ```
         %{
+          broadway_name: atom,
           name: atom,
           successful_messages: [Broadway.Message.t],
           failed_messages: [Broadway.Message.t],

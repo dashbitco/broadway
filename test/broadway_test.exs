@@ -815,7 +815,9 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed message"}}]}
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed batcher"}}]}
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{},
+                      %{broadway_name: ^broadway}}
+
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{}, %{}}
       assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}

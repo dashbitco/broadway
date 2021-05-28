@@ -340,6 +340,7 @@ defmodule Broadway.Topology do
 
     args =
       [
+        broadway_name: config.name,
         name: name,
         resubscribe: :never,
         terminator: terminator,
