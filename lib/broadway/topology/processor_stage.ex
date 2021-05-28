@@ -107,6 +107,7 @@ defmodule Broadway.Topology.ProcessorStage do
     metadata = %{
       broadway_name: state.broadway_name,
       name: state.name,
+      partition: state.partition,
       successful_messages_to_ack: successful_messages_to_ack,
       successful_messages_to_forward: successful_messages_to_forward,
       failed_messages: failed_messages

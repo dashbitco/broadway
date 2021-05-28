@@ -23,6 +23,7 @@ defmodule Broadway.Topology.BatchProcessorStage do
     state = %{
       broadway_name: args[:broadway_name],
       name: args[:name],
+      partition: args[:partition],
       module: args[:module],
       context: args[:context]
     }
@@ -41,7 +42,7 @@ defmodule Broadway.Topology.BatchProcessorStage do
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
 
     start_time = System.monotonic_time()
-    emit_start_event(state.broadway_name, state.name, start_time, messages, batch_info)
+    emit_start_event(state, start_time, messages, batch_info)
 
     {successful_messages, failed_messages, returned} =
       handle_batch(batcher, messages, batch_info, state)
@@ -71,8 +72,7 @@ defmodule Broadway.Topology.BatchProcessorStage do
     end
 
     emit_stop_event(
-      state.broadway_name,
-      state.name,
+      state,
       start_time,
       successful_messages,
       failed_messages,
@@ -82,10 +82,11 @@ defmodule Broadway.Topology.BatchProcessorStage do
     {:noreply, [], state}
   end
 
-  defp emit_start_event(broadway_name, name, start_time, messages, batch_info) do
+  defp emit_start_event(state, start_time, messages, batch_info) do
     metadata = %{
-      broadway_name: broadway_name,
-      name: name,
+      broadway_name: state.broadway_name,
+      name: state.name,
+      partition: state.partition,
       messages: messages,
       batch_info: batch_info
     }
@@ -94,17 +95,11 @@ defmodule Broadway.Topology.BatchProcessorStage do
     :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
   end
 
-  defp emit_stop_event(
-         broadway_name,
-         name,
-         start_time,
-         successful_messages,
-         failed_messages,
-         batch_info
-       ) do
+  defp emit_stop_event(state, start_time, successful_messages, failed_messages, batch_info) do
     metadata = %{
-      broadway_name: broadway_name,
-      name: name,
+      broadway_name: state.broadway_name,
+      name: state.name,
+      partition: state.partition,
       successful_messages: successful_messages,
       failed_messages: failed_messages,
       batch_info: batch_info
