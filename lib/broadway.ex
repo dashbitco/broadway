@@ -671,13 +671,13 @@ defmodule Broadway do
       handling events
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, messages: [{Broadway.Message.t}]}`
+      * Metadata: `%{broadway_name: atom, name: atom, messages: [{Broadway.Message.t}]}`
 
     * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
       handling events
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
-      * Metadata: `%{name: atom}`
+      * Metadata: `%{broadway_name: atom, name: atom}`
   """
 
   alias Broadway.{BatchInfo, Message, Topology}

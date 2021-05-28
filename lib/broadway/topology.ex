@@ -272,6 +272,7 @@ defmodule Broadway.Topology do
       end
 
     args = [
+      broadway_name: broadway_name,
       type: type,
       resubscribe: resubscribe_interval,
       terminator: terminator,
@@ -287,7 +288,7 @@ defmodule Broadway.Topology do
     specs =
       for {name, index} <- Enum.with_index(names) do
         start_options = start_options(name, processor_config)
-        args = [broadway_name: broadway_name, name: name, partition: index] ++ args
+        args = [name: name, partition: index] ++ args
 
         %{
           start: {ProcessorStage, :start_link, [args, start_options]},
@@ -376,6 +377,7 @@ defmodule Broadway.Topology do
     names = process_names(broadway_name, "BatchProcessor_#{key}", batcher_config)
 
     args = [
+      broadway_name: broadway_name,
       resubscribe: :never,
       terminator: terminator,
       module: module,
