@@ -287,7 +287,7 @@ defmodule Broadway.Topology do
     specs =
       for {name, index} <- Enum.with_index(names) do
         start_options = start_options(name, processor_config)
-        args = [name: name, partition: index] ++ args
+        args = [broadway_name: broadway_name, name: name, partition: index] ++ args
 
         %{
           start: {ProcessorStage, :start_link, [args, start_options]},

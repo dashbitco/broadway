@@ -22,6 +22,7 @@ defmodule Broadway.Topology.ProcessorStage do
     type = args[:type]
 
     state = %{
+      broadway_name: args[:broadway_name],
       name: args[:name],
       type: type,
       module: args[:module],
@@ -47,7 +48,7 @@ defmodule Broadway.Topology.ProcessorStage do
   @impl true
   def handle_events(messages, _from, state) do
     start_time = System.monotonic_time()
-    emit_start_event(state.name, start_time, messages)
+    emit_start_event(state.broadway_name, state.name, start_time, messages)
 
     {prepared_messages, prepared_failed_messages} = maybe_prepare_messages(messages, state)
     {successful_messages, failed_messages} = handle_messages(prepared_messages, [], [], state)
@@ -79,6 +80,7 @@ defmodule Broadway.Topology.ProcessorStage do
     end
 
     emit_stop_event(
+      state.broadway_name,
       state.name,
       start_time,
       successful_messages_to_ack,
@@ -89,13 +91,14 @@ defmodule Broadway.Topology.ProcessorStage do
     {:noreply, successful_messages_to_forward, state}
   end
 
-  defp emit_start_event(name, start_time, messages) do
-    metadata = %{name: name, messages: messages}
+  defp emit_start_event(broadway_name, name, start_time, messages) do
+    metadata = %{broadway_name: broadway_name, name: name, messages: messages}
     measurements = %{time: start_time}
     :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
   end
 
   defp emit_stop_event(
+         broadway_name,
          name,
          start_time,
          successful_messages_to_ack,
@@ -103,6 +106,7 @@ defmodule Broadway.Topology.ProcessorStage do
          failed_messages
        ) do
     metadata = %{
+      broadway_name: broadway_name,
       name: name,
       successful_messages_to_ack: successful_messages_to_ack,
       successful_messages_to_forward: successful_messages_to_forward,
@@ -147,18 +151,19 @@ defmodule Broadway.Topology.ProcessorStage do
       context: context,
       processor_key: processor_key,
       batchers: batchers,
+      broadway_name: broadway_name,
       name: name
     } = state
 
     start_time = System.monotonic_time()
-    emit_message_start_event(start_time, processor_key, name, message)
+    emit_message_start_event(start_time, processor_key, broadway_name, name, message)
 
     try do
       message =
         module.handle_message(processor_key, message, context)
         |> validate_message(batchers)
 
-      emit_message_stop_event(start_time, processor_key, name, message)
+      emit_message_stop_event(start_time, processor_key, broadway_name, name, message)
       message
     catch
       kind, reason ->
@@ -167,6 +172,7 @@ defmodule Broadway.Topology.ProcessorStage do
         emit_message_failure_event(
           start_time,
           processor_key,
+          broadway_name,
           name,
           message,
           kind,
@@ -193,9 +199,10 @@ defmodule Broadway.Topology.ProcessorStage do
     {Enum.reverse(successful), Enum.reverse(failed)}
   end
 
-  defp emit_message_start_event(start_time, processor_key, name, message) do
+  defp emit_message_start_event(start_time, processor_key, broadway_name, name, message) do
     metadata = %{
       processor_key: processor_key,
+      broadway_name: broadway_name,
       name: name,
       message: message
     }
@@ -203,12 +210,13 @@ defmodule Broadway.Topology.ProcessorStage do
     :telemetry.execute([:broadway, :processor, :message, :start], %{time: start_time}, metadata)
   end
 
-  defp emit_message_stop_event(start_time, processor_key, name, message) do
+  defp emit_message_stop_event(start_time, processor_key, broadway_name, name, message) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
 
     metadata = %{
       processor_key: processor_key,
+      broadway_name: broadway_name,
       name: name,
       message: message
     }
@@ -219,6 +227,7 @@ defmodule Broadway.Topology.ProcessorStage do
   defp emit_message_failure_event(
          start_time,
          processor_key,
+         broadway_name,
          name,
          message,
          kind,
@@ -230,6 +239,7 @@ defmodule Broadway.Topology.ProcessorStage do
 
     metadata = %{
       processor_key: processor_key,
+      broadway_name: broadway_name,
       name: name,
       message: message,
       kind: kind,

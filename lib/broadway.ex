@@ -563,7 +563,7 @@ defmodule Broadway do
       before the optional `c:prepare_messages/2`
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
+      * Metadata: `%{broadway_name: atom, name: atom, messages: [Broadway.Message.t]}`
 
     * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor
       after `c:prepare_messages/2` and after all `c:handle_message/3` callback
@@ -575,6 +575,7 @@ defmodule Broadway do
 
         ```
         %{
+          broadway_name: atom,
           name: atom,
           successful_messages_to_ack: [Broadway.Message.t],
           successful_messages_to_forward: [Broadway.Message.t],
@@ -592,6 +593,7 @@ defmodule Broadway do
         ```
         %{
           processor_key: atom,
+          broadway_name: atom,
           name: atom,
           message: Broadway.Message.t
         }
@@ -607,6 +609,7 @@ defmodule Broadway do
         ```
         %{
           processor_key: atom,
+          broadway_name: atom,
           name: atom,
           message: Broadway.Message.t,
           updated_message: Broadway.Message.t
@@ -623,6 +626,7 @@ defmodule Broadway do
         ```
         %{
           processor_key: atom,
+          broadway_name: atom,
           name: atom,
           message: Broadway.Message.t,
           kind: kind,
