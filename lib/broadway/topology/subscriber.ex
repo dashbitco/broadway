@@ -87,7 +87,7 @@ defmodule Broadway.Topology.Subscriber do
   end
 
   def handle_info(:cancel_consumers, %{terminator: terminator} = state) when terminator != nil do
-    if pid = Process.whereis(terminator) do
+    if pid = get_pid(terminator) do
       send(pid, {:done, self()})
     end
 
@@ -123,7 +123,7 @@ defmodule Broadway.Topology.Subscriber do
   ## Helpers
 
   defp subscribe(process_name, state) do
-    if pid = Process.whereis(process_name) do
+    if pid = get_pid(process_name) do
       opts = [to: pid, name: process_name] ++ state.subscription_options
       GenStage.async_subscribe(self(), opts)
       true
@@ -131,6 +131,14 @@ defmodule Broadway.Topology.Subscriber do
       maybe_resubscribe(process_name, state)
       false
     end
+  end
+
+  defp get_pid(process_name) when is_atom(process_name) do
+    Process.whereis(process_name)
+  end
+
+  defp get_pid({:via, Registry, {registry, args}}) do
+    registry.whereis_name(args)
   end
 
   defp maybe_resubscribe(process_name, %{resubscribe: integer}) when is_integer(integer) do

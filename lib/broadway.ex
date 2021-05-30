@@ -859,7 +859,21 @@ defmodule Broadway do
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
 
-      defoverridable child_spec: 1
+      @type via_tuple :: {:via, Registry, any()}
+      @callback process_name(broadway_name :: String.t() | via_tuple, base_name :: String.t()) ::
+                  any()
+      def process_name(broadway_name, base_name) when is_atom(broadway_name) do
+        :"#{broadway_name}.Broadway.#{base_name}"
+      end
+
+      def process_name(broadway_name, _base_name) do
+        raise ArgumentError, """
+        Expected Broadway to be started with a `name` of type atom, got: #{inspect(broadway_name)}.
+        If starting Broadway with a `name` that is not an atom, you must define process_name/2 in the module which uses Broadway.
+        """
+      end
+
+      defoverridable child_spec: 1, process_name: 2
     end
   end
 

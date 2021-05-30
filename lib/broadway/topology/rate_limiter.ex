@@ -95,7 +95,7 @@ defmodule Broadway.Topology.RateLimiter do
     :atomics.put(counter, @atomics_index, allowed)
 
     for name <- producers_names,
-        pid = Process.whereis(name),
+        pid = get_pid(name),
         is_pid(pid),
         do: send(pid, {__MODULE__, :reset_rate_limiting})
 
@@ -106,5 +106,13 @@ defmodule Broadway.Topology.RateLimiter do
 
   defp schedule_next_reset(interval) do
     _ref = Process.send_after(self(), :reset_limit, interval)
+  end
+
+  defp get_pid(process_name) when is_atom(process_name) do
+    Process.whereis(process_name)
+  end
+
+  defp get_pid({:via, Registry, {registry, args}}) do
+    registry.whereis_name(args)
   end
 end

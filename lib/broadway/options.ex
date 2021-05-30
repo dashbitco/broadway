@@ -5,7 +5,7 @@ defmodule Broadway.Options do
     [
       name: [
         required: true,
-        type: :atom,
+        type: :any,
         doc: """
         Used for name registration. All processes/stages
         created will be named using this value as prefix.

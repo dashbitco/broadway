@@ -62,9 +62,9 @@ defmodule Broadway.Topology do
     :persistent_term.put({Broadway, config.name}, %__MODULE__{
       context: config.context,
       topology: build_topology_details(config),
-      producer_names: process_names(config.name, "Producer", config.producer_config),
+      producer_names: process_names(config, "Producer", config.producer_config),
       batchers_names:
-        Enum.map(config.batchers_config, &process_name(config.name, "Batcher", elem(&1, 0))),
+        Enum.map(config.batchers_config, &process_name(config, "Batcher", elem(&1, 0))),
       rate_limiter_name:
         config.producer_config[:rate_limiting] && RateLimiter.rate_limiter_name(opts[:name])
     })
@@ -134,7 +134,7 @@ defmodule Broadway.Topology do
         build_batchers_supervisor_and_terminator_specs(config, producers_names, processors_names)
 
     supervisor_opts = [
-      name: :"#{name_prefix(config.name)}.Supervisor",
+      name: process_name(config, "Supervisor"),
       max_restarts: config.max_restarts,
       max_seconds: config.max_seconds,
       strategy: :rest_for_one
@@ -151,12 +151,16 @@ defmodule Broadway.Topology do
       processors_config: init_processors_config(opts[:processors]),
       batchers_config: opts[:batchers],
       context: opts[:context],
-      terminator: :"#{name_prefix(opts[:name])}.Terminator",
       max_restarts: opts[:max_restarts],
       max_seconds: opts[:max_seconds],
       shutdown: opts[:shutdown],
       resubscribe_interval: opts[:resubscribe_interval]
     }
+    |> put_terminator()
+  end
+
+  defp put_terminator(config) do
+    Map.put(config, :terminator, process_name(config, "Terminator"))
   end
 
   defp init_processors_config(config) do
@@ -194,7 +198,6 @@ defmodule Broadway.Topology do
 
   defp build_producers_specs(config, opts) do
     %{
-      name: broadway_name,
       producer_config: producer_config,
       processors_config: processors_config,
       shutdown: shutdown
@@ -219,7 +222,7 @@ defmodule Broadway.Topology do
 
     names_and_specs =
       for index <- 0..(n_producers - 1) do
-        name = process_name(broadway_name, "Producer", index)
+        name = process_name(config, "Producer", index)
         start_options = start_options(name, producer_config)
 
         spec = %{
@@ -253,7 +256,7 @@ defmodule Broadway.Topology do
       raise "Only one set of processors is allowed for now"
     end
 
-    names = process_names(topology_name, "Processor_#{key}", processor_config)
+    names = process_names(config, "Processor_#{key}", processor_config)
 
     # The partition of the processor depends on the next processor or the batcher,
     # so we handle it here.
@@ -337,7 +340,7 @@ defmodule Broadway.Topology do
   defp build_batcher_spec(config, batcher_config, processors) do
     %{terminator: terminator, shutdown: shutdown} = config
     {key, options} = batcher_config
-    name = process_name(config.name, "Batcher", key)
+    name = process_name(config, "Batcher", key)
 
     args =
       [
@@ -374,7 +377,7 @@ defmodule Broadway.Topology do
       shutdown: shutdown
     } = config
 
-    names = process_names(broadway_name, "BatchProcessor_#{key}", batcher_config)
+    names = process_names(config, "BatchProcessor_#{key}", batcher_config)
 
     args = [
       topology_name: broadway_name,
@@ -426,48 +429,46 @@ defmodule Broadway.Topology do
     [
       producers: [
         %{
-          name: topology_name(config.name, "Producer"),
+          name: process_name(config, "Producer"),
           concurrency: config.producer_config[:concurrency]
         }
       ],
       processors:
         Enum.map(config.processors_config, fn {name, processor_config} ->
           %{
-            name: topology_name(config.name, "Processor_#{name}"),
+            name: process_name(config, "Processor", name),
             concurrency: processor_config[:concurrency]
           }
         end),
       batchers:
         Enum.map(config.batchers_config, fn {name, batcher_config} ->
           %{
-            batcher_name: topology_name(config.name, "Batcher_#{name}"),
-            name: topology_name(config.name, "BatchProcessor_#{name}"),
+            batcher_name: process_name(config, "Batcher", name),
+            name: process_name(config, "BatchProcessor", name),
             concurrency: batcher_config[:concurrency]
           }
         end)
     ]
   end
 
-  defp topology_name(prefix, type) do
-    :"#{name_prefix(prefix)}.#{type}"
+  defp process_name(config, base_name, suffix) do
+    process_name(config, "#{base_name}_#{suffix}")
   end
 
-  defp name_prefix(prefix) do
-    "#{prefix}.Broadway"
+  defp process_name(config, base_name) do
+    %{module: module, name: broadway_name} = config
+
+    module.process_name(broadway_name, base_name)
   end
 
-  defp process_name(prefix, type, index) do
-    :"#{name_prefix(prefix)}.#{type}_#{index}"
-  end
-
-  defp process_names(prefix, type, config) do
-    for index <- 0..(config[:concurrency] - 1) do
-      process_name(prefix, type, index)
+  defp process_names(config, type, processor_config) do
+    for index <- 0..(processor_config[:concurrency] - 1) do
+      process_name(config, type, index)
     end
   end
 
   defp build_producer_supervisor_spec(config, children) do
-    name = :"#{name_prefix(config.name)}.ProducerSupervisor"
+    name = process_name(config, "ProducerSupervisor")
     children_count = length(children)
 
     # TODO: Allow max_restarts and max_seconds as configuration
@@ -482,7 +483,7 @@ defmodule Broadway.Topology do
   defp build_processor_supervisor_spec(config, children) do
     build_supervisor_spec(
       children,
-      :"#{name_prefix(config.name)}.ProcessorSupervisor",
+      process_name(config, "ProcessorSupervisor"),
       strategy: :one_for_all,
       max_restarts: 0
     )
@@ -493,7 +494,7 @@ defmodule Broadway.Topology do
 
     build_supervisor_spec(
       children,
-      :"#{name_prefix(config.name)}.BatchersSupervisor",
+      process_name(config, "BatchersSupervisor"),
       strategy: :one_for_one,
       max_restarts: 2 * children_count,
       max_seconds: children_count
@@ -503,7 +504,7 @@ defmodule Broadway.Topology do
   defp build_batcher_supervisor_spec(config, children, key) do
     build_supervisor_spec(
       children,
-      :"#{name_prefix(config.name)}.BatcherSupervisor_#{key}",
+      process_name(config, "BatcherSupervisor", key),
       strategy: :rest_for_one,
       max_restarts: 4,
       max_seconds: 2
@@ -513,7 +514,7 @@ defmodule Broadway.Topology do
   defp build_batch_processor_supervisor_spec(config, children, key) do
     build_supervisor_spec(
       children,
-      :"#{name_prefix(config.name)}.BatchProcessorSupervisor_#{key}",
+      process_name(config, "BatchProcessorSupervisor", key),
       strategy: :one_for_all,
       max_restarts: 0
     )

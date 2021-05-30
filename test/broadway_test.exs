@@ -169,12 +169,6 @@ defmodule BroadwayTest do
   end
 
   describe "broadway configuration" do
-    test "invalid configuration options" do
-      assert_raise ArgumentError,
-                   "invalid configuration given to Broadway.start_link/2, expected :name to be an atom, got: 1",
-                   fn -> Broadway.start_link(Forwarder, name: 1) end
-    end
-
     test "invalid nested configuration options" do
       opts = [
         name: MyBroadway,
@@ -485,6 +479,69 @@ defmodule BroadwayTest do
 
       assert named_priority(get_producer(broadway_name)) == {:priority, :high}
       assert named_priority(get_processor(broadway_name, :default)) == {:priority, :high}
+    end
+
+    test "supports starting under a via tuple" do
+      defmodule MyRegistry do
+        def start_link do
+          Registry.start_link(keys: :unique, name: __MODULE__)
+        end
+
+        def via_tuple(name) do
+          {:via, Registry, {__MODULE__, name}}
+        end
+
+        def whereis_name(name) do
+          Registry.whereis_name({__MODULE__, name})
+        end
+      end
+
+      {:ok, _registry} = MyRegistry.start_link()
+
+      defmodule SomeBroadwayNoProcessName do
+        use Broadway
+
+        def handle_message(_, _, _), do: nil
+        def handle_batch(_, _, _, _), do: nil
+      end
+
+      defmodule SomeBroadway do
+        use Broadway
+
+        def handle_message(_, _, _), do: nil
+        def handle_batch(_, _, _, _), do: nil
+
+        def process_name({:via, Registry, {_registry, {SomeBroadway, id}}}, base_name) do
+          MyRegistry.via_tuple({:"SomeBroadway.#{base_name}", id})
+        end
+      end
+
+      Process.flag(:trap_exit, true)
+
+      assert {:error, {%ArgumentError{} = error, _stacktrace}} =
+               Broadway.start_link(SomeBroadwayNoProcessName,
+                 name: MyRegistry.via_tuple({SomeBroadwayNoProcessName, "1"}),
+                 producer: [module: {ManualProducer, []}],
+                 processors: [default: []],
+                 batchers: [default: []]
+               )
+
+      assert Exception.message(error) =~
+               "Expected Broadway to be started with a `name` of type atom"
+
+      {:ok, _broadway} =
+        Broadway.start_link(SomeBroadway,
+          name: MyRegistry.via_tuple({SomeBroadway, "1"}),
+          context: %{test_pid: self()},
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []],
+          batchers: [default: []]
+        )
+
+      assert is_pid(MyRegistry.whereis_name({SomeBroadway, "1"}))
+      assert is_pid(MyRegistry.whereis_name({:"SomeBroadway.Producer_0", "1"}))
+      assert is_pid(MyRegistry.whereis_name({:"SomeBroadway.Processor_default_0", "1"}))
+      assert is_pid(MyRegistry.whereis_name({:"SomeBroadway.Terminator", "1"}))
     end
 
     defp named_priority(name), do: Process.info(Process.whereis(name), :priority)
