@@ -237,7 +237,7 @@ defmodule Broadway.Topology do
 
   defp build_processors_specs(config, producers) do
     %{
-      name: broadway_name,
+      name: topology_name,
       module: module,
       processors_config: processors_config,
       context: context,
@@ -253,7 +253,7 @@ defmodule Broadway.Topology do
       raise "Only one set of processors is allowed for now"
     end
 
-    names = process_names(broadway_name, "Processor_#{key}", processor_config)
+    names = process_names(topology_name, "Processor_#{key}", processor_config)
 
     # The partition of the processor depends on the next processor or the batcher,
     # so we handle it here.
@@ -272,6 +272,7 @@ defmodule Broadway.Topology do
       end
 
     args = [
+      topology_name: topology_name,
       type: type,
       resubscribe: resubscribe_interval,
       terminator: terminator,
@@ -340,6 +341,7 @@ defmodule Broadway.Topology do
 
     args =
       [
+        topology_name: config.name,
         name: name,
         resubscribe: :never,
         terminator: terminator,
@@ -375,6 +377,7 @@ defmodule Broadway.Topology do
     names = process_names(broadway_name, "BatchProcessor_#{key}", batcher_config)
 
     args = [
+      topology_name: broadway_name,
       resubscribe: :never,
       terminator: terminator,
       module: module,

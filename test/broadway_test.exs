@@ -801,6 +801,20 @@ defmodule BroadwayTest do
             [:broadway, :processor, :message, :exception]
           ],
           fn name, measurements, metadata, _ ->
+            assert metadata.name
+            assert metadata.topology_name == broadway
+
+            case name do
+              [:broadway, stage, _] when stage in [:processor, :consumer] ->
+                assert is_integer(metadata.index)
+
+              [:broadway, :processor, :message, _] ->
+                assert is_integer(metadata.index)
+
+              _ ->
+                :ok
+            end
+
             send(self, {:telemetry_event, name, measurements, metadata})
           end,
           nil
@@ -816,6 +830,7 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed batcher"}}]}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
+
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{}, %{}}
       assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
@@ -866,6 +881,8 @@ defmodule BroadwayTest do
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :exception], %{}, %{}}
       assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, %{}}
       assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
+
+      :telemetry.detach("#{test}")
     end
   end
 

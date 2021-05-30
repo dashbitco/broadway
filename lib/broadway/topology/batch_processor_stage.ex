@@ -21,7 +21,9 @@ defmodule Broadway.Topology.BatchProcessorStage do
     Process.flag(:trap_exit, true)
 
     state = %{
+      topology_name: args[:topology_name],
       name: args[:name],
+      partition: args[:partition],
       module: args[:module],
       context: args[:context]
     }
@@ -40,7 +42,7 @@ defmodule Broadway.Topology.BatchProcessorStage do
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
 
     start_time = System.monotonic_time()
-    emit_start_event(state.name, start_time, messages, batch_info)
+    emit_start_event(state, start_time, messages, batch_info)
 
     {successful_messages, failed_messages, returned} =
       handle_batch(batcher, messages, batch_info, state)
@@ -69,19 +71,35 @@ defmodule Broadway.Topology.BatchProcessorStage do
         )
     end
 
-    emit_stop_event(state.name, start_time, successful_messages, failed_messages, batch_info)
+    emit_stop_event(
+      state,
+      start_time,
+      successful_messages,
+      failed_messages,
+      batch_info
+    )
+
     {:noreply, [], state}
   end
 
-  defp emit_start_event(name, start_time, messages, batch_info) do
-    metadata = %{name: name, messages: messages, batch_info: batch_info}
+  defp emit_start_event(state, start_time, messages, batch_info) do
+    metadata = %{
+      topology_name: state.topology_name,
+      name: state.name,
+      index: state.partition,
+      messages: messages,
+      batch_info: batch_info
+    }
+
     measurements = %{time: start_time}
     :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
   end
 
-  defp emit_stop_event(name, start_time, successful_messages, failed_messages, batch_info) do
+  defp emit_stop_event(state, start_time, successful_messages, failed_messages, batch_info) do
     metadata = %{
-      name: name,
+      topology_name: state.topology_name,
+      name: state.name,
+      index: state.partition,
       successful_messages: successful_messages,
       failed_messages: failed_messages,
       batch_info: batch_info

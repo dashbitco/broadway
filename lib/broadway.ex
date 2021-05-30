@@ -563,7 +563,16 @@ defmodule Broadway do
       before the optional `c:prepare_messages/2`
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, messages: [Broadway.Message.t]}`
+      * Metadata:
+
+        ```
+        %{
+          topology_name: atom,
+          name: atom,
+          index: non_neg_integer,
+          messages: [Broadway.Message.t]
+        }
+        ```
 
     * `[:broadway, :processor, :stop]` -  Dispatched by a Broadway processor
       after `c:prepare_messages/2` and after all `c:handle_message/3` callback
@@ -575,7 +584,9 @@ defmodule Broadway do
 
         ```
         %{
+          topology_name: atom,
           name: atom,
+          index: non_neg_integer,
           successful_messages_to_ack: [Broadway.Message.t],
           successful_messages_to_forward: [Broadway.Message.t],
           failed_messages: [Broadway.Message.t]
@@ -592,7 +603,9 @@ defmodule Broadway do
         ```
         %{
           processor_key: atom,
+          topology_name: atom,
           name: atom,
+          index: non_neg_integer,
           message: Broadway.Message.t
         }
         ```
@@ -607,7 +620,9 @@ defmodule Broadway do
         ```
         %{
           processor_key: atom,
+          topology_name: atom,
           name: atom,
+          index: non_neg_integer,
           message: Broadway.Message.t,
           updated_message: Broadway.Message.t
         }
@@ -623,7 +638,9 @@ defmodule Broadway do
         ```
         %{
           processor_key: atom,
+          topology_name: atom,
           name: atom,
+          index: non_neg_integer,
           message: Broadway.Message.t,
           kind: kind,
           reason: reason,
@@ -639,7 +656,9 @@ defmodule Broadway do
 
         ```
         %{
+          topology_name: atom,
           name: atom,
+          index: non_neg_integer,
           messages: [Broadway.Message.t],
           batch_info: Broadway.BatchInfo.t
         }
@@ -654,7 +673,9 @@ defmodule Broadway do
 
         ```
         %{
+          topology_name: atom,
           name: atom,
+          index: non_neg_integer,
           successful_messages: [Broadway.Message.t],
           failed_messages: [Broadway.Message.t],
           batch_info: Broadway.BatchInfo.t
@@ -665,13 +686,21 @@ defmodule Broadway do
       handling events
 
       * Measurement: `%{time: System.monotonic_time}`
-      * Metadata: `%{name: atom, messages: [{Broadway.Message.t}]}`
+      * Metadata:
+
+        ```
+        %{
+          topology_name: atom,
+          name: atom,
+          messages: [{Broadway.Message.t}]
+        }
+        ```
 
     * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
       handling events
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
-      * Metadata: `%{name: atom}`
+      * Metadata: `%{topology_name: atom, name: atom}`
   """
 
   alias Broadway.{BatchInfo, Message, Topology}
