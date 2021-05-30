@@ -15,8 +15,8 @@ defmodule Broadway.Topology.RateLimiter do
       rate_limiting_opts ->
         name = Keyword.fetch!(opts, :name)
         producers_names = Keyword.fetch!(opts, :producers_names)
-        args = {name, rate_limiting_opts, producers_names}
-        GenServer.start_link(__MODULE__, args, name: rate_limiter_name(name))
+        args = {rate_limiting_opts, producers_names}
+        GenServer.start_link(__MODULE__, args, name: name)
     end
   end
 
@@ -27,10 +27,6 @@ defmodule Broadway.Topology.RateLimiter do
 
   def get_currently_allowed(counter) when is_reference(counter) do
     :atomics.get(counter, @atomics_index)
-  end
-
-  def rate_limiter_name(broadway_name) when is_atom(broadway_name) do
-    Module.concat(broadway_name, RateLimiter)
   end
 
   def update_rate_limiting(rate_limiter, opts) do
@@ -46,7 +42,7 @@ defmodule Broadway.Topology.RateLimiter do
   end
 
   @impl true
-  def init({_broadway_name, rate_limiting_opts, producers_names}) do
+  def init({rate_limiting_opts, producers_names}) do
     interval = Keyword.fetch!(rate_limiting_opts, :interval)
     allowed = Keyword.fetch!(rate_limiting_opts, :allowed_messages)
 
@@ -95,7 +91,7 @@ defmodule Broadway.Topology.RateLimiter do
     :atomics.put(counter, @atomics_index, allowed)
 
     for name <- producers_names,
-        pid = get_pid(name),
+        pid = GenServer.whereis(name),
         is_pid(pid),
         do: send(pid, {__MODULE__, :reset_rate_limiting})
 
@@ -106,13 +102,5 @@ defmodule Broadway.Topology.RateLimiter do
 
   defp schedule_next_reset(interval) do
     _ref = Process.send_after(self(), :reset_limit, interval)
-  end
-
-  defp get_pid(process_name) when is_atom(process_name) do
-    Process.whereis(process_name)
-  end
-
-  defp get_pid({:via, Registry, {registry, args}}) do
-    registry.whereis_name(args)
   end
 end

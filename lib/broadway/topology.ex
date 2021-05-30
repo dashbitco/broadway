@@ -65,8 +65,7 @@ defmodule Broadway.Topology do
       producer_names: process_names(config, "Producer", config.producer_config),
       batchers_names:
         Enum.map(config.batchers_config, &process_name(config, "Batcher", elem(&1, 0))),
-      rate_limiter_name:
-        config.producer_config[:rate_limiting] && RateLimiter.rate_limiter_name(opts[:name])
+      rate_limiter_name: config.rate_limiter
     })
 
     {:ok,
@@ -157,10 +156,18 @@ defmodule Broadway.Topology do
       resubscribe_interval: opts[:resubscribe_interval]
     }
     |> put_terminator()
+    |> put_rate_limiter(opts)
   end
 
   defp put_terminator(config) do
     Map.put(config, :terminator, process_name(config, "Terminator"))
+  end
+
+  defp put_rate_limiter(config, opts) do
+    case get_in(opts, [:producer, :rate_limiting]) do
+      nil -> Map.put(config, :rate_limiter, nil)
+      _ -> Map.put(config, :rate_limiter, process_name(config, "RateLimiter"))
+    end
   end
 
   defp init_processors_config(config) do
@@ -185,10 +192,10 @@ defmodule Broadway.Topology do
   end
 
   defp build_rate_limiter_spec(config, producers_names) do
-    %{name: broadway_name, producer_config: producer_config} = config
+    %{producer_config: producer_config} = config
 
     opts = [
-      name: broadway_name,
+      name: process_name(config, "RateLimiter"),
       rate_limiting: producer_config[:rate_limiting],
       producers_names: producers_names
     ]
@@ -200,7 +207,8 @@ defmodule Broadway.Topology do
     %{
       producer_config: producer_config,
       processors_config: processors_config,
-      shutdown: shutdown
+      shutdown: shutdown,
+      rate_limiter: rate_limiter
     } = config
 
     n_producers = producer_config[:concurrency]
@@ -218,7 +226,7 @@ defmodule Broadway.Topology do
           {GenStage.PartitionDispatcher, partitions: 0..(n_processors - 1), hash: hash_func}
       end
 
-    args = [broadway: opts, dispatcher: dispatcher] ++ producer_config
+    args = [broadway: opts, dispatcher: dispatcher, rate_limiter: rate_limiter] ++ producer_config
 
     names_and_specs =
       for index <- 0..(n_producers - 1) do

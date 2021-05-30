@@ -5,9 +5,9 @@ defmodule Broadway.Options do
     [
       name: [
         required: true,
-        type: :any,
+        type: {:custom, __MODULE__, :validate_name, []},
         doc: """
-        Used for name registration. All processes/stages
+        Used for name registration. When an atom, all processes/stages
         created will be named using this value as prefix.
         """
       ],
@@ -289,5 +289,13 @@ defmodule Broadway.Options do
         """
       ]
     ]
+  end
+
+  def validate_name(name) when is_atom(name), do: {:ok, name}
+
+  def validate_name({:via, Registry, {_, _}} = via), do: {:ok, via}
+
+  def validate_name(name) do
+    {:error, "expected :name to be an atom or a via tuple, got: #{inspect(name)}"}
   end
 end
