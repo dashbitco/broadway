@@ -22,7 +22,7 @@ defmodule Broadway.Topology.ProcessorStage do
     type = args[:type]
 
     state = %{
-      broadway_name: args[:broadway_name],
+      topology_name: args[:topology_name],
       name: args[:name],
       partition: args[:partition],
       type: type,
@@ -93,9 +93,9 @@ defmodule Broadway.Topology.ProcessorStage do
 
   defp emit_start_event(state, start_time, messages) do
     metadata = %{
-      broadway_name: state.broadway_name,
+      topology_name: state.topology_name,
       name: state.name,
-      partition: state.partition,
+      index: state.partition,
       messages: messages
     }
 
@@ -112,9 +112,9 @@ defmodule Broadway.Topology.ProcessorStage do
          failed_messages
        ) do
     metadata = %{
-      broadway_name: state.broadway_name,
+      topology_name: state.topology_name,
       name: state.name,
-      partition: state.partition,
+      index: state.partition,
       successful_messages_to_ack: successful_messages_to_ack,
       successful_messages_to_forward: successful_messages_to_forward,
       failed_messages: failed_messages
@@ -205,8 +205,8 @@ defmodule Broadway.Topology.ProcessorStage do
   defp emit_message_start_event(start_time, state, message) do
     metadata = %{
       processor_key: state.processor_key,
-      broadway_name: state.broadway_name,
-      partition: state.partition,
+      topology_name: state.topology_name,
+      index: state.partition,
       name: state.name,
       message: message
     }
@@ -220,8 +220,8 @@ defmodule Broadway.Topology.ProcessorStage do
 
     metadata = %{
       processor_key: state.processor_key,
-      broadway_name: state.broadway_name,
-      partition: state.partition,
+      topology_name: state.topology_name,
+      index: state.partition,
       name: state.name,
       message: message
     }
@@ -242,9 +242,9 @@ defmodule Broadway.Topology.ProcessorStage do
 
     metadata = %{
       processor_key: state.processor_key,
-      broadway_name: state.broadway_name,
+      topology_name: state.topology_name,
       name: state.name,
-      partition: state.partition,
+      index: state.partition,
       message: message,
       kind: kind,
       reason: reason,

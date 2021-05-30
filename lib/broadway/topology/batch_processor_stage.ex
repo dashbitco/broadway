@@ -21,7 +21,7 @@ defmodule Broadway.Topology.BatchProcessorStage do
     Process.flag(:trap_exit, true)
 
     state = %{
-      broadway_name: args[:broadway_name],
+      topology_name: args[:topology_name],
       name: args[:name],
       partition: args[:partition],
       module: args[:module],
@@ -84,9 +84,9 @@ defmodule Broadway.Topology.BatchProcessorStage do
 
   defp emit_start_event(state, start_time, messages, batch_info) do
     metadata = %{
-      broadway_name: state.broadway_name,
+      topology_name: state.topology_name,
       name: state.name,
-      partition: state.partition,
+      index: state.partition,
       messages: messages,
       batch_info: batch_info
     }
@@ -97,9 +97,9 @@ defmodule Broadway.Topology.BatchProcessorStage do
 
   defp emit_stop_event(state, start_time, successful_messages, failed_messages, batch_info) do
     metadata = %{
-      broadway_name: state.broadway_name,
+      topology_name: state.topology_name,
       name: state.name,
-      partition: state.partition,
+      index: state.partition,
       successful_messages: successful_messages,
       failed_messages: failed_messages,
       batch_info: batch_info

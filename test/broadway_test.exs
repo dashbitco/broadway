@@ -802,14 +802,14 @@ defmodule BroadwayTest do
           ],
           fn name, measurements, metadata, _ ->
             assert metadata.name
-            assert metadata.broadway_name == broadway
+            assert metadata.topology_name == broadway
 
             case name do
               [:broadway, stage, _] when stage in [:processor, :consumer] ->
-                assert is_integer(metadata.partition)
+                assert is_integer(metadata.index)
 
               [:broadway, :processor, :message, _] ->
-                assert is_integer(metadata.partition)
+                assert is_integer(metadata.index)
 
               _ ->
                 :ok
