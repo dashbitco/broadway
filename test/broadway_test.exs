@@ -2530,19 +2530,16 @@ defmodule BroadwayTest do
     end
 
     test "Broadway.topology/1", %{name: name} do
-      assert Broadway.topology(name) == [
-               {:producers, [%{concurrency: 1, name: via_tuple({:broadway, "Producer"})}]},
-               {:processors,
-                [%{concurrency: 16, name: via_tuple({:broadway, "Processor_default"})}]},
-               {:batchers,
-                [
-                  %{
-                    batcher_name: via_tuple({:broadway, "Batcher_default"}),
-                    concurrency: 1,
-                    name: via_tuple({:broadway, "BatchProcessor_default"})
-                  }
-                ]}
-             ]
+      producer_name = via_tuple({:broadway, "Producer"})
+      processor_name = via_tuple({:broadway, "Processor_default"})
+      batcher_name = via_tuple({:broadway, "Batcher_default"})
+      batch_processor_name = via_tuple({:broadway, "BatchProcessor_default"})
+
+      assert [
+               {:producers, [%{name: ^producer_name}]},
+               {:processors, [%{name: ^processor_name}]},
+               {:batchers, [%{batcher_name: ^batcher_name, name: ^batch_processor_name}]}
+             ] = Broadway.topology(name)
     end
 
     test "Broadway.test_message/2", %{name: name} do
