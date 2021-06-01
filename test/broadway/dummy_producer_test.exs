@@ -2,6 +2,8 @@ defmodule Broadway.DummyProducerTest do
   use ExUnit.Case, async: true
 
   defmodule Handler do
+    use Broadway
+
     def handle_message(_processor, message, _context) do
       message
     end

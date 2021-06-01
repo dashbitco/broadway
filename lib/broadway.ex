@@ -710,6 +710,7 @@ defmodule Broadway do
   Returned by `start_link/2`.
   """
   @type on_start() :: {:ok, pid()} | :ignore | {:error, {:already_started, pid()} | term()}
+  @type name :: atom() | {:via, module(), term()}
 
   @doc """
   Invoked for preparing messages before handling (if defined).
@@ -843,6 +844,9 @@ defmodule Broadway do
 
   @optional_callbacks prepare_messages: 2, handle_batch: 4, handle_failed: 2
 
+  defguardp is_broadway_name(name)
+            when is_atom(name) or (is_tuple(name) and tuple_size(name) == 3)
+
   @doc false
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts, module: __CALLER__.module] do
@@ -859,7 +863,19 @@ defmodule Broadway do
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
 
-      defoverridable child_spec: 1
+      @callback process_name(Broadway.name(), base_name :: String.t()) :: Broadway.name()
+      def process_name(broadway_name, base_name) when is_atom(broadway_name) do
+        :"#{broadway_name}.Broadway.#{base_name}"
+      end
+
+      def process_name(broadway_name, _base_name) do
+        raise ArgumentError, """
+        Expected Broadway to be started with a `name` of type atom, got: #{inspect(broadway_name)}.
+        If starting Broadway with a `name` that is not an atom, you must define process_name/2 in the module which uses Broadway.
+        """
+      end
+
+      defoverridable child_spec: 1, process_name: 2
     end
   end
 
@@ -926,8 +942,8 @@ defmodule Broadway do
       [MyBroadway.Producer_0, MyBroadway.Producer_1, ..., MyBroadway.Producer_7]
 
   """
-  @spec producer_names(broadway :: atom()) :: [atom()]
-  def producer_names(broadway) when is_atom(broadway) do
+  @spec producer_names(name()) :: [name()]
+  def producer_names(broadway) when is_broadway_name(broadway) do
     Topology.producer_names(broadway)
   end
 
@@ -967,7 +983,7 @@ defmodule Broadway do
       ]
 
   """
-  @spec topology(broadway :: atom()) :: [
+  @spec topology(broadway :: name()) :: [
           {atom(),
            [
              %{
@@ -977,7 +993,7 @@ defmodule Broadway do
              }
            ]}
         ]
-  def topology(broadway) when is_atom(broadway) do
+  def topology(broadway) when is_broadway_name(broadway) do
     Topology.topology(broadway)
   end
 
@@ -998,8 +1014,8 @@ defmodule Broadway do
   The producer is randomly chosen among all sets of producers/stages.
   This is used to send out of band data to a Broadway pipeline.
   """
-  @spec push_messages(broadway :: atom(), messages :: [Message.t()]) :: :ok
-  def push_messages(broadway, messages) when is_atom(broadway) and is_list(messages) do
+  @spec push_messages(broadway :: name(), messages :: [Message.t()]) :: :ok
+  def push_messages(broadway, messages) when is_broadway_name(broadway) and is_list(messages) do
     broadway
     |> producer_names()
     |> Enum.random()
@@ -1050,8 +1066,9 @@ defmodule Broadway do
   Note that messages sent using this function will ignore demand and :transform
   option specified in :producer option in `Broadway.start_link/2`.
   """
-  @spec test_message(broadway :: atom(), term, opts :: Keyword.t()) :: reference
-  def test_message(broadway, data, opts \\ []) when is_list(opts) do
+  @spec test_message(broadway :: name(), term, opts :: Keyword.t()) :: reference
+  def test_message(broadway, data, opts \\ [])
+      when is_broadway_name(broadway) and is_list(opts) do
     test_messages(broadway, [data], :flush, opts)
   end
 
@@ -1100,12 +1117,13 @@ defmodule Broadway do
   Note that messages sent using this function will ignore demand and :transform
   option specified in :producer option in `Broadway.start_link/2`.
   """
-  @spec test_batch(broadway :: atom(), data :: [term], opts :: Keyword.t()) :: reference
-  def test_batch(broadway, batch_data, opts \\ []) when is_list(batch_data) and is_list(opts) do
+  @spec test_batch(broadway :: name(), data :: [term], opts :: Keyword.t()) :: reference
+  def test_batch(broadway, batch_data, opts \\ [])
+      when is_broadway_name(broadway) and is_list(batch_data) and is_list(opts) do
     test_messages(broadway, batch_data, Keyword.get(opts, :batch_mode, :bulk), opts)
   end
 
-  defp test_messages(broadway, data, batch_mode, opts) do
+  defp test_messages(broadway, data, batch_mode, opts) when is_broadway_name(broadway) do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
 
     acknowledger =
@@ -1145,13 +1163,13 @@ defmodule Broadway do
 
   """
   @doc since: "0.6.0"
-  @spec get_rate_limiting(server :: atom()) ::
+  @spec get_rate_limiting(server :: name()) ::
           {:ok, rate_limiting_info} | {:error, :rate_limiting_not_enabled}
         when rate_limiting_info: %{
                required(:interval) => non_neg_integer(),
                required(:allowed_messages) => non_neg_integer()
              }
-  def get_rate_limiting(broadway) when is_atom(broadway) do
+  def get_rate_limiting(broadway) when is_broadway_name(broadway) do
     with {:ok, rate_limiter_name} <- Topology.get_rate_limiter(broadway) do
       {:ok, Topology.RateLimiter.get_rate_limiting(rate_limiter_name)}
     end
@@ -1175,9 +1193,9 @@ defmodule Broadway do
 
   """
   @doc since: "0.6.0"
-  @spec update_rate_limiting(server :: atom(), opts :: Keyword.t()) ::
+  @spec update_rate_limiting(server :: name(), opts :: Keyword.t()) ::
           :ok | {:error, :rate_limiting_not_enabled}
-  def update_rate_limiting(broadway, opts) when is_atom(broadway) and is_list(opts) do
+  def update_rate_limiting(broadway, opts) when is_broadway_name(broadway) and is_list(opts) do
     definition = [
       allowed_messages: [type: :pos_integer],
       interval: [type: :pos_integer]

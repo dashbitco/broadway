@@ -32,8 +32,7 @@ defmodule Broadway.Topology.ProducerStage do
     {module, arg} = args[:module]
     transformer = args[:transformer]
     dispatcher = args[:dispatcher]
-    broadway_name = args[:broadway][:name]
-    rate_limiting_options = args[:rate_limiting]
+    rate_limiter = args[:rate_limiter]
 
     # Inject the topology index only if the args are a keyword list.
     arg =
@@ -44,16 +43,13 @@ defmodule Broadway.Topology.ProducerStage do
       end
 
     rate_limiting_state =
-      if rate_limiting_options do
-        rate_limiter =
-          broadway_name
-          |> RateLimiter.rate_limiter_name()
-          |> RateLimiter.get_rate_limiter_ref()
+      if rate_limiter do
+        rate_limiter_ref = RateLimiter.get_rate_limiter_ref(rate_limiter)
 
         %{
           state: :open,
           draining?: false,
-          rate_limiter: rate_limiter,
+          rate_limiter: rate_limiter_ref,
           # A queue of "batches" of messages that we buffered.
           message_buffer: :queue.new(),
           # A queue of demands (integers) that we buffered.
