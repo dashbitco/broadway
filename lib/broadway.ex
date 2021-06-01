@@ -844,6 +844,9 @@ defmodule Broadway do
 
   @optional_callbacks prepare_messages: 2, handle_batch: 4, handle_failed: 2
 
+  defguardp is_broadway_name(name)
+            when is_atom(name) or (is_tuple(name) and tuple_size(name) == 3)
+
   @doc false
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts, module: __CALLER__.module] do
@@ -860,9 +863,7 @@ defmodule Broadway do
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
 
-      @type name :: atom() | {:via, module(), term()}
-      @callback process_name(broadway_name :: name(), base_name :: String.t()) ::
-                  any()
+      @callback process_name(Broadway.name(), base_name :: String.t()) :: Broadway.name()
       def process_name(broadway_name, base_name) when is_atom(broadway_name) do
         :"#{broadway_name}.Broadway.#{base_name}"
       end
@@ -941,8 +942,8 @@ defmodule Broadway do
       [MyBroadway.Producer_0, MyBroadway.Producer_1, ..., MyBroadway.Producer_7]
 
   """
-  @spec producer_names(broadway :: name()) :: [atom()]
-  def producer_names(broadway) do
+  @spec producer_names(name()) :: [name()]
+  def producer_names(broadway) when is_broadway_name(broadway) do
     Topology.producer_names(broadway)
   end
 
@@ -992,7 +993,7 @@ defmodule Broadway do
              }
            ]}
         ]
-  def topology(broadway) do
+  def topology(broadway) when is_broadway_name(broadway) do
     Topology.topology(broadway)
   end
 
@@ -1014,7 +1015,7 @@ defmodule Broadway do
   This is used to send out of band data to a Broadway pipeline.
   """
   @spec push_messages(broadway :: name(), messages :: [Message.t()]) :: :ok
-  def push_messages(broadway, messages) when is_list(messages) do
+  def push_messages(broadway, messages) when is_broadway_name(broadway) and is_list(messages) do
     broadway
     |> producer_names()
     |> Enum.random()
@@ -1065,8 +1066,9 @@ defmodule Broadway do
   Note that messages sent using this function will ignore demand and :transform
   option specified in :producer option in `Broadway.start_link/2`.
   """
-  @spec test_message(broadway :: atom(), term, opts :: Keyword.t()) :: reference
-  def test_message(broadway, data, opts \\ []) when is_list(opts) do
+  @spec test_message(broadway :: name(), term, opts :: Keyword.t()) :: reference
+  def test_message(broadway, data, opts \\ [])
+      when is_broadway_name(broadway) and is_list(opts) do
     test_messages(broadway, [data], :flush, opts)
   end
 
@@ -1115,12 +1117,13 @@ defmodule Broadway do
   Note that messages sent using this function will ignore demand and :transform
   option specified in :producer option in `Broadway.start_link/2`.
   """
-  @spec test_batch(broadway :: atom(), data :: [term], opts :: Keyword.t()) :: reference
-  def test_batch(broadway, batch_data, opts \\ []) when is_list(batch_data) and is_list(opts) do
+  @spec test_batch(broadway :: name(), data :: [term], opts :: Keyword.t()) :: reference
+  def test_batch(broadway, batch_data, opts \\ [])
+      when is_broadway_name(broadway) and is_list(batch_data) and is_list(opts) do
     test_messages(broadway, batch_data, Keyword.get(opts, :batch_mode, :bulk), opts)
   end
 
-  defp test_messages(broadway, data, batch_mode, opts) do
+  defp test_messages(broadway, data, batch_mode, opts) when is_broadway_name(broadway) do
     metadata = Map.new(Keyword.get(opts, :metadata, []))
 
     acknowledger =
@@ -1166,7 +1169,7 @@ defmodule Broadway do
                required(:interval) => non_neg_integer(),
                required(:allowed_messages) => non_neg_integer()
              }
-  def get_rate_limiting(broadway) do
+  def get_rate_limiting(broadway) when is_broadway_name(broadway) do
     with {:ok, rate_limiter_name} <- Topology.get_rate_limiter(broadway) do
       {:ok, Topology.RateLimiter.get_rate_limiting(rate_limiter_name)}
     end
@@ -1190,9 +1193,9 @@ defmodule Broadway do
 
   """
   @doc since: "0.6.0"
-  @spec update_rate_limiting(server :: atom(), opts :: Keyword.t()) ::
+  @spec update_rate_limiting(server :: name(), opts :: Keyword.t()) ::
           :ok | {:error, :rate_limiting_not_enabled}
-  def update_rate_limiting(broadway, opts) when is_atom(broadway) and is_list(opts) do
+  def update_rate_limiting(broadway, opts) when is_broadway_name(broadway) and is_list(opts) do
     definition = [
       allowed_messages: [type: :pos_integer],
       interval: [type: :pos_integer]

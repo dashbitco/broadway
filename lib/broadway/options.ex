@@ -293,7 +293,7 @@ defmodule Broadway.Options do
 
   def validate_name(name) when is_atom(name), do: {:ok, name}
 
-  def validate_name({:via, _, _} = via), do: {:ok, via}
+  def validate_name({:via, module, _term} = via) when is_atom(module), do: {:ok, via}
 
   def validate_name(name) do
     {:error,
