@@ -36,15 +36,15 @@ defmodule Broadway.Topology.Terminator do
 
   @impl true
   def terminate(_, state) do
-    for name <- state.first, pid = Process.whereis(name) do
+    for name <- state.first, pid = GenServer.whereis(name) do
       send(pid, :will_terminate)
     end
 
-    for name <- state.producers, pid = Process.whereis(name) do
+    for name <- state.producers, pid = GenServer.whereis(name) do
       Broadway.Topology.ProducerStage.drain(pid)
     end
 
-    for name <- state.last, pid = Process.whereis(name) do
+    for name <- state.last, pid = GenServer.whereis(name) do
       ref = Process.monitor(pid)
 
       receive do
