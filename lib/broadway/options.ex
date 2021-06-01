@@ -293,9 +293,10 @@ defmodule Broadway.Options do
 
   def validate_name(name) when is_atom(name), do: {:ok, name}
 
-  def validate_name({:via, Registry, {_, _}} = via), do: {:ok, via}
+  def validate_name({:via, _, _} = via), do: {:ok, via}
 
   def validate_name(name) do
-    {:error, "expected :name to be an atom or a via tuple, got: #{inspect(name)}"}
+    {:error,
+     "expected :name to be an atom or a {:via, module, term} tuple, got: #{inspect(name)}"}
   end
 end

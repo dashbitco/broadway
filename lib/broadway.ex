@@ -710,7 +710,7 @@ defmodule Broadway do
   Returned by `start_link/2`.
   """
   @type on_start() :: {:ok, pid()} | :ignore | {:error, {:already_started, pid()} | term()}
-  @type via_tuple :: {:via, Registry, any()}
+  @type name :: atom() | {:via, module(), term()}
 
   @doc """
   Invoked for preparing messages before handling (if defined).
@@ -860,8 +860,8 @@ defmodule Broadway do
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
 
-      @type via_tuple :: {:via, Registry, any()}
-      @callback process_name(broadway_name :: String.t() | via_tuple, base_name :: String.t()) ::
+      @type name :: atom() | {:via, module(), term()}
+      @callback process_name(broadway_name :: name(), base_name :: String.t()) ::
                   any()
       def process_name(broadway_name, base_name) when is_atom(broadway_name) do
         :"#{broadway_name}.Broadway.#{base_name}"
@@ -941,7 +941,7 @@ defmodule Broadway do
       [MyBroadway.Producer_0, MyBroadway.Producer_1, ..., MyBroadway.Producer_7]
 
   """
-  @spec producer_names(broadway :: atom() | via_tuple()) :: [atom()]
+  @spec producer_names(broadway :: name()) :: [atom()]
   def producer_names(broadway) do
     Topology.producer_names(broadway)
   end
@@ -982,7 +982,7 @@ defmodule Broadway do
       ]
 
   """
-  @spec topology(broadway :: atom() | via_tuple()) :: [
+  @spec topology(broadway :: name()) :: [
           {atom(),
            [
              %{
@@ -1013,7 +1013,7 @@ defmodule Broadway do
   The producer is randomly chosen among all sets of producers/stages.
   This is used to send out of band data to a Broadway pipeline.
   """
-  @spec push_messages(broadway :: atom() | via_tuple(), messages :: [Message.t()]) :: :ok
+  @spec push_messages(broadway :: name(), messages :: [Message.t()]) :: :ok
   def push_messages(broadway, messages) when is_list(messages) do
     broadway
     |> producer_names()
@@ -1160,7 +1160,7 @@ defmodule Broadway do
 
   """
   @doc since: "0.6.0"
-  @spec get_rate_limiting(server :: atom() | via_tuple()) ::
+  @spec get_rate_limiting(server :: name()) ::
           {:ok, rate_limiting_info} | {:error, :rate_limiting_not_enabled}
         when rate_limiting_info: %{
                required(:interval) => non_neg_integer(),

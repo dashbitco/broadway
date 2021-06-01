@@ -153,7 +153,9 @@ defmodule Broadway.Topology do
       max_restarts: opts[:max_restarts],
       max_seconds: opts[:max_seconds],
       shutdown: opts[:shutdown],
-      resubscribe_interval: opts[:resubscribe_interval]
+      resubscribe_interval: opts[:resubscribe_interval],
+      terminator: nil,
+      rate_limiter: nil
     }
     |> put_terminator()
     |> put_rate_limiter(opts)
@@ -164,9 +166,10 @@ defmodule Broadway.Topology do
   end
 
   defp put_rate_limiter(config, opts) do
-    case get_in(opts, [:producer, :rate_limiting]) do
-      nil -> Map.put(config, :rate_limiter, nil)
-      _ -> Map.put(config, :rate_limiter, process_name(config, "RateLimiter"))
+    if opts[:producer][:rate_limiting] do
+      Map.put(config, :rate_limiter, process_name(config, "RateLimiter"))
+    else
+      config
     end
   end
 

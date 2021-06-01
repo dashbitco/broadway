@@ -147,8 +147,8 @@ defmodule BroadwayTest do
     def handle_message(_, message, _), do: message
     def handle_batch(_, messages, _, _), do: messages
 
-    def process_name({:via, Registry, {registry, {UsesRegistry, id}}}, base_name) do
-      {:via, Registry, {registry, {:"UsesRegistry.#{base_name}", id}}}
+    def process_name({:via, Registry, {registry, id}}, base_name) do
+      {:via, Registry, {registry, {id, base_name}}}
     end
   end
 
@@ -182,7 +182,7 @@ defmodule BroadwayTest do
   describe "broadway configuration" do
     test "invalid configuration options" do
       assert_raise ArgumentError,
-                   "invalid configuration given to Broadway.start_link/2, expected :name to be an atom or a via tuple, got: 1",
+                   "invalid configuration given to Broadway.start_link/2, expected :name to be an atom or a {:via, module, term} tuple, got: 1",
                    fn -> Broadway.start_link(Forwarder, name: 1) end
     end
 
@@ -2496,7 +2496,7 @@ defmodule BroadwayTest do
   describe "starting under a registry using via tuple" do
     setup do
       {:ok, _registry} = start_supervised({Registry, keys: :unique, name: MyRegistry})
-      name = via_tuple({UsesRegistry, "1"})
+      name = via_tuple(:broadway)
 
       {:ok, _broadway} =
         Broadway.start_link(UsesRegistry,
@@ -2515,9 +2515,9 @@ defmodule BroadwayTest do
 
     test "names processes in topology using process_name/2", %{name: name} do
       assert is_pid(GenServer.whereis(name))
-      assert is_pid(GenServer.whereis(via_tuple({:"UsesRegistry.Producer_0", "1"})))
-      assert is_pid(GenServer.whereis(via_tuple({:"UsesRegistry.Processor_default_0", "1"})))
-      assert is_pid(GenServer.whereis(via_tuple({:"UsesRegistry.Terminator", "1"})))
+      assert is_pid(GenServer.whereis(via_tuple({:broadway, "Producer_0"})))
+      assert is_pid(GenServer.whereis(via_tuple({:broadway, "Processor_default_0"})))
+      assert is_pid(GenServer.whereis(via_tuple({:broadway, "Terminator"})))
     end
 
     test "get_rate_limiting/1", %{name: name} do
@@ -2526,21 +2526,20 @@ defmodule BroadwayTest do
     end
 
     test "Broadway.producer_names/1", %{name: name} do
-      assert Broadway.producer_names(name) == [via_tuple({:"UsesRegistry.Producer_0", "1"})]
+      assert Broadway.producer_names(name) == [via_tuple({:broadway, "Producer_0"})]
     end
 
     test "Broadway.topology/1", %{name: name} do
       assert Broadway.topology(name) == [
-               {:producers,
-                [%{concurrency: 1, name: via_tuple({:"UsesRegistry.Producer", "1"})}]},
+               {:producers, [%{concurrency: 1, name: via_tuple({:broadway, "Producer"})}]},
                {:processors,
-                [%{concurrency: 16, name: via_tuple({:"UsesRegistry.Processor_default", "1"})}]},
+                [%{concurrency: 16, name: via_tuple({:broadway, "Processor_default"})}]},
                {:batchers,
                 [
                   %{
-                    batcher_name: via_tuple({:"UsesRegistry.Batcher_default", "1"}),
+                    batcher_name: via_tuple({:broadway, "Batcher_default"}),
                     concurrency: 1,
-                    name: via_tuple({:"UsesRegistry.BatchProcessor_default", "1"})
+                    name: via_tuple({:broadway, "BatchProcessor_default"})
                   }
                 ]}
              ]
