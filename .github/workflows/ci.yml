@@ -38,8 +38,6 @@ jobs:
             deps
             _build
           key: mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            mix-${{ runner.os }}-
 
       - run: mix deps.get
 
