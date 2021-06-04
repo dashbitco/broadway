@@ -2603,6 +2603,30 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "stop/3" do
+    setup do
+      {:ok, pid} =
+        Broadway.start_link(Forwarder,
+          name: broadway_name = new_unique_name(),
+          context: %{test_pid: self()},
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []]
+        )
+
+      %{pid: pid, broadway_name: broadway_name}
+    end
+
+    test "accepts a pid and shuts down broadway", %{pid: pid} do
+      Broadway.stop(pid)
+      refute Process.alive?(pid)
+    end
+
+    test "accepts a name and shuts down broadway", %{pid: pid, broadway_name: broadway_name} do
+      Broadway.stop(broadway_name)
+      refute Process.alive?(pid)
+    end
+  end
+
   defp new_unique_name() do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
