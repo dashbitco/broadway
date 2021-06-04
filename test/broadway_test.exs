@@ -2593,11 +2593,11 @@ defmodule BroadwayTest do
 
       assert Enum.sort(Broadway.all_running()) == [broadway, broadway2]
 
-      GenServer.stop(broadway2)
+      Broadway.stop(broadway2)
 
       assert Broadway.all_running() == [broadway]
 
-      GenServer.stop(broadway)
+      Broadway.stop(broadway)
 
       assert Broadway.all_running() == []
     end
