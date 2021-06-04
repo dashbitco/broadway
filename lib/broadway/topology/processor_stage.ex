@@ -96,6 +96,7 @@ defmodule Broadway.Topology.ProcessorStage do
       topology_name: state.topology_name,
       name: state.name,
       index: state.partition,
+      processor_key: state.processor_key,
       messages: messages
     }
 
@@ -117,6 +118,7 @@ defmodule Broadway.Topology.ProcessorStage do
       index: state.partition,
       successful_messages_to_ack: successful_messages_to_ack,
       successful_messages_to_forward: successful_messages_to_forward,
+      processor_key: state.processor_key,
       failed_messages: failed_messages
     }
 
