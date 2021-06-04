@@ -1226,7 +1226,7 @@ defmodule Broadway do
   """
   @doc since: "0.8.0"
   def stop(broadway, reason \\ :normal, timeout \\ :infinity)
-      when is_broadway_name(broadway) do
+      when is_broadway_name(broadway) or is_pid(broadway) do
     GenServer.stop(broadway, reason, timeout)
   end
 end
