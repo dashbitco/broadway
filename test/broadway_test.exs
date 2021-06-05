@@ -819,8 +819,18 @@ defmodule BroadwayTest do
               [:broadway, stage, _] when stage in [:processor, :consumer] ->
                 assert is_integer(metadata.index)
 
+                if stage == :consumer do
+                  assert metadata.batch_info.batch_key
+                else
+                  assert metadata.processor_key
+                end
+
               [:broadway, :processor, :message, _] ->
                 assert is_integer(metadata.index)
+                assert metadata.processor_key
+
+              [:broadway, :batcher, _] ->
+                assert metadata.batcher_key
 
               _ ->
                 :ok
@@ -2435,8 +2445,13 @@ defmodule BroadwayTest do
 
       assert topology[:producers] == [%{name: :"#{broadway}.Broadway.Producer", concurrency: 1}]
 
-      assert [%{name: default_processor_name, concurrency: processors_concurrency}] =
-               topology[:processors]
+      assert [
+               %{
+                 name: default_processor_name,
+                 concurrency: processors_concurrency,
+                 processor_key: :default
+               }
+             ] = topology[:processors]
 
       assert get_n_processors(broadway) == processors_concurrency
       assert default_processor_name == :"#{broadway}.Broadway.Processor_default"
@@ -2445,6 +2460,7 @@ defmodule BroadwayTest do
                %{
                  name: :"#{broadway}.Broadway.BatchProcessor_default",
                  batcher_name: :"#{broadway}.Broadway.Batcher_default",
+                 batcher_key: :default,
                  concurrency: 1
                }
              ]
@@ -2482,11 +2498,13 @@ defmodule BroadwayTest do
                %{
                  batcher_name: :"#{broadway}.Broadway.Batcher_default",
                  name: :"#{broadway}.Broadway.BatchProcessor_default",
+                 batcher_key: :default,
                  concurrency: 12
                },
                %{
                  batcher_name: :"#{broadway}.Broadway.Batcher_b1",
                  name: :"#{broadway}.Broadway.BatchProcessor_b1",
+                 batcher_key: :b1,
                  concurrency: 13
                }
              ]

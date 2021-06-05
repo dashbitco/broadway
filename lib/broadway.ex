@@ -569,6 +569,7 @@ defmodule Broadway do
         %{
           topology_name: atom,
           name: atom,
+          processor_key: atom,
           index: non_neg_integer,
           messages: [Broadway.Message.t]
         }
@@ -586,6 +587,7 @@ defmodule Broadway do
         %{
           topology_name: atom,
           name: atom,
+          processor_key: atom,
           index: non_neg_integer,
           successful_messages_to_ack: [Broadway.Message.t],
           successful_messages_to_forward: [Broadway.Message.t],
@@ -692,6 +694,7 @@ defmodule Broadway do
         %{
           topology_name: atom,
           name: atom,
+          batcher_key: atom,
           messages: [{Broadway.Message.t}]
         }
         ```
@@ -700,7 +703,7 @@ defmodule Broadway do
       handling events
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
-      * Metadata: `%{topology_name: atom, name: atom}`
+      * Metadata: `%{topology_name: atom, name: atom, batcher_key: atom}`
   """
 
   alias Broadway.{BatchInfo, Message, Topology}
@@ -967,16 +970,18 @@ defmodule Broadway do
       iex> Broadway.topology(MyBroadway)
       [
         producers: [%{name: MyBroadway.Broadway.Producer, concurrency: 1}],
-        processors: [%{name: MyBroadway.Broadway.Processor_default, concurrency: 10}],
+        processors: [%{name: MyBroadway.Broadway.Processor_default, concurrency: 10, processor_key: :default}],
         batchers: [
           %{
             batcher_name: MyBroadway.Broadway.Batcher_default,
             name: MyBroadway.Broadway.BatchProcessor_default,
+            batcher_key: :default,
             concurrency: 5
           },
           %{
             batcher_name: MyBroadway.Broadway.Batcher_s3,
             name: MyBroadway.Broadway.BatchProcessor_s3,
+            batcher_key: :s3,
             concurrency: 3
           }
         ]
@@ -989,7 +994,9 @@ defmodule Broadway do
              %{
                required(:name) => atom(),
                optional(:concurrency) => pos_integer(),
-               optional(:batcher_name) => atom()
+               optional(:batcher_name) => atom(),
+               optional(:batcher_key) => atom(),
+               optional(:processor_key) => atom()
              }
            ]}
         ]

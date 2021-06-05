@@ -448,6 +448,7 @@ defmodule Broadway.Topology do
         Enum.map(config.processors_config, fn {name, processor_config} ->
           %{
             name: process_name(config, "Processor", name),
+            processor_key: name,
             concurrency: processor_config[:concurrency]
           }
         end),
@@ -455,6 +456,7 @@ defmodule Broadway.Topology do
         Enum.map(config.batchers_config, fn {name, batcher_config} ->
           %{
             batcher_name: process_name(config, "Batcher", name),
+            batcher_key: name,
             name: process_name(config, "BatchProcessor", name),
             concurrency: batcher_config[:concurrency]
           }

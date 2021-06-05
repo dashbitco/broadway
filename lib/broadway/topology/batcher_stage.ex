@@ -50,22 +50,28 @@ defmodule Broadway.Topology.BatcherStage do
   @impl true
   def handle_events(events, _from, state) do
     start_time = System.monotonic_time()
-    emit_start_event(state.topology_name, state.name, start_time, events)
+    emit_start_event(state, start_time, events)
     batches = handle_events_per_batch_key(events, [], state)
-    emit_stop_event(state.topology_name, state.name, start_time)
+    emit_stop_event(state, start_time)
     {:noreply, batches, state}
   end
 
-  defp emit_start_event(topology_name, name, start_time, events) do
-    metadata = %{topology_name: topology_name, name: name, messages: events}
+  defp emit_start_event(state, start_time, events) do
+    metadata = %{
+      topology_name: state.topology_name,
+      name: state.name,
+      batcher_key: state.batcher,
+      messages: events
+    }
+
     measurements = %{time: start_time}
     :telemetry.execute([:broadway, :batcher, :start], measurements, metadata)
   end
 
-  defp emit_stop_event(topology_name, name, start_time) do
+  defp emit_stop_event(state, start_time) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
-    metadata = %{topology_name: topology_name, name: name}
+    metadata = %{topology_name: state.topology_name, name: state.name, batcher_key: state.batcher}
     :telemetry.execute([:broadway, :batcher, :stop], measurements, metadata)
   end
 
