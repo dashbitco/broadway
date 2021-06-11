@@ -626,7 +626,6 @@ defmodule Broadway do
           name: atom,
           index: non_neg_integer,
           message: Broadway.Message.t,
-          updated_message: Broadway.Message.t
         }
         ```
 
