@@ -41,7 +41,8 @@ defmodule Broadway.Topology.BatcherStage do
       batcher: args[:batcher],
       batch_size: args[:batch_size],
       batch_timeout: args[:batch_timeout],
-      partition_by: partition_by
+      partition_by: partition_by,
+      context: args[:context]
     }
 
     {:producer_consumer, state, dispatcher: dispatcher}
@@ -61,7 +62,8 @@ defmodule Broadway.Topology.BatcherStage do
       topology_name: state.topology_name,
       name: state.name,
       batcher_key: state.batcher,
-      messages: events
+      messages: events,
+      context: state.context
     }
 
     measurements = %{time: start_time}
@@ -71,7 +73,12 @@ defmodule Broadway.Topology.BatcherStage do
   defp emit_stop_event(state, start_time) do
     stop_time = System.monotonic_time()
     measurements = %{time: stop_time, duration: stop_time - start_time}
-    metadata = %{topology_name: state.topology_name, name: state.name, batcher_key: state.batcher}
+    metadata = %{
+      topology_name: state.topology_name,
+      name: state.name,
+      batcher_key: state.batcher,
+      context: state.context
+    }
     :telemetry.execute([:broadway, :batcher, :stop], measurements, metadata)
   end
 

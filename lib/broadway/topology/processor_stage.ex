@@ -97,7 +97,8 @@ defmodule Broadway.Topology.ProcessorStage do
       name: state.name,
       index: state.partition,
       processor_key: state.processor_key,
-      messages: messages
+      messages: messages,
+      context: state.context
     }
 
     measurements = %{time: start_time}
@@ -119,7 +120,8 @@ defmodule Broadway.Topology.ProcessorStage do
       successful_messages_to_ack: successful_messages_to_ack,
       successful_messages_to_forward: successful_messages_to_forward,
       processor_key: state.processor_key,
-      failed_messages: failed_messages
+      failed_messages: failed_messages,
+      context: state.context
     }
 
     stop_time = System.monotonic_time()
@@ -210,7 +212,8 @@ defmodule Broadway.Topology.ProcessorStage do
       topology_name: state.topology_name,
       index: state.partition,
       name: state.name,
-      message: message
+      message: message,
+      context: state.context
     }
 
     :telemetry.execute([:broadway, :processor, :message, :start], %{time: start_time}, metadata)
@@ -225,7 +228,8 @@ defmodule Broadway.Topology.ProcessorStage do
       topology_name: state.topology_name,
       index: state.partition,
       name: state.name,
-      message: message
+      message: message,
+      context: state.context
     }
 
     :telemetry.execute([:broadway, :processor, :message, :stop], measurements, metadata)
@@ -250,7 +254,8 @@ defmodule Broadway.Topology.ProcessorStage do
       message: message,
       kind: kind,
       reason: reason,
-      stacktrace: stacktrace
+      stacktrace: stacktrace,
+      context: state.context
     }
 
     :telemetry.execute([:broadway, :processor, :message, :exception], measurements, metadata)
