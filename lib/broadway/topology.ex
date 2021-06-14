@@ -362,6 +362,7 @@ defmodule Broadway.Topology do
         batcher: key,
         partition: key,
         processors: processors,
+        context: config[:context],
         # Partitioning is handled inside the batcher since the batcher
         # needs to associate the partition with the batcher key.
         partition_by: options[:partition_by],
