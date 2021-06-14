@@ -88,7 +88,8 @@ defmodule Broadway.Topology.BatchProcessorStage do
       name: state.name,
       index: state.partition,
       messages: messages,
-      batch_info: batch_info
+      batch_info: batch_info,
+      context: state.context
     }
 
     measurements = %{time: start_time}
@@ -102,7 +103,8 @@ defmodule Broadway.Topology.BatchProcessorStage do
       index: state.partition,
       successful_messages: successful_messages,
       failed_messages: failed_messages,
-      batch_info: batch_info
+      batch_info: batch_info,
+      context: state.context
     }
 
     stop_time = System.monotonic_time()

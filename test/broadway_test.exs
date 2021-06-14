@@ -814,6 +814,7 @@ defmodule BroadwayTest do
           fn name, measurements, metadata, _ ->
             assert metadata.name
             assert metadata.topology_name == broadway
+            assert %{} = metadata.context
 
             case name do
               [:broadway, stage, _] when stage in [:processor, :consumer] ->
