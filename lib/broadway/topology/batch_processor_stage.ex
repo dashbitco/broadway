@@ -41,75 +41,56 @@ defmodule Broadway.Topology.BatchProcessorStage do
     [{messages, batch_info}] = events
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
 
-    start_time = System.monotonic_time()
-    emit_start_event(state, start_time, messages, batch_info)
+    :telemetry.span(
+      [:broadway, :consumer],
+      %{
+        topology_name: state.topology_name,
+        name: state.name,
+        index: state.partition,
+        messages: messages,
+        batch_info: batch_info,
+        context: state.context
+      },
+      fn ->
+        {successful_messages, failed_messages, returned} =
+          handle_batch(batcher, messages, batch_info, state)
 
-    {successful_messages, failed_messages, returned} =
-      handle_batch(batcher, messages, batch_info, state)
+        failed_messages =
+          Acknowledger.maybe_handle_failed_messages(
+            failed_messages,
+            state.module,
+            state.context
+          )
 
-    failed_messages =
-      Acknowledger.maybe_handle_failed_messages(
-        failed_messages,
-        state.module,
-        state.context
-      )
+        if returned != size do
+          Logger.error(
+            "#{inspect(state.module)}.handle_batch/4 received #{size} messages and " <>
+              "returned only #{returned}. All messages given to handle_batch/4 " <>
+              "must be returned"
+          )
+        end
 
-    if returned != size do
-      Logger.error(
-        "#{inspect(state.module)}.handle_batch/4 received #{size} messages and " <>
-          "returned only #{returned}. All messages given to handle_batch/4 " <>
-          "must be returned"
-      )
-    end
+        try do
+          Acknowledger.ack_messages(successful_messages, failed_messages)
+        catch
+          kind, reason ->
+            Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+              crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+            )
+        end
 
-    try do
-      Acknowledger.ack_messages(successful_messages, failed_messages)
-    catch
-      kind, reason ->
-        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
-          crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
-        )
-    end
-
-    emit_stop_event(
-      state,
-      start_time,
-      successful_messages,
-      failed_messages,
-      batch_info
+        {{:noreply, [], state},
+         %{
+           topology_name: state.topology_name,
+           name: state.name,
+           index: state.partition,
+           successful_messages: successful_messages,
+           failed_messages: failed_messages,
+           batch_info: batch_info,
+           context: state.context
+         }}
+      end
     )
-
-    {:noreply, [], state}
-  end
-
-  defp emit_start_event(state, start_time, messages, batch_info) do
-    metadata = %{
-      topology_name: state.topology_name,
-      name: state.name,
-      index: state.partition,
-      messages: messages,
-      batch_info: batch_info,
-      context: state.context
-    }
-
-    measurements = %{time: start_time}
-    :telemetry.execute([:broadway, :consumer, :start], measurements, metadata)
-  end
-
-  defp emit_stop_event(state, start_time, successful_messages, failed_messages, batch_info) do
-    metadata = %{
-      topology_name: state.topology_name,
-      name: state.name,
-      index: state.partition,
-      successful_messages: successful_messages,
-      failed_messages: failed_messages,
-      batch_info: batch_info,
-      context: state.context
-    }
-
-    stop_time = System.monotonic_time()
-    measurements = %{time: stop_time, duration: stop_time - start_time}
-    :telemetry.execute([:broadway, :consumer, :stop], measurements, metadata)
   end
 
   defp handle_batch(batcher, messages, batch_info, state) do

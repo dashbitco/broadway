@@ -48,85 +48,59 @@ defmodule Broadway.Topology.ProcessorStage do
 
   @impl true
   def handle_events(messages, _from, state) do
-    start_time = System.monotonic_time()
-    emit_start_event(state, start_time, messages)
+    :telemetry.span(
+      [:broadway, :processor],
+      %{
+        topology_name: state.topology_name,
+        name: state.name,
+        index: state.partition,
+        processor_key: state.processor_key,
+        messages: messages,
+        context: state.context
+      },
+      fn ->
+        {prepared_messages, prepared_failed_messages} = maybe_prepare_messages(messages, state)
+        {successful_messages, failed_messages} = handle_messages(prepared_messages, [], [], state)
+        failed_messages = prepared_failed_messages ++ failed_messages
 
-    {prepared_messages, prepared_failed_messages} = maybe_prepare_messages(messages, state)
-    {successful_messages, failed_messages} = handle_messages(prepared_messages, [], [], state)
-    failed_messages = prepared_failed_messages ++ failed_messages
+        {successful_messages_to_forward, successful_messages_to_ack} =
+          case state do
+            %{type: :consumer} ->
+              {[], successful_messages}
 
-    {successful_messages_to_forward, successful_messages_to_ack} =
-      case state do
-        %{type: :consumer} ->
-          {[], successful_messages}
+            %{} ->
+              {successful_messages, []}
+          end
 
-        %{} ->
-          {successful_messages, []}
+        failed_messages =
+          Acknowledger.maybe_handle_failed_messages(
+            failed_messages,
+            state.module,
+            state.context
+          )
+
+        try do
+          Acknowledger.ack_messages(successful_messages_to_ack, failed_messages)
+        catch
+          kind, reason ->
+            Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+              crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+            )
+        end
+
+        {{:noreply, successful_messages_to_forward, state},
+         %{
+           topology_name: state.topology_name,
+           name: state.name,
+           index: state.partition,
+           successful_messages_to_ack: successful_messages_to_ack,
+           successful_messages_to_forward: successful_messages_to_forward,
+           processor_key: state.processor_key,
+           failed_messages: failed_messages,
+           context: state.context
+         }}
       end
-
-    failed_messages =
-      Acknowledger.maybe_handle_failed_messages(
-        failed_messages,
-        state.module,
-        state.context
-      )
-
-    try do
-      Acknowledger.ack_messages(successful_messages_to_ack, failed_messages)
-    catch
-      kind, reason ->
-        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
-          crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
-        )
-    end
-
-    emit_stop_event(
-      state,
-      start_time,
-      successful_messages_to_ack,
-      successful_messages_to_forward,
-      failed_messages
     )
-
-    {:noreply, successful_messages_to_forward, state}
-  end
-
-  defp emit_start_event(state, start_time, messages) do
-    metadata = %{
-      topology_name: state.topology_name,
-      name: state.name,
-      index: state.partition,
-      processor_key: state.processor_key,
-      messages: messages,
-      context: state.context
-    }
-
-    measurements = %{time: start_time}
-
-    :telemetry.execute([:broadway, :processor, :start], measurements, metadata)
-  end
-
-  defp emit_stop_event(
-         state,
-         start_time,
-         successful_messages_to_ack,
-         successful_messages_to_forward,
-         failed_messages
-       ) do
-    metadata = %{
-      topology_name: state.topology_name,
-      name: state.name,
-      index: state.partition,
-      successful_messages_to_ack: successful_messages_to_ack,
-      successful_messages_to_forward: successful_messages_to_forward,
-      processor_key: state.processor_key,
-      failed_messages: failed_messages,
-      context: state.context
-    }
-
-    stop_time = System.monotonic_time()
-    measurements = %{time: stop_time, duration: stop_time - start_time}
-    :telemetry.execute([:broadway, :processor, :stop], measurements, metadata)
   end
 
   defp maybe_prepare_messages(messages, state) do
@@ -164,101 +138,55 @@ defmodule Broadway.Topology.ProcessorStage do
       batchers: batchers
     } = state
 
-    start_time = System.monotonic_time()
-    emit_message_start_event(start_time, state, message)
-
-    try do
-      message =
-        module.handle_message(processor_key, message, context)
-        |> validate_message(batchers)
-
-      emit_message_stop_event(start_time, state, message)
-      message
-    catch
-      kind, reason ->
-        reason = Exception.normalize(kind, reason, __STACKTRACE__)
-
-        emit_message_failure_event(
-          start_time,
-          state,
-          message,
-          kind,
-          reason,
-          __STACKTRACE__
+    {successful, failed} =
+      try do
+        :telemetry.span(
+          [:broadway, :processor, :message],
+          %{
+            processor_key: state.processor_key,
+            topology_name: state.topology_name,
+            index: state.partition,
+            name: state.name,
+            message: message,
+            context: state.context
+          },
+          fn ->
+            {processor_key
+             |> module.handle_message(message, context)
+             |> validate_message(batchers),
+             %{
+               processor_key: state.processor_key,
+               topology_name: state.topology_name,
+               index: state.partition,
+               name: state.name,
+               message: message,
+               context: state.context
+             }}
+          end
         )
+      catch
+        kind, reason ->
+          reason = Exception.normalize(kind, reason, __STACKTRACE__)
 
-        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
-          crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
-        )
+          Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+            crash_reason: Acknowledger.crash_reason(kind, reason, __STACKTRACE__)
+          )
 
-        message = %{message | status: {kind, reason, __STACKTRACE__}}
-        handle_messages(messages, successful, [message | failed], state)
-    else
-      %{status: :ok} = message ->
-        handle_messages(messages, [message | successful], failed, state)
+          message = %{message | status: {kind, reason, __STACKTRACE__}}
+          {successful, [message | failed]}
+      else
+        %{status: :ok} = message ->
+          {[message | successful], failed}
 
-      %{status: {:failed, _}} = message ->
-        handle_messages(messages, successful, [message | failed], state)
-    end
+        %{status: {:failed, _}} = message ->
+          {successful, [message | failed]}
+      end
+
+    handle_messages(messages, successful, failed, state)
   end
 
   defp handle_messages([], successful, failed, _state) do
     {Enum.reverse(successful), Enum.reverse(failed)}
-  end
-
-  defp emit_message_start_event(start_time, state, message) do
-    metadata = %{
-      processor_key: state.processor_key,
-      topology_name: state.topology_name,
-      index: state.partition,
-      name: state.name,
-      message: message,
-      context: state.context
-    }
-
-    :telemetry.execute([:broadway, :processor, :message, :start], %{time: start_time}, metadata)
-  end
-
-  defp emit_message_stop_event(start_time, state, message) do
-    stop_time = System.monotonic_time()
-    measurements = %{time: stop_time, duration: stop_time - start_time}
-
-    metadata = %{
-      processor_key: state.processor_key,
-      topology_name: state.topology_name,
-      index: state.partition,
-      name: state.name,
-      message: message,
-      context: state.context
-    }
-
-    :telemetry.execute([:broadway, :processor, :message, :stop], measurements, metadata)
-  end
-
-  defp emit_message_failure_event(
-         start_time,
-         state,
-         message,
-         kind,
-         reason,
-         stacktrace
-       ) do
-    stop_time = System.monotonic_time()
-    measurements = %{time: stop_time, duration: stop_time - start_time}
-
-    metadata = %{
-      processor_key: state.processor_key,
-      topology_name: state.topology_name,
-      name: state.name,
-      index: state.partition,
-      message: message,
-      kind: kind,
-      reason: reason,
-      stacktrace: stacktrace,
-      context: state.context
-    }
-
-    :telemetry.execute([:broadway, :processor, :message, :exception], measurements, metadata)
   end
 
   defp validate_message(%Message{batcher: batcher, status: status} = message, batchers) do
