@@ -702,7 +702,15 @@ defmodule Broadway do
       handling events
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
-      * Metadata: `%{topology_name: atom, name: atom, batcher_key: atom}`
+      * Metadata:
+
+      ```
+        %{
+          topology_name: atom,
+          name: atom,
+          batcher_key: atom
+        }
+      ```
   """
 
   alias Broadway.{BatchInfo, Message, Topology}
