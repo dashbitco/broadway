@@ -31,7 +31,7 @@ to set everything up in Google Cloud. Alternatively, you can roughly follow this
 To install `gcloud` follow the [documentation](https://cloud.google.com/sdk/gcloud/). If you are
 on macOS you may consider installing it with Homebrew:
 
-    brew cask install google-cloud-sdk
+    brew install --cask google-cloud-sdk
 
 Now, authenticate the CLI:
 
@@ -105,7 +105,7 @@ Cloud authentication library of your choice (defaults to `:goth`):
     defp deps() do
       [
         ...
-        {:broadway_cloud_pub_sub, "~> 0.4.0"},
+        {:broadway_cloud_pub_sub, "~> 0.6.0"},
         {:goth, "~> 1.0"}
       ]
     end
