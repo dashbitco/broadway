@@ -1585,7 +1585,7 @@ defmodule BroadwayTest do
 
       handle_failed = fn messages, _context ->
         send(test_pid, {:handle_failed_called, messages})
-        Enum.map(messages, &Message.update_data(&1, fn _ -> :updated end))
+        Enum.map(messages, &Message.put_data(&1, :updated))
       end
 
       {:ok, _broadway} =
@@ -1623,7 +1623,7 @@ defmodule BroadwayTest do
 
       handle_failed = fn messages, _context ->
         send(test_pid, {:handle_failed_called, messages})
-        Enum.map(messages, &Message.update_data(&1, fn _ -> :updated end))
+        Enum.map(messages, &Message.put_data(&1, :updated))
       end
 
       assert capture_log(fn ->

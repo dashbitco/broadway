@@ -38,14 +38,25 @@ defmodule Broadway.Message do
             status: :ok
 
   @doc """
-  Updates the data in a message.
+  Updates the data in the message.
 
   This function is usually used inside the `c:Broadway.handle_message/3` implementation
-  to replace data with new processed data.
+  to update data with new processed data.
   """
   @spec update_data(message :: Message.t(), fun :: (term -> term)) :: Message.t()
   def update_data(%Message{} = message, fun) when is_function(fun, 1) do
     %Message{message | data: fun.(message.data)}
+  end
+
+  @doc """
+  Stores the given data in the message.
+
+  This function is usually used inside the `c:Broadway.handle_message/3` implementation
+  to replace data with new processed data.
+  """
+  @spec put_data(message :: Message.t(), term) :: Message.t()
+  def put_data(%Message{} = message, data) do
+    %Message{message | data: data}
   end
 
   @doc """
@@ -117,8 +128,12 @@ defmodule Broadway.Message do
   @doc """
   Mark a message as failed.
 
-  Failed messages are sent directly to the related acknowledger so they're not
-  forwarded to the next step in the pipeline.
+  Failed messages are sent directly to the related acknowledger at the end
+  of this step and therefore they're not forwarded to the next step in the
+  pipeline.
+
+  Failing a message does not emit any log but it does trigger the
+  `c:Broadway.handle_failed/2` callback.
   """
   @spec failed(message :: Message.t(), reason :: binary) :: Message.t()
   def failed(%Message{} = message, reason) do
