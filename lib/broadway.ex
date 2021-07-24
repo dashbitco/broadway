@@ -1018,7 +1018,7 @@ defmodule Broadway do
   """
   def all_running do
     for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
-        Process.whereis(name),
+        GenServer.whereis(name),
         do: name
   end
 
