@@ -805,8 +805,8 @@ defmodule BroadwayTest do
             [:broadway, :processor, :stop],
             [:broadway, :batcher, :start],
             [:broadway, :batcher, :stop],
-            [:broadway, :consumer, :start],
-            [:broadway, :consumer, :stop],
+            [:broadway, :batch_processor, :start],
+            [:broadway, :batch_processor, :stop],
             [:broadway, :processor, :message, :start],
             [:broadway, :processor, :message, :stop],
             [:broadway, :processor, :message, :exception]
@@ -817,10 +817,10 @@ defmodule BroadwayTest do
             assert %{} = metadata.context
 
             case name do
-              [:broadway, stage, _] when stage in [:processor, :consumer] ->
+              [:broadway, stage, _] when stage in [:processor, :batch_processor] ->
                 assert is_integer(metadata.index)
 
-                if stage == :consumer do
+                if stage == :batch_processor do
                   assert metadata.batch_info.batch_key
                 else
                   assert metadata.processor_key
@@ -886,16 +886,16 @@ defmodule BroadwayTest do
       assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{messages: [_]}}
       assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
 
-      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{},
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :start], %{},
                       %{messages: [%{data: 1}, %{data: 2}], batch_info: %BatchInfo{}}}
 
-      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{},
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :stop], %{},
                       %{failed_messages: [], batch_info: %BatchInfo{}}}
 
-      assert_receive {:telemetry_event, [:broadway, :consumer, :start], %{},
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :start], %{},
                       %{messages: [%{data: :fail_batcher}], batch_info: %BatchInfo{}}}
 
-      assert_receive {:telemetry_event, [:broadway, :consumer, :stop], %{},
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :stop], %{},
                       %{failed_messages: [%{data: :fail_batcher}], batch_info: %BatchInfo{}}}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
@@ -1140,12 +1140,12 @@ defmodule BroadwayTest do
               message
             end
 
-          Process.sleep(round(:random.uniform() * 20))
+          Process.sleep(round(:rand.uniform() * 20))
           send(test_pid, {:message_handled, message.data, self()})
           message
         end,
         handle_batch: fn _batcher, batch, _batch_info, _ ->
-          Process.sleep(round(:random.uniform() * 20))
+          Process.sleep(round(:rand.uniform() * 20))
           send(test_pid, {:batch_handled, Enum.map(batch, & &1.data), self()})
           batch
         end

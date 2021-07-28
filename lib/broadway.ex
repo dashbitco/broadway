@@ -649,8 +649,8 @@ defmodule Broadway do
         }
         ```
 
-    * `[:broadway, :consumer, :start]` - Dispatched by a Broadway consumer before your
-      `c:handle_batch/4` callback is invoked
+    * `[:broadway, :batch_processor, :start]` - Dispatched by a Broadway batch processor
+      before your `c:handle_batch/4` callback is invoked
 
       * Measurement: `%{time: System.monotonic_time}`
       * Metadata:
@@ -665,8 +665,8 @@ defmodule Broadway do
         }
         ```
 
-    * `[:broadway, :consumer, :stop]` - Dispatched by a Broadway consumer after your
-      `c:handle_batch/4` callback has returned
+    * `[:broadway, :batch_processor, :stop]` - Dispatched by a Broadway batch
+      processor after your `c:handle_batch/4` callback has returned
 
       * Measurement: `%{time: System.monotonic_time, duration: native_time}`
 

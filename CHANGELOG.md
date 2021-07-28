@@ -4,8 +4,22 @@
 
 Broadway v0.7 requires Erlang/OTP 21.3+.
 
+### Backwards incompatible changes
+
   * Remove `Broadway.TermStorage` now that we have Broadway topology information on the producer init callback
   * Rename :events to :messages in batcher telemetry event
+  * Rename :time to :system_time in telemetry event
+  * Rename `[:broadway, :consumer, *]` to `[:broadway, :batch_processor, *]` in telemetry event
+
+### Enhancements
+
+  * Add `Broadway.Message.put_data/2`
+  * Add `Broadway.stop/1`
+  * Add `Broadway.all_running/0`
+  * Add `Broadway.topology/1`
+  * Add ack configuration to `Broadway.test_message/3` and `Broadway.test_batch/3`
+  * Allow Broadway :via tuples as broadway names
+  * Enrich telemetry events with metadata
 
 ## v0.6.2 (2020-08-17)
 

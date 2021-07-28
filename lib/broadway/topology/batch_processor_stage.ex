@@ -42,7 +42,7 @@ defmodule Broadway.Topology.BatchProcessorStage do
     %Broadway.BatchInfo{batcher: batcher, size: size} = batch_info
 
     :telemetry.span(
-      [:broadway, :consumer],
+      [:broadway, :batch_processor],
       %{
         topology_name: state.topology_name,
         name: state.name,
