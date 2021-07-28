@@ -43,7 +43,7 @@ defmodule Broadway.Producer do
 
   The goal of this callback is to manipulate the general topology options,
   if necessary at all, and introduce any new child specs that will be
-  started **before** the producers supervisor in Broadwday's supervision tree.
+  started **before** the producers supervisor in Broadway's supervision tree.
   Broadway's supervision tree is a `rest_for_one` supervisor (see the documentation
   for `Supervisor`), which means that if the children returned from this callback
   crash they will bring down the rest of the pipeline before being restarted.
