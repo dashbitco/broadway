@@ -1004,22 +1004,28 @@ defmodule BroadwayTest do
     test "generate batches based on :batch_size", %{broadway: broadway} do
       Broadway.test_batch(broadway, Enum.to_list(1..40))
 
-      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd, size: 10}}
+      assert_receive {:batch_handled, :odd, messages,
+                      %BatchInfo{batcher: :odd, size: 10, is_full: true}}
                      when length(messages) == 10
 
-      assert_receive {:batch_handled, :odd, messages, %BatchInfo{batcher: :odd, size: 10}}
+      assert_receive {:batch_handled, :odd, messages,
+                      %BatchInfo{batcher: :odd, size: 10, is_full: true}}
                      when length(messages) == 10
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
+      assert_receive {:batch_handled, :even, messages,
+                      %BatchInfo{batcher: :even, size: 5, is_full: true}}
                      when length(messages) == 5
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
+      assert_receive {:batch_handled, :even, messages,
+                      %BatchInfo{batcher: :even, size: 5, is_full: true}}
                      when length(messages) == 5
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
+      assert_receive {:batch_handled, :even, messages,
+                      %BatchInfo{batcher: :even, size: 5, is_full: true}}
                      when length(messages) == 5
 
-      assert_receive {:batch_handled, :even, messages, %BatchInfo{batcher: :even, size: 5}}
+      assert_receive {:batch_handled, :even, messages,
+                      %BatchInfo{batcher: :even, size: 5, is_full: true}}
                      when length(messages) == 5
 
       refute_received {:batch_handled, _, _}
@@ -1029,8 +1035,12 @@ defmodule BroadwayTest do
          %{broadway: broadway} do
       Broadway.test_batch(broadway, [1, 2, 3, 4, 5], batch_mode: :flush)
 
-      assert_receive {:batch_handled, :odd, messages, _} when length(messages) == 3
-      assert_receive {:batch_handled, :even, messages, _} when length(messages) == 2
+      assert_receive {:batch_handled, :odd, messages, %BatchInfo{is_full: false}}
+                     when length(messages) == 3
+
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{is_full: false}}
+                     when length(messages) == 2
+
       refute_received {:batch_handled, _, _, _}
     end
   end
@@ -1076,8 +1086,11 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [%{data: 2, batch_key: :even}, %{data: 4, batch_key: :even}],
                       []}
 
-      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :odd, size: 2}}
-      assert_receive {:batch_handled, :default, %BatchInfo{batch_key: :even, size: 2}}
+      assert_receive {:batch_handled, :default,
+                      %BatchInfo{batch_key: :odd, size: 2, is_full: true}}
+
+      assert_receive {:batch_handled, :default,
+                      %BatchInfo{batch_key: :even, size: 2, is_full: true}}
     end
 
     test "generate batches with the remaining messages after :batch_timeout is reached",

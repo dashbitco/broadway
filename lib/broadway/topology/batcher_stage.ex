@@ -227,7 +227,8 @@ defmodule Broadway.Topology.BatcherStage do
       batcher: batcher,
       batch_key: batch_key,
       partition: partition,
-      size: batch_size - pending
+      size: batch_size - pending,
+      is_full: pending == 0
     }
 
     {Enum.reverse(reversed_events), batch_info}
