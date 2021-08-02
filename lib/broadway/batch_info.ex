@@ -12,7 +12,7 @@ defmodule Broadway.BatchInfo do
           batch_key: term,
           partition: non_neg_integer | nil,
           size: pos_integer,
-          is_full: boolean
+          trigger: atom
         }
 
   defstruct [
@@ -20,6 +20,6 @@ defmodule Broadway.BatchInfo do
     :batch_key,
     :partition,
     :size,
-    :is_full
+    :trigger
   ]
 end
