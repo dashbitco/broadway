@@ -1061,9 +1061,10 @@ defmodule Broadway do
       `BroadwayRabbitMQ.Producer`.
 
     * `:acknowledger` - optionally a function that generates `ack` fields of
-    `Broadway.Message.t()` that is sent. This function should have following
-    spec `(data :: term, {pid, reference()} -> {module, ack_ref :: term,
-    data :: term})`.
+      the sent `Broadway.Message.t()`. This function receives the acknowledger
+      `data` and the `from` field and it must return the acknowledger tuple:
+
+          data :: term, from :: {pid, term} -> {module, ack_ref :: term, ack_data :: term}
 
   ## Examples
 
@@ -1115,9 +1116,9 @@ defmodule Broadway do
       `BroadwayRabbitMQ.Producer`.
 
     * `:acknowledger` - optionally a function that generates `ack` fields of
-    `Broadway.Message.t()` that is sent. This function should have following
-    spec `(data :: term, {pid, reference()} -> {module, ack_ref :: term,
-    data :: term})`. See `test_message/3` for an example.
+      the sent `Broadway.Message.t()`. This function receives the acknowledger
+      `data` and the `from` field and it must return the acknowledger tuple.
+      See `test_message/3` for specs and examples.
 
   ## Examples
 
