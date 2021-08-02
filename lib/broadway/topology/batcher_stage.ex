@@ -222,12 +222,20 @@ defmodule Broadway.Topology.BatcherStage do
 
   defp wrap_for_delivery(batch_key, partition, reversed_events, pending, state) do
     %{batcher: batcher, batch_size: batch_size} = state
+    [event | _] = reversed_events
+
+    trigger =
+      case event.batch_mode do
+        :bulk -> if(pending == 0, do: :size, else: :timeout)
+        :flush -> :flush
+      end
 
     batch_info = %BatchInfo{
       batcher: batcher,
       batch_key: batch_key,
       partition: partition,
-      size: batch_size - pending
+      size: batch_size - pending,
+      trigger: trigger
     }
 
     {Enum.reverse(reversed_events), batch_info}
