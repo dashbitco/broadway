@@ -58,4 +58,4 @@ jobs:
         if: ${{matrix.coverage}}
 
       - run: mix credo --strict
-        if: ${{matrix.coverage}}
+        if: ${{matrix.lint}}
