@@ -485,6 +485,7 @@ defmodule Broadway.Topology do
     name = process_name(config, "ProducerSupervisor")
     children_count = length(children)
 
+    # credo:disable-for-next-line
     # TODO: Allow max_restarts and max_seconds as configuration
     # options as well as shutdown and restart for each child.
     build_supervisor_spec(children, name,
