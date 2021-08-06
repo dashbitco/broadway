@@ -1,9 +1,11 @@
 defmodule Broadway.Topology.ProcessorStageTest do
   use ExUnit.Case, async: true
 
+  alias Broadway.Topology.ProcessorStage
+
   test "set custom min and max demand" do
     {:ok, pid} =
-      Broadway.Topology.ProcessorStage.start_link(
+      ProcessorStage.start_link(
         [
           module: __MODULE__,
           context: %{},

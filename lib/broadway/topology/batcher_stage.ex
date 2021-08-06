@@ -2,12 +2,13 @@ defmodule Broadway.Topology.BatcherStage do
   @moduledoc false
   use GenStage
   alias Broadway.BatchInfo
+  alias Broadway.Topology.Subscriber
 
   @all_batches __MODULE__.All
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, stage_options) do
-    Broadway.Topology.Subscriber.start_link(
+    Subscriber.start_link(
       __MODULE__,
       args[:processors],
       args,

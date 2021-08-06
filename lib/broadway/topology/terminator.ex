@@ -2,6 +2,8 @@ defmodule Broadway.Topology.Terminator do
   @moduledoc false
   use GenServer
 
+  alias Broadway.Topology.ProducerStage
+
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, opts) do
     GenServer.start_link(__MODULE__, args, opts)
@@ -41,7 +43,7 @@ defmodule Broadway.Topology.Terminator do
     end
 
     for name <- state.producers, pid = GenServer.whereis(name) do
-      Broadway.Topology.ProducerStage.drain(pid)
+      ProducerStage.drain(pid)
     end
 
     for name <- state.last, pid = GenServer.whereis(name) do

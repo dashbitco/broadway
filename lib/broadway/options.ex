@@ -1,7 +1,7 @@
 defmodule Broadway.Options do
   @moduledoc false
 
-  def definition() do
+  def definition do
     [
       name: [
         required: true,
@@ -13,7 +13,7 @@ defmodule Broadway.Options do
       ],
       shutdown: [
         type: :pos_integer,
-        default: 30000,
+        default: 30_000,
         doc: """
         Optional. The time in milliseconds given for Broadway to
         gracefully shutdown without discarding events. Defaults to `30_000`(ms).

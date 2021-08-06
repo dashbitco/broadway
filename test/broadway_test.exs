@@ -4,7 +4,7 @@ defmodule BroadwayTest do
   import Integer
   import ExUnit.CaptureLog
 
-  alias Broadway.{Message, BatchInfo, CallerAcknowledger}
+  alias Broadway.{BatchInfo, CallerAcknowledger, Message}
 
   defmodule ManualProducer do
     @behaviour Broadway.Producer
@@ -2181,7 +2181,7 @@ defmodule BroadwayTest do
           producer: [
             module: {ManualProducer, []},
             concurrency: 1,
-            rate_limiting: [allowed_messages: 1, interval: 10000]
+            rate_limiting: [allowed_messages: 1, interval: 10_000]
           ],
           processors: [default: []],
           context: %{test_pid: self()}
@@ -2283,7 +2283,7 @@ defmodule BroadwayTest do
             concurrency: 1,
             # We use a long rate limiting interval so that we can trigger the rate limiting
             # manually from this test.
-            rate_limiting: [allowed_messages: 2, interval: 10000]
+            rate_limiting: [allowed_messages: 2, interval: 10_000]
           ],
           processors: [default: [concurrency: 1, max_demand: 2]],
           context: %{handle_message: handle_message}
@@ -2340,7 +2340,7 @@ defmodule BroadwayTest do
             concurrency: 1,
             # We use a long rate limiting interval so that we can trigger the rate limiting
             # manually from this test.
-            rate_limiting: [allowed_messages: 2, interval: 10000]
+            rate_limiting: [allowed_messages: 2, interval: 10_000]
           ],
           processors: [default: [concurrency: 1, max_demand: 2]],
           context: %{handle_message: handle_message}
@@ -2663,7 +2663,7 @@ defmodule BroadwayTest do
     defp via_tuple(name), do: {:via, Registry, {MyRegistry, name}}
   end
 
-  defp new_unique_name() do
+  defp new_unique_name do
     :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 

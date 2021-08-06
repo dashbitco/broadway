@@ -3,11 +3,12 @@ defmodule Broadway.Topology.ProcessorStage do
   use GenStage
 
   require Logger
-  alias Broadway.{Message, Acknowledger}
+  alias Broadway.{Acknowledger, Message}
+  alias Broadway.Topology.Subscriber
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, stage_options) do
-    Broadway.Topology.Subscriber.start_link(
+    Subscriber.start_link(
       __MODULE__,
       args[:producers],
       args,

@@ -3,12 +3,12 @@ defmodule Broadway.Topology do
   @behaviour GenServer
 
   alias Broadway.Topology.{
-    ProducerStage,
-    ProcessorStage,
     BatcherStage,
     BatchProcessorStage,
-    Terminator,
-    RateLimiter
+    ProcessorStage,
+    ProducerStage,
+    RateLimiter,
+    Terminator
   }
 
   defstruct [:context, :topology, :producer_names, :batchers_names, :rate_limiter_name]
@@ -87,7 +87,7 @@ defmodule Broadway.Topology do
 
   @impl true
   def terminate(reason, %{name: name, supervisor_pid: supervisor_pid, terminator: terminator}) do
-    Broadway.Topology.Terminator.trap_exit(terminator)
+    Terminator.trap_exit(terminator)
     ref = Process.monitor(supervisor_pid)
     Process.exit(supervisor_pid, reason_to_signal(reason))
 

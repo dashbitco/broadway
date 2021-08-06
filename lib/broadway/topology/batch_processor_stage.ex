@@ -3,11 +3,13 @@ defmodule Broadway.Topology.BatchProcessorStage do
   use GenStage
   require Logger
   alias Broadway.{Acknowledger, Message}
+  alias Broadway.Topology.Subscriber
+
   @subscription_options [max_demand: 1, min_demand: 0]
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, stage_options) do
-    Broadway.Topology.Subscriber.start_link(
+    Subscriber.start_link(
       __MODULE__,
       [args[:batcher]],
       args,

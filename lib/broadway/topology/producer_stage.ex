@@ -364,10 +364,10 @@ defmodule Broadway.Topology.ProducerStage do
     end
   end
 
-  defp enqueue_batch(queue, _list = []), do: queue
+  defp enqueue_batch(queue, [] = _list), do: queue
   defp enqueue_batch(queue, list), do: :queue.in(list, queue)
 
-  defp enqueue_batch_r(queue, _list = []), do: queue
+  defp enqueue_batch_r(queue, [] = _list), do: queue
   defp enqueue_batch_r(queue, list), do: :queue.in_r(list, queue)
 
   defp rate_limit_messages(_state, [], _count) do

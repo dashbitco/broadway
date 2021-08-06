@@ -9,7 +9,7 @@ defmodule Broadway.NoopAcknowledger do
   @behaviour Broadway.Acknowledger
 
   @impl true
-  def ack(_ack_ref = nil, _successful, _failed) do
+  def ack(nil = _ack_ref, _successful, _failed) do
     :ok
   end
 end
