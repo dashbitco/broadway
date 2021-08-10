@@ -180,7 +180,7 @@ defmodule Broadway.Topology do
   end
 
   defp emit_init_event(user_config, supervisor_pid) do
-    measurements = %{time: System.monotonic_time()}
+    measurements = %{system_time: System.monotonic_time()}
 
     metadata = %{
       config: user_config,

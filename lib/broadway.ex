@@ -556,13 +556,13 @@ defmodule Broadway do
       contains the configuration options that were provided to
       `Broadway.start_link/2`.
 
-      * Measurement: `%{time: System.monotonic_time}`
+      * Measurement: `%{system_time: System.monotonic_time}`
       * Metadata: `%{supervision: pid(), config: keyword()}`
 
     * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor
       before the optional `c:prepare_messages/2`
 
-      * Measurement: `%{time: System.monotonic_time}`
+      * Measurement: `%{system_time: System.monotonic_time}`
       * Metadata:
 
         ```
@@ -579,7 +579,7 @@ defmodule Broadway do
       after `c:prepare_messages/2` and after all `c:handle_message/3` callback
       has been invoked for all individual messages
 
-      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Measurement: `%{duration: native_time}`
 
       * Metadata:
 
@@ -598,7 +598,7 @@ defmodule Broadway do
     * `[:broadway, :processor, :message, :start]` - Dispatched by a Broadway processor
       before your `c:handle_message/3` callback is invoked
 
-      * Measurement: `%{time: System.monotonic_time}`
+      * Measurement: `%{system_time: System.monotonic_time}`
 
       * Metadata:
 
@@ -615,7 +615,7 @@ defmodule Broadway do
     * `[:broadway, :processor, :message, :stop]` - Dispatched by a Broadway processor
       after your `c:handle_message/3` callback has returned
 
-      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Measurement: `%{duration: native_time}`
 
       * Metadata:
 
@@ -632,7 +632,7 @@ defmodule Broadway do
     * `[:broadway, :processor, :message, :exception]` - Dispatched by a Broadway processor
       if your `c:handle_message/3` callback encounters an exception
 
-      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Measurement: `%{duration: native_time}`
 
       * Metadata:
 
@@ -652,7 +652,7 @@ defmodule Broadway do
     * `[:broadway, :batch_processor, :start]` - Dispatched by a Broadway batch processor
       before your `c:handle_batch/4` callback is invoked
 
-      * Measurement: `%{time: System.monotonic_time}`
+      * Measurement: `%{system_time: System.monotonic_time}`
       * Metadata:
 
         ```
@@ -668,7 +668,7 @@ defmodule Broadway do
     * `[:broadway, :batch_processor, :stop]` - Dispatched by a Broadway batch
       processor after your `c:handle_batch/4` callback has returned
 
-      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Measurement: `%{duration: native_time}`
 
       * Metadata:
 
@@ -686,7 +686,7 @@ defmodule Broadway do
     * `[:broadway, :batcher, :start]` - Dispatched by a Broadway batcher before
       handling events
 
-      * Measurement: `%{time: System.monotonic_time}`
+      * Measurement: `%{system_time: System.monotonic_time}`
       * Metadata:
 
         ```
@@ -701,7 +701,7 @@ defmodule Broadway do
     * `[:broadway, :batcher, :stop]` - Dispatched by a Broadway batcher after
       handling events
 
-      * Measurement: `%{time: System.monotonic_time, duration: native_time}`
+      * Measurement: `%{duration: native_time}`
       * Metadata:
 
       ```
@@ -711,6 +711,11 @@ defmodule Broadway do
           batcher_key: atom
         }
       ```
+
+  Most of the events follow the `:telemetry.span/3` convention for measurements.
+  This means that "start" events have a `system_time` representing the start of
+  that event, and "stop" or "exception" events have the `duration` value.
+
   """
 
   alias Broadway.{BatchInfo, Message, Topology}

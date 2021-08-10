@@ -246,7 +246,7 @@ defmodule BroadwayTest do
       assert get_n_producers(broadway) == 3
       assert length(Broadway.producer_names(broadway)) == 3
 
-      assert_receive {:telemetry_event, [:broadway, :topology, :init], %{},
+      assert_receive {:telemetry_event, [:broadway, :topology, :init], %{system_time: _},
                       %{config: config, supervisor_pid: supervisor_pid}}
                      when is_pid(supervisor_pid)
 
@@ -851,57 +851,88 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed message"}}]}
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed batcher"}}]}
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{system_time: _}, %{}}
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start],
+                      %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{duration: _},
+                      %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{duration: _}, metadata}
       assert [] = metadata.failed_messages
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{system_time: _}, %{}}
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{},
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start],
+                      %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{duration: _},
+                      %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{duration: _},
                       %{failed_messages: []}}
 
       assert [] = metadata.failed_messages
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start],
+                      %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{duration: _},
+                      %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{duration: _}, metadata}
       assert [%{data: :fail}] = metadata.failed_messages
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, metadata}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start],
+                      %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{duration: _},
+                      %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{duration: _}, metadata}
       assert [] = metadata.failed_messages
 
-      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{messages: [_]}}
-      assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{messages: [_]}}
-      assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{}, %{messages: [_]}}
-      assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{system_time: _},
+                      %{messages: [_]}}
 
-      assert_receive {:telemetry_event, [:broadway, :batch_processor, :start], %{},
+      assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{duration: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{system_time: _},
+                      %{messages: [_]}}
+
+      assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{duration: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :batcher, :start], %{system_time: _},
+                      %{messages: [_]}}
+
+      assert_receive {:telemetry_event, [:broadway, :batcher, :stop], %{duration: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :start], %{system_time: _},
                       %{messages: [%{data: 1}, %{data: 2}], batch_info: %BatchInfo{}}}
 
-      assert_receive {:telemetry_event, [:broadway, :batch_processor, :stop], %{},
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :stop], %{duration: _},
                       %{failed_messages: [], batch_info: %BatchInfo{}}}
 
-      assert_receive {:telemetry_event, [:broadway, :batch_processor, :start], %{},
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :start], %{system_time: _},
                       %{messages: [%{data: :fail_batcher}], batch_info: %BatchInfo{}}}
 
-      assert_receive {:telemetry_event, [:broadway, :batch_processor, :stop], %{},
+      assert_receive {:telemetry_event, [:broadway, :batch_processor, :stop], %{duration: _},
                       %{failed_messages: [%{data: :fail_batcher}], batch_info: %BatchInfo{}}}
 
-      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :message, :exception], %{}, %{}}
-      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{}, %{}}
+      assert_receive {:telemetry_event, [:broadway, :processor, :start], %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :start],
+                      %{system_time: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :message, :exception],
+                      %{duration: _}, %{}}
+
+      assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{duration: _}, %{}}
       assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
 
       :telemetry.detach("#{test}")
