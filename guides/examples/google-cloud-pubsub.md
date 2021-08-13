@@ -31,40 +31,40 @@ to set everything up in Google Cloud. Alternatively, you can roughly follow this
 To install `gcloud` follow the [documentation](https://cloud.google.com/sdk/gcloud/). If you are
 on macOS you may consider installing it with Homebrew:
 
-    brew install --cask google-cloud-sdk
+    $ brew install --cask google-cloud-sdk
 
 Now, authenticate the CLI:
 
-    gcloud auth login
+    $ gcloud auth login
 
 Then, create a new project:
 
-    gcloud projects create test-pubsub
+    $ gcloud projects create test-pubsub
 
 A new topic:
 
-    gcloud pubsub topics create test-topic --project test-pubsub
+    $ gcloud pubsub topics create test-topic --project test-pubsub
     Created topic [projects/test-pubsub/topics/test-topic].
 
 > Note: If you run this command immediately after creating a new Google Cloud project, you may receive an error indicating that your project's organization policy is still being provisioned. Just wait a couple minutes and try again.
 
 And a new subscription:
 
-    gcloud pubsub subscriptions create test-subscription --project test-pubsub --topic test-topic
+    $ gcloud pubsub subscriptions create test-subscription --project test-pubsub --topic test-topic
     Created subscription [projects/test-pubsub/subscriptions/test-subscription].
 
 We also need a [service account](https://cloud.google.com/iam/docs/service-accounts), an IAM
 policy, as well as API credentials in order to programmatically work with the service. First, let's
 create the service account:
 
-    gcloud iam service-accounts create test-account --project test-pubsub
+    $ gcloud iam service-accounts create test-account --project test-pubsub
     Created service account [test-account].
 
 Then the policy. For simplicity we add the general role `roles/editor`, but make sure to
 examine the [available roles](https://cloud.google.com/iam/docs/understanding-roles#pubsub-roles)
 and choose the one that best suits your use case:
 
-    gcloud projects add-iam-policy-binding test-pubsub \
+    $ gcloud projects add-iam-policy-binding test-pubsub \
         --member serviceAccount:test-account@test-pubsub.iam.gserviceaccount.com \
         --role roles/editor
     Updated IAM policy for project [test-pubsub].
@@ -72,7 +72,7 @@ and choose the one that best suits your use case:
 
 And now the credentials:
 
-    gcloud iam service-accounts keys create credentials.json --iam-account=test-account@test-pubsub.iam.gserviceaccount.com
+    $ gcloud iam service-accounts keys create credentials.json --iam-account=test-account@test-pubsub.iam.gserviceaccount.com
     created key [xxx] of type [json] as [key] for [test-account@test-pubsub.iam.gserviceaccount.com]
 
 This command generated a `credentials.json` file which will be useful later. Note, the IAM account
@@ -81,7 +81,7 @@ to see all service accounts associated with the given project.
 
 Finally, we need to enable Pub/Sub for our project:
 
-    gcloud services enable pubsub --project test-pubsub
+    $ gcloud services enable pubsub --project test-pubsub
     Operation "operations/xxx" finished successfully.
 
 ## Configure the project
@@ -93,7 +93,7 @@ which is a Broadway Cloud Pub/Sub Connector provided by [Dashbit](https://dashbi
 
 If you plan to start a new project, just run:
 
-    mix new my_app --sup
+    $ mix new my_app --sup
 
 The `--sup` flag instructs Elixir to generate an application with a supervision tree.
 
@@ -219,11 +219,11 @@ it is listed *after* its dependencies in the supervision tree.
 If you followed the previous section about setting the project with `gcloud`, you can now test the
 the pipeline. In one terminal tab start the application:
 
-    iex -S mix
+    $ iex -S mix
 
 And in another tab, send a couple of test messages to Pub/Sub:
 
-    gcloud pubsub topics publish  projects/test-pubsub/topics/test-topic --message "test 1"
+    $ gcloud pubsub topics publish  projects/test-pubsub/topics/test-topic --message "test 1"
     messageIds:
     - '651428033718119'
 
@@ -233,7 +233,9 @@ And in another tab, send a couple of test messages to Pub/Sub:
 
 Now, In the first tab, you should see output similar to:
 
-    Got batch of finished jobs from processors, sending ACKs to Pub/Sub as a batch.: ["TEST 1", "TEST 2"]
+```
+Got batch of finished jobs from processors, sending ACKs to Pub/Sub as a batch.: ["TEST 1", "TEST 2"]
+```
 
 ## Tuning the configuration
 

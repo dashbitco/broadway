@@ -22,7 +22,7 @@ In case you don't have Kafka installed yet, please follow the instructions on Ka
 [Quickstart](https://kafka.apache.org/quickstart) for a clean installation. After
 initializing Kafka, you can create a new stream by running:
 
-    kafka-topics --create --zookeeper localhost:2181 --partitions 3 --topic test
+    $ kafka-topics --create --zookeeper localhost:2181 --partitions 3 --topic test
 
 ## Configure your Elixir project to use Broadway
 
@@ -45,7 +45,7 @@ running on any machine connected to the Kafka cluster.
 
 Create a new project running:
 
-    mix new my_app --sup
+    $ mix new my_app --sup
 
 The `--sup` flag instructs Elixir to generate an application with a supervision tree.
 
@@ -84,11 +84,13 @@ Assuming we want to consume messages from a topic called
         Broadway.start_link(__MODULE__,
           name: __MODULE__,
           producer: [
-            module: {BroadwayKafka.Producer, [
-              hosts: [localhost: 9092],
-              group_id: "group_1",
-              topics: ["test"],
-            ]},
+            module:
+              {BroadwayKafka.Producer,
+               [
+                 hosts: [localhost: 9092],
+                 group_id: "group_1",
+                 topics: ["test"]
+               ]},
             concurrency: 1
           ],
           processors: [
@@ -179,15 +181,15 @@ in the supervision tree.
 
 You can now test your pipeline by entering an `iex` session:
 
-    iex -S mix
+    $ iex -S mix
 
 If everything went fine, you should see lots of `info` log messages like this
 one coming from the `:brod` supervisors:
 
     15:14:04.356 [info]  [supervisor: {:local, :brod_sup}, started: [pid: #PID<0.251.0>, id: :test_client, mfargs: {:brod_client, :start_link, [[localhost: 9092], :test_client, []]}, restart_type: {:permanent, 10}, shutdown: 5000, child_type: :worker]]
 
- [Brod](https://github.com/klarna/brod/) is the client that BroadwayKafka uses
- under the hood to communicate with Kafka.
+[Brod](https://github.com/klarna/brod/) is the client that BroadwayKafka uses
+under the hood to communicate with Kafka.
 
 ### Sending messages to Kafka
 

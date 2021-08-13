@@ -33,19 +33,15 @@ with the command line tool, `rabbitmqadmin`.
 After successfully installing RabbitMQ, you can declare a new queue with the
 following command:
 
-```
-$ rabbitmqadmin declare queue name=my_queue durable=true
-```
+    $ rabbitmqadmin declare queue name=my_queue durable=true
 
 You can list all declared queues to see our the one we've just created:
 
-```
-$ rabbitmqctl list_queues
-Timeout: 60.0 seconds ...
-Listing queues for vhost / ...
-name	messages
-my_queue	0
-```
+    $ rabbitmqctl list_queues
+    Timeout: 60.0 seconds ...
+    Listing queues for vhost / ...
+    name      messages
+    my_queue  0
 
 ## Configure the project
 
@@ -56,7 +52,7 @@ which is a Broadway RabbitMQ Connector provided by [Dashbit](https://dashbit.co/
 
 If you're creating a new project, run:
 
-    mix new my_app --sup
+    $ mix new my_app --sup
 
 The `--sup` flag instructs Elixir to generate an application with a supervision tree.
 
@@ -203,7 +199,7 @@ in the supervision tree.
 
 You can now test your pipeline by entering an `iex` session:
 
-    iex -S mix
+    $ iex -S mix
 
 If everything went fine, you should see lots of `info` log messages from the `amqp`
 supervisors. If you think that's too verbose and want to do something
