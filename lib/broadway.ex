@@ -723,7 +723,7 @@ defmodule Broadway do
 
   Most of the events follow the `:telemetry.span/3` convention for measurements.
   This means that "start" events have a `:system_time` representing the start of
-  that event using `:erlang.system_time/0`. The "stop" or "exception" events
+  that event using `System.system_time/0`. The "stop" or "exception" events
   have the `duration` value, which is the difference in monotonic time between
   the start and stop events.
 
