@@ -556,13 +556,13 @@ defmodule Broadway do
       contains the configuration options that were provided to
       `Broadway.start_link/2`.
 
-      * Measurement: `%{system_time: System.monotonic_time}`
-      * Metadata: `%{supervision: pid(), config: keyword()}`
+      * Measurement: `%{system_time: integer}`
+      * Metadata: `%{supervision: pid, config: keyword}`
 
     * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor
       before the optional `c:prepare_messages/2`
 
-      * Measurement: `%{system_time: System.monotonic_time}`
+      * Measurement: `%{system_time: integer}`
       * Metadata:
 
         ```
@@ -571,7 +571,8 @@ defmodule Broadway do
           name: atom,
           processor_key: atom,
           index: non_neg_integer,
-          messages: [Broadway.Message.t]
+          messages: [Broadway.Message.t],
+          telemetry_span_context: reference
         }
         ```
 
@@ -591,14 +592,15 @@ defmodule Broadway do
           index: non_neg_integer,
           successful_messages_to_ack: [Broadway.Message.t],
           successful_messages_to_forward: [Broadway.Message.t],
-          failed_messages: [Broadway.Message.t]
+          failed_messages: [Broadway.Message.t],
+          telemetry_span_context: reference
         }
         ```
 
     * `[:broadway, :processor, :message, :start]` - Dispatched by a Broadway processor
       before your `c:handle_message/3` callback is invoked
 
-      * Measurement: `%{system_time: System.monotonic_time}`
+      * Measurement: `%{system_time: integer}`
 
       * Metadata:
 
@@ -608,7 +610,8 @@ defmodule Broadway do
           topology_name: atom,
           name: atom,
           index: non_neg_integer,
-          message: Broadway.Message.t
+          message: Broadway.Message.t,
+          telemetry_span_context: reference
         }
         ```
 
@@ -626,6 +629,7 @@ defmodule Broadway do
           name: atom,
           index: non_neg_integer,
           message: Broadway.Message.t,
+          telemetry_span_context: reference
         }
         ```
 
@@ -645,14 +649,15 @@ defmodule Broadway do
           message: Broadway.Message.t,
           kind: kind,
           reason: reason,
-          stacktrace: stacktrace
+          stacktrace: stacktrace,
+          telemetry_span_context: reference
         }
         ```
 
     * `[:broadway, :batch_processor, :start]` - Dispatched by a Broadway batch processor
       before your `c:handle_batch/4` callback is invoked
 
-      * Measurement: `%{system_time: System.monotonic_time}`
+      * Measurement: `%{system_time: integer}`
       * Metadata:
 
         ```
@@ -661,7 +666,8 @@ defmodule Broadway do
           name: atom,
           index: non_neg_integer,
           messages: [Broadway.Message.t],
-          batch_info: Broadway.BatchInfo.t
+          batch_info: Broadway.BatchInfo.t,
+          telemetry_span_context: reference
         }
         ```
 
@@ -679,14 +685,15 @@ defmodule Broadway do
           index: non_neg_integer,
           successful_messages: [Broadway.Message.t],
           failed_messages: [Broadway.Message.t],
-          batch_info: Broadway.BatchInfo.t
+          batch_info: Broadway.BatchInfo.t,
+          telemetry_span_context: reference
         }
         ```
 
     * `[:broadway, :batcher, :start]` - Dispatched by a Broadway batcher before
       handling events
 
-      * Measurement: `%{system_time: System.monotonic_time}`
+      * Measurement: `%{system_time: integer}`
       * Metadata:
 
         ```
@@ -694,7 +701,8 @@ defmodule Broadway do
           topology_name: atom,
           name: atom,
           batcher_key: atom,
-          messages: [{Broadway.Message.t}]
+          messages: [Broadway.Message.t],
+          telemetry_span_context: reference
         }
         ```
 
@@ -708,13 +716,16 @@ defmodule Broadway do
         %{
           topology_name: atom,
           name: atom,
-          batcher_key: atom
+          batcher_key: atom,
+          telemetry_span_context: reference
         }
       ```
 
   Most of the events follow the `:telemetry.span/3` convention for measurements.
-  This means that "start" events have a `system_time` representing the start of
-  that event, and "stop" or "exception" events have the `duration` value.
+  This means that "start" events have a `:system_time` representing the start of
+  that event using `:erlang.system_time/0`. The "stop" or "exception" events
+  have the `duration` value, which is the difference in monotonic time between
+  the start and stop events.
 
   """
 
