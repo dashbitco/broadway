@@ -15,7 +15,7 @@ Broadway takes the burden of defining concurrent GenStage topologies and provide
   * Back-pressure
   * Automatic acknowledgements at the end of the pipeline
   * Batching
-  * Fault tolerance with minimal data loss
+  * Fault tolerance
   * Graceful shutdown
   * Built-in testing
   * Custom failure handling
