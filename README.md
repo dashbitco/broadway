@@ -4,7 +4,7 @@ Build concurrent and multi-stage data ingestion and data processing pipelines wi
 
 Broadway takes its name from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, renowned for its stages, actors, and producers.
 
-To learn more and get started, [check out our guides and documentation](https://hexdocs.pm/broadway).
+To learn more and get started, check out [our official website](https://elixir-broadway.org) and [our guides and docs](https://hexdocs.pm/broadway).
 
 ![Broadway Logo](https://user-images.githubusercontent.com/9582/117824616-ed298500-b26e-11eb-8ded-0fb7e608bf70.png)
 
