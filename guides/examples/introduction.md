@@ -1,5 +1,20 @@
 # Introduction
 
+`Broadway` is a library for building concurrent and multi-stage data ingestion and data processing pipelines with Elixir. Broadway pipelines are concurrent and robust, thanks to the Erlang VM and its actors. It features:
+
+  * Back-pressure
+  * Automatic acknowledgements at the end of the pipeline
+  * Batching
+  * Fault tolerance
+  * Graceful shutdown
+  * Built-in testing
+  * Custom failure handling
+  * Ordering and partitioning
+  * Rate-limiting
+  * Metrics
+
+## Official Producers
+
 Currently we officially support four Broadway producers:
 
   * Amazon SQS: [Source](https://github.com/dashbitco/broadway_sqs) - [Guide](amazon-sqs.md)
