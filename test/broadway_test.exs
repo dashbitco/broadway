@@ -2400,10 +2400,11 @@ defmodule BroadwayTest do
 
       send(get_rate_limiter(broadway_name), :reset_limit)
 
-      assert_receive {:handle_message_called, %Broadway.Message{data: 3}, timestamp3}
+      assert_receive {:handle_message_called, %Broadway.Message{data: 3}, timestamp3}, 4_000
 
       assert_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel},
-                      timestamp_cancel}
+                      timestamp_cancel},
+                     4_000
 
       assert timestamp_cancel > timestamp1
       assert timestamp3 < timestamp_cancel
