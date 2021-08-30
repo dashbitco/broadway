@@ -56,7 +56,7 @@ Add `:broadway_kafka` to the list of dependencies in `mix.exs`:
     def deps do
       [
         ...
-        {:broadway_kafka, "~> 0.1.0"}
+        {:broadway_kafka, "~> 0.3"}
       ]
     end
 

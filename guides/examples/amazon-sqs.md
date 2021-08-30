@@ -57,7 +57,7 @@ client of your choice (defaults to `:hackney`):
     def deps do
       [
         ...
-        {:broadway_sqs, "~> 0.2.0"},
+        {:broadway_sqs, "~> 0.7"},
         {:hackney, "~> 1.9"},
       ]
     end

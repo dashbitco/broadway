@@ -105,7 +105,7 @@ Cloud authentication library of your choice (defaults to `:goth`):
     defp deps() do
       [
         ...
-        {:broadway_cloud_pub_sub, "~> 0.6.0"},
+        {:broadway_cloud_pub_sub, "~> 0.7"},
         {:goth, "~> 1.0"}
       ]
     end
