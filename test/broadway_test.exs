@@ -2403,7 +2403,8 @@ defmodule BroadwayTest do
       assert_receive {:handle_message_called, %Broadway.Message{data: 3}, timestamp3}, 4_000
 
       assert_receive {:handle_message_called, %Broadway.Message{data: :message_during_cancel},
-                      timestamp_cancel}, 4_000
+                      timestamp_cancel},
+                     4_000
 
       assert timestamp_cancel > timestamp1
       assert timestamp3 < timestamp_cancel
