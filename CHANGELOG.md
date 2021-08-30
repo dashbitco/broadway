@@ -1,8 +1,8 @@
 # Changelog
 
-## v0.7.0-dev
+## v1.0.0 (2021-08-30)
 
-Broadway v0.7 requires Erlang/OTP 21.3+.
+Broadway v1.0 requires Erlang/OTP 21.3+.
 
 ### Backwards incompatible changes
 

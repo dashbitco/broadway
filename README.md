@@ -30,7 +30,7 @@ Add `:broadway` to the list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:broadway, "~> 0.6.0"}
+    {:broadway, "~> 1.0"}
   ]
 end
 ```
