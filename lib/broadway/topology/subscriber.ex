@@ -6,7 +6,7 @@ defmodule Broadway.Topology.Subscriber do
   # as the remaining ones are shutdown via the supervision tree which
   # is set as one_for_all and max_restarts of 0 to the inner most
   # supervisor while the outer most is rest for one. This guarantees
-  # that either all processess are running or none of them.
+  # that either all processes are running or none of them.
   #
   # For graceful shutdowns, we rely on cancellations with the help
   # of the terminator.

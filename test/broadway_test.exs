@@ -167,7 +167,7 @@ defmodule BroadwayTest do
              }
     end
 
-    test "generates child_spec/1 with overriden options" do
+    test "generates child_spec/1 with overridden options" do
       defmodule MyBroadwayWithCustomOptions do
         use Broadway, id: :some_id
 

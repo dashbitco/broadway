@@ -256,7 +256,7 @@ can still receive more assignments than planned. For instance, if another consum
 the server will reassign all its topic/partition to other available consumers, including
 any Broadway producer subscribed to the same topic.
 
-There are other options that you may want to take a closer look when tunning your configuration.
+There are other options that you may want to take a closer look when tuning your configuration.
 The `:max_bytes` option, for instance, belongs to the `:fetch_config` group and defines the
 maximum amount of data to be fetched at a time from a single partition. The default is
 1048576 (1 MiB). Setting greater values can improve throughput at the cost of more
