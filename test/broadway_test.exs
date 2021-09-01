@@ -2581,14 +2581,12 @@ defmodule BroadwayTest do
         batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
       )
 
-      assert Enum.sort(Broadway.all_running()) == [broadway, broadway2]
+      assert Enum.sort(Broadway.all_running()) == Enum.sort([broadway, broadway2])
 
       Broadway.stop(broadway2)
-
       assert Broadway.all_running() == [broadway]
 
       Broadway.stop(broadway)
-
       assert Broadway.all_running() == []
     end
   end
