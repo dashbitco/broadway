@@ -151,15 +151,18 @@ defmodule Broadway.Topology.ProcessorStage do
             context: state.context
           },
           fn ->
-            {processor_key
-             |> module.handle_message(message, context)
-             |> validate_message(batchers),
+            updated_message =
+              processor_key
+              |> module.handle_message(message, context)
+              |> validate_message(batchers)
+
+            {updated_message,
              %{
                processor_key: state.processor_key,
                topology_name: state.topology_name,
                index: state.partition,
                name: state.name,
-               message: message,
+               message: updated_message,
                context: state.context
              }}
           end

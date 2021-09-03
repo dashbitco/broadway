@@ -83,6 +83,10 @@ defmodule BroadwayTest do
   defmodule CustomHandlers do
     use Broadway
 
+    def handle_message(_, %{data: "fail_in_handle_message"} = message, _context) do
+      Broadway.Message.failed(message, "fail_in_handle_message")
+    end
+
     def handle_message(_, message, %{handle_message: handler} = context) do
       handler.(message, context)
     end
@@ -842,7 +846,15 @@ defmodule BroadwayTest do
           nil
         )
 
-      ref = Broadway.test_batch(broadway, [1, 2, :fail, :fail_batcher, :raise])
+      ref =
+        Broadway.test_batch(broadway, [
+          1,
+          2,
+          :fail,
+          :fail_batcher,
+          :raise,
+          "fail_in_handle_message"
+        ])
 
       assert_receive {:batch_handled, [%{data: 1, status: :ok}, %{data: 2, status: :ok}]}
       assert_receive {:batch_handled, [%{data: :fail_batcher, status: :ok}]}
@@ -850,6 +862,7 @@ defmodule BroadwayTest do
       assert_receive {:ack, ^ref, [%{status: :ok}, %{status: :ok}], []}
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed message"}}]}
       assert_receive {:ack, ^ref, [], [%{status: {:failed, "Failed batcher"}}]}
+      assert_receive {:ack, ^ref, [], [%{status: {:failed, "fail_in_handle_message"}}]}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :start], %{system_time: _}, %{}}
 
