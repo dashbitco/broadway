@@ -846,7 +846,15 @@ defmodule BroadwayTest do
           nil
         )
 
-      ref = Broadway.test_batch(broadway, [1, 2, :fail, :fail_batcher, :raise, "fail_in_handle_message"])
+      ref =
+        Broadway.test_batch(broadway, [
+          1,
+          2,
+          :fail,
+          :fail_batcher,
+          :raise,
+          "fail_in_handle_message"
+        ])
 
       assert_receive {:batch_handled, [%{data: 1, status: :ok}, %{data: 2, status: :ok}]}
       assert_receive {:batch_handled, [%{data: :fail_batcher, status: :ok}]}
