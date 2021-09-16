@@ -1052,6 +1052,41 @@ defmodule Broadway do
     |> Topology.ProducerStage.push_messages(messages)
   end
 
+  test_messages_options_schema = [
+    metadata: [
+      type: :any,
+      default: [],
+      doc: """
+      an enumerable of key-value pairs of *additional* fields to add to the
+      message. This can be used, for example, when testing `BroadwayRabbitMQ.Producer`.
+      """
+    ],
+    acknowledger: [
+      type: {:fun, 2},
+      doc: """
+      a function that generates `ack` fields of the sent `Broadway.Message.t()`.
+      This function receives the acknowledger `data` and the `from` field and
+      it must return the acknowledger tuple. The typespec of this function is:
+
+      `data :: term(), from :: {pid(), term()} -> {module(), ack_ref :: term(), ack_data :: term()}`
+      """
+    ],
+    batch_mode: [
+      type: {:in, [:bulk, :flush]},
+      default: :bulk,
+      doc: """
+      when set to `:flush`, the batch the message is in is immediately delivered. When set
+      to `:bulk`, batch is delivered when its size or timeout is reached.
+      """
+    ]
+  ]
+
+  @test_message_options_schema NimbleOptions.new!(test_messages_options_schema)
+
+  @test_batch_options_schema test_messages_options_schema
+                             |> Keyword.delete(:batch_mode)
+                             |> NimbleOptions.new!()
+
   @doc """
   Sends a test message through the Broadway pipeline.
 
@@ -1072,15 +1107,7 @@ defmodule Broadway do
 
   ## Options
 
-    * `:metadata` - optionally a map of additional fields to add to the
-      message. This can be used, for example, when testing
-      `BroadwayRabbitMQ.Producer`.
-
-    * `:acknowledger` - optionally a function that generates `ack` fields of
-      the sent `Broadway.Message.t()`. This function receives the acknowledger
-      `data` and the `from` field and it must return the acknowledger tuple:
-
-          data :: term, from :: {pid, term} -> {module, ack_ref :: term, ack_data :: term}
+  #{NimbleOptions.docs(@test_message_options_schema)}
 
   ## Examples
 
@@ -1100,7 +1127,9 @@ defmodule Broadway do
   @spec test_message(broadway :: name(), term, opts :: Keyword.t()) :: reference
   def test_message(broadway, data, opts \\ [])
       when is_broadway_name(broadway) and is_list(opts) do
-    test_messages(broadway, [data], :flush, opts)
+    opts = NimbleOptions.validate!(opts, @test_message_options_schema)
+
+    test_messages(broadway, [data], _batch_mode = :flush, opts)
   end
 
   @doc """
@@ -1123,18 +1152,7 @@ defmodule Broadway do
 
   ## Options
 
-    * `:batch_mode` - when set to `:flush`, the batch the message is
-      in is immediately delivered. When set to `:bulk`, batch is
-      delivered when its size or timeout is reached. Defaults to `:bulk`.
-
-    * `:metadata` - optionally a map of additional fields to add to the
-      message. This can be used, for example, when testing
-      `BroadwayRabbitMQ.Producer`.
-
-    * `:acknowledger` - optionally a function that generates `ack` fields of
-      the sent `Broadway.Message.t()`. This function receives the acknowledger
-      `data` and the `from` field and it must return the acknowledger tuple.
-      See `test_message/3` for specs and examples.
+  #{NimbleOptions.docs(@test_batch_options_schema)}
 
   ## Examples
 
@@ -1151,14 +1169,16 @@ defmodule Broadway do
   @spec test_batch(broadway :: name(), data :: [term], opts :: Keyword.t()) :: reference
   def test_batch(broadway, batch_data, opts \\ [])
       when is_broadway_name(broadway) and is_list(batch_data) and is_list(opts) do
-    test_messages(broadway, batch_data, Keyword.get(opts, :batch_mode, :bulk), opts)
+    opts = NimbleOptions.validate!(opts, @test_message_options_schema)
+    {batch_mode, opts} = Keyword.pop(opts, :batch_mode, :bulk)
+    test_messages(broadway, batch_data, batch_mode, opts)
   end
 
   defp test_messages(broadway, data, batch_mode, opts) when is_broadway_name(broadway) do
-    metadata = Map.new(Keyword.get(opts, :metadata, []))
+    metadata = opts |> Keyword.fetch!(:metadata) |> Map.new()
 
     acknowledger =
-      Keyword.get(opts, :acknowledger, fn _, ack_ref ->
+      Keyword.get(opts, :acknowledger, fn _data, ack_ref ->
         {Broadway.CallerAcknowledger, ack_ref, :ok}
       end)
 
@@ -1206,6 +1226,11 @@ defmodule Broadway do
     end
   end
 
+  @update_rate_limiting_options_schema NimbleOptions.new!(
+                                         allowed_messages: [type: :pos_integer],
+                                         interval: [type: :pos_integer]
+                                       )
+
   @doc """
   Updates the producer rate limiting of the given pipeline at runtime.
 
@@ -1227,14 +1252,10 @@ defmodule Broadway do
   @spec update_rate_limiting(server :: name(), opts :: Keyword.t()) ::
           :ok | {:error, :rate_limiting_not_enabled}
   def update_rate_limiting(broadway, opts) when is_broadway_name(broadway) and is_list(opts) do
-    definition = [
-      allowed_messages: [type: :pos_integer],
-      interval: [type: :pos_integer]
-    ]
-
     with {:validate_opts, {:ok, opts}} <-
-           {:validate_opts, NimbleOptions.validate(opts, definition)},
-         {:get_name, {:ok, rate_limiter_name}} <- {:get_name, Topology.get_rate_limiter(broadway)} do
+           {:validate_opts, NimbleOptions.validate(opts, @update_rate_limiting_options_schema)},
+         {:get_name, {:ok, rate_limiter_name}} <-
+           {:get_name, Topology.get_rate_limiter(broadway)} do
       Topology.RateLimiter.update_rate_limiting(rate_limiter_name, opts)
     else
       {:validate_opts, {:error, %ValidationError{message: message}}} ->
