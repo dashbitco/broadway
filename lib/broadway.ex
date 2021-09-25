@@ -483,6 +483,45 @@ defmodule Broadway do
         assert_receive {:ack, ^ref, [%{data: 1}], []}, 1000
       end
 
+  ### Testing with Ecto
+  
+  If you are using Ecto in your Broadway processors and you want
+  to run your tests concurrently, you need to tell Broadway to
+  use the Ecto SQL Sandbox during tests. This can be done in two
+  steps.
+
+  First, when you call `test_messages/3` in your tests, include
+  the `:ecto_sandbox` process in the message metadata:
+
+      Broadway.test_message(MyApp.Pipeline, message, metadata: %{ecto_sandbox: self()})
+
+  Now we can use Broadway telemetry callbacks to fetch the sandbox
+  process and enable it inside the processor. Add to your
+  `test/test_helper.exs`:
+
+      defmodule BroadwayEctoSandbox do
+        def attach(Repo) do
+          events = [
+            [:broadway, :processor, :start],
+            [:broadway, :batch_processor, :start],
+          ]
+
+          :telemetry.attach_many({__MODULE__, repo}, events, &handle_event/4, %{repo: repo})
+        end
+
+        def handle_event(_event_name, _event_measurement, %{messages: messages}, %{repo: repo}) do
+          with [%Broadway.Message{metadata: %{ecto_sandbox: pid}} | _] <- messages do
+            Ecto.Adapters.SQL.Sandbox.allow(repo, pid, self())
+          end
+
+          :ok
+        end
+      end
+
+      BroadwayEctoSandbox.attach(MyApp.Repo)
+
+  And now you should have concurrent Broadway tests that talk to the database.
+
   ## Ordering and partitioning
 
   By default, Broadway processes all messages and batches concurrently,
