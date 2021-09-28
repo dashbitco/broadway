@@ -1,5 +1,7 @@
 # Broadway
 
+[![CI](https://github.com/dashbitco/broadway/actions/workflows/ci.yml/badge.svg)](https://github.com/dashbitco/broadway/actions/workflows/ci.yml)
+
 Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. Broadway allows developers to consume data efficiently from different sources, known as producers, such as Amazon SQS, Apache Kafka, Google Cloud PubSub, RabbitMQ, and others. Broadway pipelines are concurrent and robust, thanks to the Erlang VM and its actors.
 
 Broadway takes its name from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, renowned for its stages, actors, and producers.

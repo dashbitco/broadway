@@ -484,7 +484,7 @@ defmodule Broadway do
       end
 
   ### Testing with Ecto
-  
+
   If you are using Ecto in your Broadway processors and you want
   to run your tests concurrently, you need to tell Broadway to
   use the Ecto SQL Sandbox during tests. This can be done in two
