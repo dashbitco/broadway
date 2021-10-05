@@ -44,8 +44,7 @@ defmodule Broadway.Topology.Subscriber do
         subscription_options: subscription_options
       })
 
-    # We always subscribe in random order so the load is balanced across consumers.
-    names |> Enum.shuffle() |> Enum.each(&subscribe(&1, state))
+    Enum.each(names, &subscribe(&1, state))
 
     extra_options = if type == :consumer, do: [], else: [buffer_size: :infinity]
     {type, state, extra_options ++ init_options}
