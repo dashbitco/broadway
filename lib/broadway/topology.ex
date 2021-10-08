@@ -221,7 +221,7 @@ defmodule Broadway.Topology do
     dispatcher =
       case processor_config[:partition_by] do
         nil ->
-          GenStage.DemandDispatcher
+          {GenStage.DemandDispatcher, shuffle_demands_on_first_dispatch: true}
 
         func ->
           n_processors = processor_config[:concurrency]
@@ -277,7 +277,8 @@ defmodule Broadway.Topology do
           {:consumer, nil, :none}
 
         [_] = batchers ->
-          {:producer_consumer, GenStage.DemandDispatcher, batchers}
+          {:producer_consumer,
+           {GenStage.DemandDispatcher, shuffle_demands_on_first_dispatch: true}, batchers}
 
         [_ | _] = batchers ->
           {:producer_consumer,
