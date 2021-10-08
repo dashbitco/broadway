@@ -277,7 +277,8 @@ defmodule Broadway.Topology do
           {:consumer, nil, :none}
 
         [_] = batchers ->
-          {:producer_consumer, {GenStage.DemandDispatcher, shuffle_demands_on_first_dispatch: true}, batchers}
+          {:producer_consumer,
+           {GenStage.DemandDispatcher, shuffle_demands_on_first_dispatch: true}, batchers}
 
         [_ | _] = batchers ->
           {:producer_consumer,
