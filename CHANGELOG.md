@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.1 (2021-10-12)
+
+### Bug fixes
+
+  * Make sure `processors` and `batch_processors` demands are properly shuffled
+  * Ensure proper messages metadata for telemetry events on `Broadway.Message.failed/2`
+
 ## v1.0.0 (2021-08-30)
 
 Broadway v1.0 requires Erlang/OTP 21.3+.
