@@ -458,8 +458,7 @@ defmodule Broadway do
   which most likely means you need to increase your test timeouts:
 
       test "batch messages" do
-        {:ok, pid} = MyBroadway.start_link()
-        ref = Broadway.test_batch(pid, [1, 2, 3])
+        ref = Broadway.test_batch(MyBroadway, [1, 2, 3])
         assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}, %{data: 3}], []}, 1000
       end
 
@@ -478,8 +477,7 @@ defmodule Broadway do
   example, if you send those messages:
 
       test "multiple batch messages" do
-        {:ok, pid} = MyBroadway.start_link()
-        ref = Broadway.test_batch(pid, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
+        ref = Broadway.test_batch(MyBroadway, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
         assert_receive {:ack, ^ref, [%{data: 1}], []}, 1000
       end
 
@@ -538,8 +536,8 @@ defmodule Broadway do
         use Broadway
 
         def start_link(_opts) do
-          Broadway.start_link(MyBroadway,
-            name: MyBroadwayExample,
+          Broadway.start_link(__MODULE__,
+            name: __MODULE__,
             producer: [
               module: {Counter, []},
               concurrency: 1
