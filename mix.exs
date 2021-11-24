@@ -27,7 +27,7 @@ defmodule Broadway.MixProject do
   defp deps do
     [
       {:gen_stage, "~> 1.0"},
-      {:nimble_options, "~> 0.3.7"},
+      {:nimble_options, "~> 0.4.0"},
       {:telemetry, "~> 0.4.3 or ~> 1.0"},
       {:ex_doc, ">= 0.19.0", only: :docs},
       {:excoveralls, "~> 0.13.3", only: :test}
