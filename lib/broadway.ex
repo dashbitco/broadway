@@ -498,7 +498,7 @@ defmodule Broadway do
   `test/test_helper.exs`:
 
       defmodule BroadwayEctoSandbox do
-        def attach(Repo) do
+        def attach(repo) do
           events = [
             [:broadway, :processor, :start],
             [:broadway, :batch_processor, :start],
