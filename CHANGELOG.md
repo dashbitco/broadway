@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.2 (2022-01-12)
+
+### Enhancements
+
+  * Also allow `nimble_options ~> 0.4.0`
+
 ## v1.0.1 (2021-10-12)
 
 ### Bug fixes
