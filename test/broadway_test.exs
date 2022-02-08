@@ -2700,7 +2700,7 @@ defmodule BroadwayTest do
                )
 
       assert Exception.message(error) =~
-               "you must define process_name/2 in the module which uses Broadway"
+               "you must define the process_name/2 callback in the module"
     end
 
     defp via_tuple(name), do: {:via, Registry, {MyRegistry, name}}
