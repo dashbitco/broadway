@@ -156,8 +156,7 @@ defmodule Broadway.Options do
             min_demand: [
               type: :non_neg_integer,
               doc: """
-              Set the minimum demand of all processors
-              stages. Default value is `5`.
+              Set the minimum demand of all processors stages.
               """
             ],
             max_demand: [
