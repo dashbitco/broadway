@@ -246,6 +246,10 @@ defmodule Broadway.Topology.ProducerStage do
         {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
         {:noreply, messages, %{state | module_state: new_module_state}}
 
+      {:noreply, new_module_state} ->
+        {state, messages} = maybe_rate_limit_and_buffer_messages(state, [])
+        {:noreply, messages, %{state | module_state: new_module_state}}
+
       {:noreply, events, new_module_state, :hibernate} ->
         messages = transform_events(events, transformer)
         {state, messages} = maybe_rate_limit_and_buffer_messages(state, messages)
