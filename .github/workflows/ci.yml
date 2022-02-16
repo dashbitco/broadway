@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   test:
@@ -20,8 +20,8 @@ jobs:
               elixir: 1.7.4
               otp: 21.3.8.17
           - pair:
-              elixir: 1.11.4
-              otp: 23.3.3
+              elixir: 1.13.3
+              otp: 24.2.1
             lint: lint
             coverage: coverage
     steps:
@@ -33,13 +33,15 @@ jobs:
           elixir-version: ${{matrix.pair.elixir}}
 
       - uses: actions/cache@v2
+        id: cache-deps
         with:
           path: |
             deps
             _build
           key: mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}
 
-      - run: mix deps.get
+      - run: mix do deps.get, deps.compile
+        if: steps.cache-deps.outputs.cache-hit != 'true'
 
       - run: mix format --check-formatted
         if: ${{ matrix.lint }}
@@ -47,12 +49,11 @@ jobs:
       - run: mix deps.unlock --check-unused
         if: ${{ matrix.lint }}
 
-      - run: mix deps.compile
-
       - run: mix compile --warnings-as-errors
         if: ${{ matrix.lint }}
 
       - run: mix test
+        if: ${{!matrix.coverage}}
 
       - run: mix coveralls.github
         if: ${{matrix.coverage}}
