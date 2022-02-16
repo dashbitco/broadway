@@ -15,7 +15,7 @@ defmodule Broadway.Options do
       default: 30000,
       doc: """
       Optional. The time in milliseconds given for Broadway to
-      gracefully shutdown without discarding events. Defaults to `30_000` (millisecond).
+      gracefully shutdown without discarding events.
       """
     ],
     max_restarts: [type: :non_neg_integer, default: 3],
@@ -25,8 +25,7 @@ defmodule Broadway.Options do
       default: 100,
       doc: """
       The interval in milliseconds that
-      processors wait until they resubscribe to a failed producers. Defaults
-      to `100` (millisecond).
+      processors wait until they resubscribe to a failed producers.
       """
     ],
     context: [
@@ -68,7 +67,7 @@ defmodule Broadway.Options do
           doc: """
           The number of concurrent producers that
           will be started by Broadway. Use this option to control the concurrency
-          level of each set of producers. The default value is `1`.
+          level of each set of producers.
           """
         ],
         transformer: [
@@ -157,16 +156,14 @@ defmodule Broadway.Options do
             min_demand: [
               type: :non_neg_integer,
               doc: """
-              Set the minimum demand of all processors
-              stages. Default value is `5`.
+              Set the minimum demand of all processors stages.
               """
             ],
             max_demand: [
               type: :non_neg_integer,
               default: 10,
               doc: """
-              Set the maximum demand of all processors
-              stages. Default value is `10`.
+              Set the maximum demand of all processors stages.
               """
             ],
             partition_by: [
@@ -217,14 +214,14 @@ defmodule Broadway.Options do
               concurrency level. Note that this only sets the numbers of batch
               processors for each batcher group, not the number of batchers.
               The number of batchers will always be one for each batcher key
-              defined. The default value is `1`.
+              defined.
               """
             ],
             batch_size: [
               type: :pos_integer,
               default: 100,
               doc: """
-              The size of the generated batches. Default value is `100`.
+              The size of the generated batches.
               """
             ],
             batch_timeout: [
@@ -234,7 +231,7 @@ defmodule Broadway.Options do
               The time, in milliseconds, that the batcher waits before flushing
               the list of messages. When this timeout is reached, a new batch
               is generated and sent downstream, no matter if the `:batch_size`
-              has been reached or not. Default value is `1000` (1 second).
+              has been reached or not.
               """
             ],
             partition_by: [
