@@ -156,6 +156,20 @@ defmodule BroadwayTest do
     end
   end
 
+  defmodule BatchSplitter do
+    def odd(message, total_size) do
+      total_size = if(total_size == nil, do: 16, else: total_size)
+      remained = total_size - message.data
+      if(remained > 0, do: remained, else: :done)
+    end
+
+    def even(message, total_size) do
+      total_size = if(total_size == nil, do: 24, else: total_size)
+      remained = total_size - message.data * 2
+      if(remained > 0, do: remained, else: :done)
+    end
+  end
+
   describe "use Broadway" do
     test "generates child_spec/1" do
       defmodule MyBroadway do
@@ -203,7 +217,7 @@ defmodule BroadwayTest do
       message = """
       invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
       unknown options [:batch_sizy], valid options are: \
-      [:concurrency, :batch_size, :batch_timeout, :partition_by, :spawn_opt, :hibernate_after]\
+      [:concurrency, :batch_size, :max_demand, :batch_timeout, :partition_by, :spawn_opt, :hibernate_after]\
       """
 
       assert_raise ArgumentError, message, fn ->
@@ -1143,6 +1157,78 @@ defmodule BroadwayTest do
 
       assert_receive {:ack, ^ref, [%{data: 1, batch_key: :odd}], []}
       assert_receive {:ack, ^ref, [%{data: 2, batch_key: :even}], []}
+    end
+  end
+
+  describe "customized batch splitter" do
+    setup do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      handle_message = fn message, _ ->
+        if is_odd(message.data) do
+          Message.put_batcher(message, :odd)
+        else
+          Message.put_batcher(message, :even)
+        end
+      end
+
+      context = %{
+        handle_message: handle_message,
+        handle_batch: fn batcher, batch, batch_info, _ ->
+          send(test_pid, {:batch_handled, batcher, batch, batch_info})
+          batch
+        end
+      }
+
+      {:ok, _broadway} =
+        Broadway.start_link(CustomHandlers,
+          name: broadway_name,
+          context: context,
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []],
+          batchers: [
+            odd: [batch_size: &BatchSplitter.odd/2, batch_timeout: 20, max_demand: 10],
+            even: [batch_size: &BatchSplitter.even/2, batch_timeout: 20, max_demand: 10]
+          ]
+        )
+
+      %{broadway: broadway_name}
+    end
+
+    test "generate batches based on :batch_size", %{broadway: broadway} do
+      Broadway.test_batch(broadway, Enum.to_list(1..10))
+
+      assert_receive {:batch_handled, :odd, messages,
+                      %BatchInfo{batcher: :odd, size: 4, trigger: :size}}
+                     when length(messages) == 4
+
+      assert_receive {:batch_handled, :odd, messages,
+                      %BatchInfo{batcher: :odd, size: 1, trigger: :timeout}}
+                     when length(messages) == 1
+
+      assert_receive {:batch_handled, :even, messages,
+                      %BatchInfo{batcher: :even, size: 3, trigger: :size}}
+                     when length(messages) == 3
+
+      assert_receive {:batch_handled, :even, messages,
+                      %BatchInfo{batcher: :even, size: 2, trigger: :size}}
+                     when length(messages) == 2
+
+      refute_received {:batch_handled, _, _}
+    end
+
+    test "generate batches with the remaining messages after :batch_timeout is reached",
+         %{broadway: broadway} do
+      Broadway.test_batch(broadway, [1, 2, 3, 4], batch_mode: :flush)
+
+      assert_receive {:batch_handled, :odd, messages, %BatchInfo{trigger: :flush}}
+                     when length(messages) == 2
+
+      assert_receive {:batch_handled, :even, messages, %BatchInfo{trigger: :flush}}
+                     when length(messages) == 2
+
+      refute_received {:batch_handled, _, _, _}
     end
   end
 

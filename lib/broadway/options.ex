@@ -221,10 +221,27 @@ defmodule Broadway.Options do
               """
             ],
             batch_size: [
-              type: :pos_integer,
+              type: {:or, [:pos_integer, {:fun, 2}]},
               default: 100,
               doc: """
               The size of the generated batches. Default value is `100`.
+              It can also be a function that takes a
+              `Broadway.Message` and last calculated value returned from this function.
+              Value of the second parameter is `nil` on first call for one batch and you should set initial counter.
+              The function must return atom `:done` if passed in message indicates a full batch stop.
+              Default batch size is actually converted to this:
+              `fn _message, remained ->
+                remained = if(remained == nil, do: batch_size - 1, else: remained - 1)
+                if(remained == 0, do: :done, else: remained)
+              end`
+              """
+            ],
+            max_demand: [
+              type: :pos_integer,
+              doc: """
+              Set the maximum demand of batcher stages. No default value is given because
+              max_demand will take `:batch_size` if this is not given for compatibility reason.
+              Must be set if the `:batch_size` is a function.
               """
             ],
             batch_timeout: [
