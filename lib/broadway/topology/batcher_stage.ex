@@ -113,9 +113,28 @@ defmodule Broadway.Topology.BatcherStage do
     {current, pending_count, batch_splitter, timer} = init_or_get_batch(batch_key, state)
 
     {current, pending_count, events, flush?} =
-      split_counting(batch_key, events, pending_count, batch_splitter, false, current, partition_by)
+      split_counting(
+        batch_key,
+        events,
+        pending_count,
+        batch_splitter,
+        false,
+        current,
+        partition_by
+      )
 
-    acc = deliver_or_update_batch(batch_key, current, pending_count, batch_splitter, flush?, timer, acc, state)
+    acc =
+      deliver_or_update_batch(
+        batch_key,
+        current,
+        pending_count,
+        batch_splitter,
+        flush?,
+        timer,
+        acc,
+        state
+      )
+
     handle_events_per_batch_key(events, acc, state)
   end
 
@@ -123,7 +142,15 @@ defmodule Broadway.Topology.BatcherStage do
     {acc, count, [], flush?}
   end
 
-  defp split_counting(batch_key, [event | remained] = events, count, batch_splitter, flush?, acc, partition_by) do
+  defp split_counting(
+         batch_key,
+         [event | remained] = events,
+         count,
+         batch_splitter,
+         flush?,
+         acc,
+         partition_by
+       ) do
     event_batch_key = batch_key(event, partition_by)
     remained_count = batch_splitter.(event, count)
 
@@ -131,25 +158,63 @@ defmodule Broadway.Topology.BatcherStage do
       event_batch_key != batch_key ->
         # Switch to a different batch key
         {acc, count, events, flush?}
+
       remained_count == :done ->
         # Complete one batch, reset the count = nil so that splitter can count again
         {[event | acc], nil, remained, flush?}
+
       true ->
         # Same batch key but not fulfill one batch size yet
         flush? = flush? or event.batch_mode == :flush
-        split_counting(batch_key, remained, remained_count, batch_splitter, flush?, [event | acc], partition_by)
+
+        split_counting(
+          batch_key,
+          remained,
+          remained_count,
+          batch_splitter,
+          flush?,
+          [event | acc],
+          partition_by
+        )
     end
   end
 
-  defp deliver_or_update_batch(batch_key, current, pending_count, _batch_splitter, true, timer, acc, state) do
+  defp deliver_or_update_batch(
+         batch_key,
+         current,
+         pending_count,
+         _batch_splitter,
+         true,
+         timer,
+         acc,
+         state
+       ) do
     deliver_batch(batch_key, current, pending_count, timer, acc, state)
   end
 
-  defp deliver_or_update_batch(batch_key, current, nil, _batch_splitter, _flush?, timer, acc, state) do
+  defp deliver_or_update_batch(
+         batch_key,
+         current,
+         nil,
+         _batch_splitter,
+         _flush?,
+         timer,
+         acc,
+         state
+       ) do
     deliver_batch(batch_key, current, :done, timer, acc, state)
   end
 
-  defp deliver_or_update_batch(batch_key, current, pending_count, batch_splitter, _flush?, timer, acc, _state) do
+  defp deliver_or_update_batch(
+         batch_key,
+         current,
+         pending_count,
+         batch_splitter,
+         _flush?,
+         timer,
+         acc,
+         _state
+       ) do
     put_batch(batch_key, {current, pending_count, batch_splitter, timer})
     acc
   end
