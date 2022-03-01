@@ -458,8 +458,7 @@ defmodule Broadway do
   which most likely means you need to increase your test timeouts:
 
       test "batch messages" do
-        {:ok, pid} = MyBroadway.start_link()
-        ref = Broadway.test_batch(pid, [1, 2, 3])
+        ref = Broadway.test_batch(MyBroadway, [1, 2, 3])
         assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}, %{data: 3}], []}, 1000
       end
 
@@ -478,8 +477,7 @@ defmodule Broadway do
   example, if you send those messages:
 
       test "multiple batch messages" do
-        {:ok, pid} = MyBroadway.start_link()
-        ref = Broadway.test_batch(pid, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
+        ref = Broadway.test_batch(MyBroadway, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
         assert_receive {:ack, ^ref, [%{data: 1}], []}, 1000
       end
 
@@ -500,7 +498,7 @@ defmodule Broadway do
   `test/test_helper.exs`:
 
       defmodule BroadwayEctoSandbox do
-        def attach(Repo) do
+        def attach(repo) do
           events = [
             [:broadway, :processor, :start],
             [:broadway, :batch_processor, :start],
@@ -538,8 +536,8 @@ defmodule Broadway do
         use Broadway
 
         def start_link(_opts) do
-          Broadway.start_link(MyBroadway,
-            name: MyBroadwayExample,
+          Broadway.start_link(__MODULE__,
+            name: __MODULE__,
             producer: [
               module: {Counter, []},
               concurrency: 1
@@ -907,7 +905,32 @@ defmodule Broadway do
   @doc since: "0.5.0"
   @callback handle_failed(messages :: [Message.t()], context :: term) :: [Message.t()]
 
-  @optional_callbacks prepare_messages: 2, handle_batch: 4, handle_failed: 2
+  @doc """
+  Invoked to get the process name of this Broadway pipeline.
+
+  `broadway_name` is the name given to `start_link/2` in the `:name` option. `base_name`
+  is a string used by Broadway to identify different components of the pipeline
+  whose name needs to be registered (such as "batcher" or "processor").
+
+  The return value of this callback must be a process name that is valid for registration.
+  See the name registration rules in the documentation for `GenServer`.
+
+  This callback is optional. If not defined, the `broadway_name` given to `start_link/2`
+  **must be an atom**: the default implementation of this callback will fail otherwise.
+
+  ## Examples
+
+      @impl Broadway
+      def process_name({:via, module, term}, base_name) do
+        {:via, module, {term, base_name}}
+      end
+
+  """
+  @doc since: "1.1.0"
+  @callback process_name(broadway_name :: Broadway.name(), base_name :: String.t()) ::
+              Broadway.name()
+
+  @optional_callbacks prepare_messages: 2, handle_batch: 4, handle_failed: 2, process_name: 2
 
   defguardp is_broadway_name(name)
             when is_atom(name) or (is_tuple(name) and tuple_size(name) == 3)
@@ -928,19 +951,7 @@ defmodule Broadway do
         Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
 
-      @callback process_name(Broadway.name(), base_name :: String.t()) :: Broadway.name()
-      def process_name(broadway_name, base_name) when is_atom(broadway_name) do
-        :"#{broadway_name}.Broadway.#{base_name}"
-      end
-
-      def process_name(broadway_name, _base_name) do
-        raise ArgumentError, """
-        Expected Broadway to be started with a `name` of type atom, got: #{inspect(broadway_name)}.
-        If starting Broadway with a `name` that is not an atom, you must define process_name/2 in the module which uses Broadway.
-        """
-      end
-
-      defoverridable child_spec: 1, process_name: 2
+      defoverridable child_spec: 1
     end
   end
 

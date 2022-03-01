@@ -73,7 +73,7 @@ is designed as follows:
 ```
 
 
-Both `ProcessorSupervisor` and `ConsumerSupervisor` are set with
+Both `ProcessorSupervisor` and `BatchProcessorSupervisor` are set with
 `max_restarts` to 0. The idea is that if any process fails, we want
 to restart the rest of the tree. Since Broadway callbacks are
 stateless, we can handle errors and provide reports without crashing

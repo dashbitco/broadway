@@ -221,7 +221,7 @@ defmodule Broadway.Topology do
     dispatcher =
       case processor_config[:partition_by] do
         nil ->
-          GenStage.DemandDispatcher
+          {GenStage.DemandDispatcher, shuffle_demands_on_first_dispatch: true}
 
         func ->
           n_processors = processor_config[:concurrency]
@@ -277,7 +277,8 @@ defmodule Broadway.Topology do
           {:consumer, nil, :none}
 
         [_] = batchers ->
-          {:producer_consumer, GenStage.DemandDispatcher, batchers}
+          {:producer_consumer,
+           {GenStage.DemandDispatcher, shuffle_demands_on_first_dispatch: true}, batchers}
 
         [_ | _] = batchers ->
           {:producer_consumer,
@@ -469,10 +470,25 @@ defmodule Broadway.Topology do
     process_name(config, "#{base_name}_#{suffix}")
   end
 
-  defp process_name(config, base_name) do
-    %{module: module, name: broadway_name} = config
+  defp process_name(%{module: module, name: broadway_name} = _config, base_name) do
+    if function_exported?(module, :process_name, 2) do
+      module.process_name(broadway_name, base_name)
+    else
+      default_process_name(broadway_name, base_name)
+    end
+  end
 
-    module.process_name(broadway_name, base_name)
+  defp default_process_name(broadway_name, base_name) when is_atom(broadway_name) do
+    :"#{broadway_name}.Broadway.#{base_name}"
+  end
+
+  defp default_process_name(broadway_name, _base_name) do
+    raise ArgumentError, """
+    expected Broadway to be started with an atom :name, got: #{inspect(broadway_name)}
+
+    If starting Broadway with a :name that is not an atom, you must define the \
+    process_name/2 callback in the module which calls "use Broadway" (see the documentation).
+    """
   end
 
   defp process_names(config, type, processor_config) do
