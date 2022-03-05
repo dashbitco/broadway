@@ -29,7 +29,15 @@ defmodule Broadway.Topology.ProducerStage do
 
   @impl true
   def init({args, index}) do
-    {module, arg} = args[:module]
+    {module, arg} =
+      case args[:module] do
+        {:fan_in, opts} ->
+          {Broadway.Topology.FanInProducer, opts}
+
+        _ ->
+          args[:module]
+      end
+
     transformer = args[:transformer]
     dispatcher = args[:dispatcher]
     rate_limiter = args[:rate_limiter]

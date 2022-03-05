@@ -526,6 +526,27 @@ defmodule BroadwayTest do
     assert_receive {:ack, :ref, [_, _], []}
   end
 
+  test ":fan_in producer " do
+    {:ok, _broadway} =
+      Broadway.start_link(Forwarder,
+        name: broadway_name = new_unique_name(),
+        context: %{test_pid: self()},
+        producer: [module: {:fan_in, []}],
+        processors: [default: []],
+        batchers: [default: [batch_size: 2]]
+      )
+
+    Broadway.push_messages(broadway_name, [
+      %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+      %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+    ])
+
+    assert_receive {:message_handled, 1}
+    assert_receive {:message_handled, 3}
+    assert_receive {:batch_handled, :default, [%{data: 1}, %{data: 3}]}
+    assert_receive {:ack, :ref, [_, _], []}
+  end
+
   describe "test_messages/3" do
     setup do
       handle_message = fn message, _ ->
