@@ -218,19 +218,20 @@ defmodule Broadway.Options do
               """
             ],
             batch_size: [
-              type: {:or, [:pos_integer, {:fun, 2}]},
+              type: {:custom, __MODULE__, :validate_batch_size, []},
               default: 100,
               doc: """
               The size of the generated batches. Default value is `100`.
-              It can also be a function that takes a
-              `Broadway.Message` and last calculated value returned from this function.
-              Value of the second parameter is `nil` on first call for one batch and you should set initial counter.
-              The function must return atom `:done` if passed in message indicates a full batch stop.
+              It can also be tuple of {:fun/2, init_size}.  The function must have an arity of 2
+              with `Broadway.Message` and last calculated `acc` returned from it.  `init_size` is provided
+              as the second parameter on first call.
+              The function must return either {:emit, acc} to indicate a full batch,
+              or {:cont, acc} to continue.
               Default batch size is actually converted to this:
-              `fn _message, remained ->
-                remained = if(remained == nil, do: batch_size - 1, else: remained - 1)
-                if(remained == 0, do: :done, else: remained)
-              end`
+              `{fn _message, remained ->
+                 remained = remained - 1
+                 if(remained == 0, do: {:emit, batch_size}, else: {:cont, remained})
+               end, batch_size}`
               """
             ],
             max_demand: [
@@ -316,5 +317,21 @@ defmodule Broadway.Options do
   def validate_name(name) do
     {:error,
      "expected :name to be an atom or a {:via, module, term} tuple, got: #{inspect(name)}"}
+  end
+
+  def validate_batch_size(size) when is_integer(size) and size > 0, do: {:ok, size}
+
+  def validate_batch_size({func, _acc} = batch_splitter) when is_function(func) do
+    if :erlang.fun_info(func)[:arity] == 2 do
+      {:ok, batch_splitter}
+    else
+      {:error,
+       "expected batch sizing function has an arity of 2, got: #{inspect(:erlang.fun_info(func)[:arity])}\n"}
+    end
+  end
+
+  def validate_batch_size(batch_size) do
+    {:error,
+     "expected :batch_size to be a positive integer or a tuple {:fun/2, acc}, got: #{inspect(batch_size)}\n"}
   end
 end

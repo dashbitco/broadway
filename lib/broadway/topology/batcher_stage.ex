@@ -7,6 +7,10 @@ defmodule Broadway.Topology.BatcherStage do
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, stage_options) do
+    if args[:max_demand] == nil and is_tuple(args[:batch_size]) do
+      raise "expected option :max_demand to be provided when :batch_size is a tuple"
+    end
+
     Broadway.Topology.Subscriber.start_link(
       __MODULE__,
       args[:processors],
@@ -145,23 +149,23 @@ defmodule Broadway.Topology.BatcherStage do
   defp split_counting(
          batch_key,
          [event | remained] = events,
-         count,
+         {_flag, count} = split_counter,
          batch_splitter,
          flush?,
          acc,
          partition_by
        ) do
     event_batch_key = batch_key(event, partition_by)
-    remained_count = batch_splitter.(event, count)
+    {next_flag, _next_count} = next_split_counter = batch_splitter.(event, count)
 
     cond do
       event_batch_key != batch_key ->
         # Switch to a different batch key
-        {acc, count, events, flush?}
+        {acc, split_counter, events, flush?}
 
-      remained_count == :done ->
-        # Complete one batch, reset the count = nil so that splitter can count again
-        {[event | acc], nil, remained, flush?}
+      next_flag == :emit ->
+        # Batch splitter indicates a full batch
+        {[event | acc], next_split_counter, remained, flush?}
 
       true ->
         # Same batch key but not fulfill one batch size yet
@@ -170,7 +174,7 @@ defmodule Broadway.Topology.BatcherStage do
         split_counting(
           batch_key,
           remained,
-          remained_count,
+          next_split_counter,
           batch_splitter,
           flush?,
           [event | acc],
@@ -195,14 +199,14 @@ defmodule Broadway.Topology.BatcherStage do
   defp deliver_or_update_batch(
          batch_key,
          current,
-         nil,
+         {:emit, _count} = pending_count,
          _batch_splitter,
          _flush?,
          timer,
          acc,
          state
        ) do
-    deliver_batch(batch_key, current, :done, timer, acc, state)
+    deliver_batch(batch_key, current, pending_count, timer, acc, state)
   end
 
   defp deliver_or_update_batch(
@@ -241,22 +245,21 @@ defmodule Broadway.Topology.BatcherStage do
     else
       %{batch_size: batch_size, batch_timeout: batch_timeout} = state
 
-      batch_splitter = get_batch_splitter(batch_size)
+      {batch_splitter, size} = get_batch_splitter(batch_size)
       timer = schedule_batch_timeout(batch_key, batch_timeout)
       update_all_batches(&Map.put(&1, batch_key, true))
-      {[], nil, batch_splitter, timer}
+      {[], {:cont, size}, batch_splitter, timer}
     end
   end
 
   defp get_batch_splitter(batch_size) do
     if is_number(batch_size) do
-      fn _message, remained ->
-        # Initialize batch split counter
-        remained = if(remained == nil, do: batch_size - 1, else: remained - 1)
-        if(remained == 0, do: :done, else: remained)
-      end
+      {fn _message, remained ->
+         remained = remained - 1
+         if(remained == 0, do: {:emit, batch_size}, else: {:cont, remained})
+       end, batch_size}
     else
-      # Customized batch splitter function should have default batch size on first call
+      # Customized batch splitter function and initial size tuple
       batch_size
     end
   end
@@ -311,13 +314,13 @@ defmodule Broadway.Topology.BatcherStage do
     wrap_for_delivery(batch_key, partition, reversed_events, pending, state)
   end
 
-  defp wrap_for_delivery(batch_key, partition, reversed_events, pending, state) do
+  defp wrap_for_delivery(batch_key, partition, reversed_events, {flag, _pending}, state) do
     %{batcher: batcher} = state
     [event | _] = reversed_events
 
     trigger =
       case event.batch_mode do
-        :bulk -> if(pending == :done, do: :size, else: :timeout)
+        :bulk -> if(flag == :emit, do: :size, else: :timeout)
         :flush -> :flush
       end
 

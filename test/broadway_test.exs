@@ -158,15 +158,13 @@ defmodule BroadwayTest do
 
   defmodule BatchSplitter do
     def odd(message, total_size) do
-      total_size = if(total_size == nil, do: 16, else: total_size)
       remained = total_size - message.data
-      if(remained > 0, do: remained, else: :done)
+      if(remained > 0, do: {:cont, remained}, else: {:emit, 16})
     end
 
     def even(message, total_size) do
-      total_size = if(total_size == nil, do: 24, else: total_size)
       remained = total_size - message.data * 2
-      if(remained > 0, do: remained, else: :done)
+      if(remained > 0, do: {:cont, remained}, else: {:emit, 24})
     end
   end
 
@@ -223,6 +221,67 @@ defmodule BroadwayTest do
       assert_raise ArgumentError, message, fn ->
         Broadway.start_link(Forwarder, opts)
       end
+    end
+
+    test "invalid batch_size configuration option with function having wrong arity" do
+      opts = [
+        name: MyBroadway,
+        producer: [module: {ManualProducer, []}],
+        processors: [default: []],
+        batchers: [
+          sqs: [batch_size: {&wrong_splitter/1, 0}]
+        ]
+      ]
+
+      message = """
+      invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
+      expected batch sizing function has an arity of 2, got: 1
+      """
+
+      assert_raise ArgumentError, message, fn ->
+        Broadway.start_link(Forwarder, opts)
+      end
+    end
+
+    defp wrong_splitter(_) do
+      :dummy
+    end
+
+    test "invalid batch_size configuration option" do
+      opts = [
+        name: MyBroadway,
+        producer: [module: {ManualProducer, []}],
+        processors: [default: []],
+        batchers: [
+          sqs: [batch_size: &wrong_splitter/1]
+        ]
+      ]
+
+      message = """
+      invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
+      expected :batch_size to be a positive integer or a tuple {:fun/2, acc}, \
+      got: #{inspect(&wrong_splitter/1)}
+      """
+
+      assert_raise ArgumentError, message, fn ->
+        Broadway.start_link(Forwarder, opts)
+      end
+    end
+
+    test "no demand_size option is provided when batch_size is tuple" do
+      opts = [
+        name: MyBroadway,
+        producer: [module: {ManualProducer, []}],
+        processors: [default: []],
+        batchers: [
+          sqs: [batch_size: {&BatchSplitter.even/2, 10}]
+        ]
+      ]
+
+      Process.flag(:trap_exit, true)
+      {:error, _reason} = Broadway.start_link(Forwarder, opts)
+
+      assert_receive {:EXIT, _, _}
     end
 
     test "default number of producers is 1" do
@@ -1188,8 +1247,8 @@ defmodule BroadwayTest do
           producer: [module: {ManualProducer, []}],
           processors: [default: []],
           batchers: [
-            odd: [batch_size: &BatchSplitter.odd/2, batch_timeout: 20, max_demand: 10],
-            even: [batch_size: &BatchSplitter.even/2, batch_timeout: 20, max_demand: 10]
+            odd: [batch_size: {&BatchSplitter.odd/2, 16}, batch_timeout: 20, max_demand: 10],
+            even: [batch_size: {&BatchSplitter.even/2, 24}, batch_timeout: 20, max_demand: 10]
           ]
         )
 
