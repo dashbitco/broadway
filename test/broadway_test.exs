@@ -248,19 +248,21 @@ defmodule BroadwayTest do
     end
 
     test "invalid batch_size configuration option: either function or integer" do
+      captured_fn = &wrong_splitter/1
+
       opts = [
         name: new_unique_name(),
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [
-          sqs: [batch_size: &wrong_splitter/1]
+          sqs: [batch_size: captured_fn]
         ]
       ]
 
       message = """
       invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
       expected :batch_size to be a positive integer or a tuple {:fun/2, acc}, \
-      got: #{inspect(&wrong_splitter/1)}
+      got: #{inspect(captured_fn)}
       """
 
       assert_raise ArgumentError, message, fn ->
