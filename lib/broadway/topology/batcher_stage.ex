@@ -7,10 +7,6 @@ defmodule Broadway.Topology.BatcherStage do
 
   @spec start_link(term, GenServer.options()) :: GenServer.on_start()
   def start_link(args, stage_options) do
-    if args[:max_demand] == nil and is_tuple(args[:batch_size]) do
-      raise "expected option :max_demand to be provided when :batch_size is a tuple"
-    end
-
     Broadway.Topology.Subscriber.start_link(
       __MODULE__,
       args[:processors],

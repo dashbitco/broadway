@@ -247,9 +247,9 @@ defmodule BroadwayTest do
       :dummy
     end
 
-    test "invalid batch_size configuration option" do
+    test "invalid batch_size configuration option: either function or integer" do
       opts = [
-        name: MyBroadway,
+        name: new_unique_name(),
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [
@@ -270,7 +270,7 @@ defmodule BroadwayTest do
 
     test "no demand_size option is provided when batch_size is tuple" do
       opts = [
-        name: MyBroadway,
+        name: new_unique_name(),
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [
@@ -278,10 +278,11 @@ defmodule BroadwayTest do
         ]
       ]
 
-      Process.flag(:trap_exit, true)
-      {:error, _reason} = Broadway.start_link(Forwarder, opts)
-
-      assert_receive {:EXIT, _, _}
+      assert_raise ArgumentError,
+                   "For batch sqs, expected option :max_demand to be provided when :batch_size is a tuple",
+                   fn ->
+                     Broadway.start_link(Forwarder, opts)
+                   end
     end
 
     test "default number of producers is 1" do
