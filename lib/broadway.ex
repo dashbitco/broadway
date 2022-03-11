@@ -61,11 +61,6 @@ defmodule Broadway do
     * Metrics - Broadway uses the `:telemetry` library for instrumentation,
       see ["Telemetry"](#module-telemetry) section below for more information.
 
-    * Back-off - Will not be backed into Broadway.  See the discussion in this
-      [issue](https://github.com/dashbitco/broadway/issues/33).  Please provide your scenario
-      and thought if you really need it.
-
-
   ## The Broadway Behaviour
 
   In order to use Broadway, you need to:
