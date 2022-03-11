@@ -52,7 +52,7 @@ defmodule Broadway do
       tied to a given `user_id` are processed in order and not concurrently,
       you can set the `:partition_by` option. See ["Ordering and partitioning"](#module-ordering-and-partitioning).
 
-    * Rate limiting: Broadway allows developers to rate limit all producers in
+    * Rate limiting - Broadway allows developers to rate limit all producers in
       a single node by a given number of messages in a time period, allowing
       developers to easily work sources or sinks that cannot cope with a high
       number of requests. See the ":rate_limiting" option for producers in
@@ -61,7 +61,10 @@ defmodule Broadway do
     * Metrics - Broadway uses the `:telemetry` library for instrumentation,
       see ["Telemetry"](#module-telemetry) section below for more information.
 
-    * Back-off (TODO)
+    * Back-off - Will not be backed into Broadway.  See the discussion in this
+      [issue](https://github.com/dashbitco/broadway/issues/33).  Please provide your scenario
+      and thought if you really need it.
+
 
   ## The Broadway Behaviour
 
