@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.3 (2022-03-18)
+
+### Bug fixes
+
+  * Move the `process_name/2` callback to the `Broadway` behaviour where it belongs
+
 ## v1.0.2 (2022-01-12)
 
 ### Enhancements
