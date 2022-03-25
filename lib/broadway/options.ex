@@ -222,23 +222,24 @@ defmodule Broadway.Options do
               default: 100,
               doc: """
               The size of the generated batches. Default value is `100`.
-              It can also be tuple of {:fun/2, init_size}.  The function must have an arity of 2
-              with `Broadway.Message` and last calculated `acc` returned from it.  `init_size` is provided
-              as the second parameter on first call.
-              The function must return either {:emit, acc} to indicate a full batch,
-              or {:cont, acc} to continue.
-              Default batch size is actually converted to this:
-              `{fn _message, remained ->
-                 remained = remained - 1
-                 if(remained == 0, do: {:emit, batch_size}, else: {:cont, remained})
-               end, batch_size}`
+              It is typically an integer but it can also be tuple of `{fun, init_acc}`
+              where `fun` receives two arguments: a `Broadway.Message` and
+              an `acc`. The function must return either `{:emit, acc}` to indicate
+              all batched messages must be emitted or `{:cont, acc}` to continue
+              batching. `init_acc` is the initial accumulator used on the first call.
+              You can consider that setting the accumulator to an integer is the
+              equivalent to custom batching function of:
+                  {fn _message, remained ->
+                     remained = remained - 1
+                     if(remained == 0, do: {:emit, batch_size}, else: {:cont, remained})
+                   end, batch_size}
               """
             ],
             max_demand: [
               type: :pos_integer,
               doc: """
-              Set the maximum demand of batcher stages. No default value is given because
-              max_demand will take `:batch_size` if this is not given for compatibility reason.
+              Sets the maximum demand of batcher stages.
+              By default it is set to `:batch_size`, if `:batch_size` is an integer.
               Must be set if the `:batch_size` is a function.
               """
             ],
@@ -322,16 +323,15 @@ defmodule Broadway.Options do
   def validate_batch_size(size) when is_integer(size) and size > 0, do: {:ok, size}
 
   def validate_batch_size({func, _acc} = batch_splitter) when is_function(func) do
-    if :erlang.fun_info(func)[:arity] == 2 do
+    if is_function(func, 2) do
       {:ok, batch_splitter}
     else
-      {:error,
-       "expected batch sizing function has an arity of 2, got: #{inspect(:erlang.fun_info(func)[:arity])}\n"}
+      {:error, "expected `:batch_size` to include a function of 2 arity, got: #{inspect(func)}\n"}
     end
   end
 
   def validate_batch_size(batch_size) do
     {:error,
-     "expected :batch_size to be a positive integer or a tuple {:fun/2, acc}, got: #{inspect(batch_size)}\n"}
+     "expected :batch_size to be a positive integer or a {&fun/2, acc} tuple, got: #{inspect(batch_size)}\n"}
   end
 end

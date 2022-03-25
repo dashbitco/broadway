@@ -77,9 +77,9 @@ defmodule Broadway.Topology.BatcherStage do
   @impl true
   def handle_info({:timeout, timer, batch_key}, state) do
     case get_timed_out_batch(batch_key, timer) do
-      {current, pending_count, _, _} ->
+      {current, _, _, _} ->
         delete_batch(batch_key)
-        {:noreply, [wrap_for_delivery(batch_key, current, pending_count, state)], state}
+        {:noreply, [wrap_for_delivery(batch_key, current, :timeout, state)], state}
 
       :error ->
         {:noreply, [], state}
@@ -89,9 +89,9 @@ defmodule Broadway.Topology.BatcherStage do
   def handle_info(:cancel_consumers, state) do
     events =
       for {batch_key, _} <- all_batches() do
-        {current, pending_count, _, timer} = delete_batch(batch_key)
+        {current, _, _, timer} = delete_batch(batch_key)
         cancel_batch_timeout(timer)
-        wrap_for_delivery(batch_key, current, pending_count, state)
+        wrap_for_delivery(batch_key, current, :flush, state)
       end
 
     {:noreply, events, state}
@@ -182,27 +182,27 @@ defmodule Broadway.Topology.BatcherStage do
   defp deliver_or_update_batch(
          batch_key,
          current,
-         pending_count,
+         _pending_count,
          _batch_splitter,
          true,
          timer,
          acc,
          state
        ) do
-    deliver_batch(batch_key, current, pending_count, timer, acc, state)
+    deliver_batch(batch_key, current, :flush, timer, acc, state)
   end
 
   defp deliver_or_update_batch(
          batch_key,
          current,
-         {:emit, _count} = pending_count,
+         {:emit, _acc},
          _batch_splitter,
          _flush?,
          timer,
          acc,
          state
        ) do
-    deliver_batch(batch_key, current, pending_count, timer, acc, state)
+    deliver_batch(batch_key, current, :size, timer, acc, state)
   end
 
   defp deliver_or_update_batch(
@@ -219,10 +219,10 @@ defmodule Broadway.Topology.BatcherStage do
     acc
   end
 
-  defp deliver_batch(batch_key, current, pending_count, timer, acc, state) do
+  defp deliver_batch(batch_key, current, trigger, timer, acc, state) do
     delete_batch(batch_key)
     cancel_batch_timeout(timer)
-    [wrap_for_delivery(batch_key, current, pending_count, state) | acc]
+    [wrap_for_delivery(batch_key, current, trigger, state) | acc]
   end
 
   ## General batch handling
@@ -302,23 +302,16 @@ defmodule Broadway.Topology.BatcherStage do
     end
   end
 
-  defp wrap_for_delivery(batch_key, reversed_events, pending, %{partition_by: nil} = state) do
-    wrap_for_delivery(batch_key, nil, reversed_events, pending, state)
+  defp wrap_for_delivery(batch_key, reversed_events, trigger, %{partition_by: nil} = state) do
+    wrap_for_delivery(batch_key, nil, reversed_events, trigger, state)
   end
 
-  defp wrap_for_delivery([batch_key | partition], reversed_events, pending, state) do
-    wrap_for_delivery(batch_key, partition, reversed_events, pending, state)
+  defp wrap_for_delivery([batch_key | partition], reversed_events, trigger, state) do
+    wrap_for_delivery(batch_key, partition, reversed_events, trigger, state)
   end
 
-  defp wrap_for_delivery(batch_key, partition, reversed_events, {flag, _pending}, state) do
+  defp wrap_for_delivery(batch_key, partition, reversed_events, trigger, state) do
     %{batcher: batcher} = state
-    [event | _] = reversed_events
-
-    trigger =
-      case event.batch_mode do
-        :bulk -> if(flag == :emit, do: :size, else: :timeout)
-        :flush -> :flush
-      end
 
     batch_info = %BatchInfo{
       batcher: batcher,

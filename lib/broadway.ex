@@ -979,10 +979,10 @@ defmodule Broadway do
         raise ArgumentError, format_error(error)
 
       {:ok, opts} ->
-        Enum.each(opts[:batchers], fn {batcher_name, batcher_opt} ->
+        Enum.each(opts[:batchers], fn {_batcher_name, batcher_opt} ->
           if batcher_opt[:max_demand] == nil and is_tuple(batcher_opt[:batch_size]) do
             raise ArgumentError,
-                  "For batch #{batcher_name}, expected option :max_demand to be provided when :batch_size is a tuple"
+                  "you must set the :max_demand option to an integer when :batch_size is a tuple"
           end
         end)
 
