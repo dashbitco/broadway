@@ -224,18 +224,19 @@ defmodule BroadwayTest do
     end
 
     test "invalid batch_size configuration option with function having wrong arity" do
+      captured_fn = &wrong_splitter/1
       opts = [
         name: MyBroadway,
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [
-          sqs: [batch_size: {&wrong_splitter/1, 0}]
+          sqs: [batch_size: {captured_fn, 0}]
         ]
       ]
 
       message = """
       invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
-      expected `:batch_size` to include a function of 2 arity, got: #{inspect(&wrong_splitter/1)}
+      expected `:batch_size` to include a function of 2 arity, got: #{inspect(captured_fn)}
       """
 
       assert_raise ArgumentError, message, fn ->
