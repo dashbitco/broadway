@@ -225,6 +225,7 @@ defmodule BroadwayTest do
 
     test "invalid batch_size configuration option with function having wrong arity" do
       captured_fn = &wrong_splitter/1
+
       opts = [
         name: MyBroadway,
         producer: [module: {ManualProducer, []}],
