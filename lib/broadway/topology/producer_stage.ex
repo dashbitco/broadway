@@ -5,7 +5,7 @@ defmodule Broadway.Topology.ProducerStage do
   alias Broadway.Message
   alias Broadway.Topology.RateLimiter
 
-  @spec start_link(term, GenServer.options()) :: GenServer.on_start()
+  @spec start_link(term, non_neg_integer, GenServer.options()) :: GenServer.on_start()
   def start_link(args, index, opts \\ []) do
     GenStage.start_link(__MODULE__, {args, index}, opts)
   end
