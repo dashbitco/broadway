@@ -239,7 +239,7 @@ See the notes on [`Producer concurrency`](https://hexdocs.pm/broadway/Broadway.h
 and [`Batcher concurrency`](https://hexdocs.pm/broadway/Broadway.html#module-batcher-concurrency)
 for details.
 
-By setting the `concurrency` option, you define the number of concurrent process
+By setting the `concurrency` option, you define the number of concurrent processes
 that will be started by Broadway, allowing you to have full control over the
 concurrency level in each layer of the pipeline. Keep in mind that since the
 concurrency model provided by **Kafka** is based on **partitioning**, in order to take
@@ -271,18 +271,19 @@ The `:offset_commit_interval_seconds` defines the time interval between two
 OffsetCommitRequest messages. The default is 5s.
 
 The `:offset_commit_on_ack`, when set to `true`, tells Broadway to send an
-OffsetCommitRequest immediately after each acknowledgemnt, bypassing any interval
-defined in `:offset_commit_interval_seconds`. Setting this option to `false` can
-increase performance since any commit requests will start respecting the
-`:offset_commit_interval_seconds` option. This will usually result in fewer
+OffsetCommitRequest immediately after each acknowledgemnt, bypassing any
+interval defined in `:offset_commit_interval_seconds`. Setting this option to
+`false` can increase performance since any commit requests will start respecting
+the `:offset_commit_interval_seconds` option. This will usually result in fewer
 requests to be sent to the server. However, setting long commit intervals might
 lead to a large number of duplicated records to be processed after a server
-restart or connection loss. If that's the case, make sure your logic is idempotent
-when consuming records to avoid inconsistencies. Also, bear in mind that the negative
-performance impact might be insignificant if you're using batchers since only one
-commit request will be performed per batch. As a basic rule, always take into account
-the values of `batch_size` and `batch_timeout` whenever you're tuning
-`:offset_commit_interval_seconds` and `:offset_commit_on_ack`
+restart or connection loss. Since it is always possible that duplicate messages
+will be recieved by consumers, make sure your logic is idempotent when consuming
+records to avoid inconsistencies. Also, bear in mind that the negative
+performance impact might be insignificant if you're using batchers since only
+one commit request will be performed per batch. As a basic rule, always take
+into account the values of `batch_size` and `batch_timeout` whenever you're
+tuning `:offset_commit_interval_seconds` and `:offset_commit_on_ack`.
 
 ## Handling failed messages
 
