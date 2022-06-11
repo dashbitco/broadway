@@ -289,7 +289,8 @@ defmodule Broadway do
 
         def handle_message(_, message, _) do
           if special?(message) do
-            Broadway.Message.put_batcher(:special)
+            message
+            |> Broadway.Message.put_batcher(:special)
           else
             message
           end
