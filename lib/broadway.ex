@@ -397,11 +397,12 @@ defmodule Broadway do
 
         def start_link() do
           producer_module = Application.fetch_env!(:my_app, :producer_module)
+          producer_options = Application.get_env(:my_app, :producer_options, [])
 
           Broadway.start_link(__MODULE__,
             name: __MODULE__,
             producer: [
-              module: producer_module
+              module: {producer_module, producer_options}
             ],
             processors: [
               default: []
@@ -425,7 +426,9 @@ defmodule Broadway do
 
   Now in config/test.exs you could do:
 
-      config :my_app, :producer_module, {Broadway.DummyProducer, []}
+      config :my_app,
+        producer_module: Broadway.DummyProducer,
+        producer_options: [] # change if required for your dev/prod producer
 
   And we can test it like this:
 
