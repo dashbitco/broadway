@@ -506,7 +506,7 @@ defmodule Broadway do
             [:broadway, :batch_processor, :start],
           ]
 
-          :telemetry.attach_many({__MODULE__, repo}, events, &handle_event/4, %{repo: repo})
+          :telemetry.attach_many({__MODULE__, repo}, events, &__MODULE__.handle_event/4, %{repo: repo})
         end
 
         def handle_event(_event_name, _event_measurement, %{messages: messages}, %{repo: repo}) do
