@@ -264,7 +264,7 @@ defmodule Broadway.Options do
       `Broadway.Message` and it must return a non-negative integer,
       starting with zero, that will be mapped to one of the existing
       processors. See ["Ordering and Partitioning"](#module-ordering-and-partitioning)
-      in the module docs for more information.
+      in the module docs for more information and known pitfalls.
       """
     ],
     spawn_opt: [

@@ -577,14 +577,35 @@ defmodule Broadway do
   processors and batchers. You can also specify the `:partition_by`
   function for each "processor" and "batcher" individually.
 
-  Finally, beware of the error semantics when using partitioning.
-  If you require ordering and a message fails, the partition will
-  continue processing messages. Depending on the type of processing,
-  the end result may be inconsistent. If your producer supports
-  retrying, the failed message may be retried later, also out of
-  order. Those issues happens regardless of Broadway and solutions
-  to said problems almost always need to be addressed outside of
-  Broadway too.
+  > #### Even partitions {: .warning}
+  >
+  > Broadway partitions assume an even distribution of partitions.
+  > This means that, if one partition is slow, it will slow down
+  > all order partitions. This implies two things:
+  >
+  > * Using `:partition_by` with a high level of concurrency can
+  >   actually be detrimental to performance. For example, if
+  >   concurrency is set to 100, you need all 100 processors to
+  >   make progress at the same time.
+  >
+  > * Avoid using `:partition_by` with a low value of `min_demand`.
+  >   For example, setting `max_demand` to 1 (which implies `min_demand`
+  >   of 0), means that each processor will receive a single message
+  >   and only receive further messages once all processors complete.
+  >
+  > When partitioning, the default values for concurrency (which is
+  > equal to the number of cores) and max_demand (which is equal to
+  > 10), are good starting points.
+
+  > #### Error semantics {: .warning}
+  >
+  > Beware of the error semantics when using partitioning.
+  > If you require messages to be processed in order and a message
+  > fails, the partition will continue processing messages, which
+  > may be underesired. If your producer supports retrying, the
+  > failed message may be retried later, out of its original order.
+  > Those issues happen regardless of Broadway and solutions to said
+  > problems almost always need to be addressed outside of Broadway too.
 
   ## Telemetry
 
