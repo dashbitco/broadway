@@ -602,7 +602,7 @@ defmodule Broadway do
   > Beware of the error semantics when using partitioning.
   > If you require messages to be processed in order and a message
   > fails, the partition will continue processing messages, which
-  > may be underesired. If your producer supports retrying, the
+  > may be undesired. If your producer supports retrying, the
   > failed message may be retried later, out of its original order.
   > Those issues happen regardless of Broadway and solutions to said
   > problems almost always need to be addressed outside of Broadway too.
