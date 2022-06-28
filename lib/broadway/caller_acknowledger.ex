@@ -4,10 +4,10 @@ defmodule Broadway.CallerAcknowledger do
 
   It must be stored as:
 
-      acknowledger: {Broadway.CallerAcknowledger, {pid, ref}, term}
+      acknowledger: Broadway.CallerAcknowledger.init({pid, ref}, term)
 
-  The second element is a tuple with the pid to receive the messages
-  and a unique identifier (usually a reference). The third element,
+  The first parameter is a tuple with the pid to receive the messages
+  and a unique identifier (usually a reference). The second parameter,
   which is per message, is ignored.
 
   It sends a message in the format:
@@ -22,6 +22,10 @@ defmodule Broadway.CallerAcknowledger do
   """
 
   @behaviour Broadway.Acknowledger
+
+  def init({pid, ref}, term) do
+    {Broadway.CallerAcknowledger, {pid, ref}, term}
+  end
 
   @impl true
   def ack({pid, ref}, successful, failed) do
