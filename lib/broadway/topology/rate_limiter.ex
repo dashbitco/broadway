@@ -49,13 +49,14 @@ defmodule Broadway.Topology.RateLimiter do
     counter = :atomics.new(@atomics_index, [])
     :atomics.put(counter, @atomics_index, allowed)
 
-    _ = schedule_next_reset(interval)
+    timer = schedule_next_reset(interval)
 
     state = %{
       interval: interval,
       allowed: allowed,
       producers_names: producers_names,
-      counter: counter
+      counter: counter,
+      reset_timer: timer
     }
 
     {:ok, state}
@@ -63,15 +64,19 @@ defmodule Broadway.Topology.RateLimiter do
 
   @impl true
   def handle_call({:update_rate_limiting, opts}, _from, state) do
-    %{interval: interval, allowed: allowed} = state
+    %{interval: interval, allowed: allowed, reset_timer: prev_timer} = state
+    new_interval = Keyword.get(opts, :interval, interval)
+    new_allowed = Keyword.get(opts, :allowed_messages, allowed)
 
-    state = %{
-      state
-      | interval: Keyword.get(opts, :interval, interval),
-        allowed: Keyword.get(opts, :allowed_messages, allowed)
-    }
+    state = %{state | interval: new_interval, allowed: new_allowed}
 
-    {:reply, :ok, state}
+    if Keyword.get(opts, :reset, false) do
+      cancel_reset_limit_timer(prev_timer)
+      timer = schedule_next_reset(new_interval)
+      {:reply, :ok, %{state | reset_timer: timer}}
+    else
+      {:reply, :ok, state}
+    end
   end
 
   def handle_call(:get_rate_limiting, _from, state) do
@@ -95,12 +100,26 @@ defmodule Broadway.Topology.RateLimiter do
         is_pid(pid),
         do: send(pid, {__MODULE__, :reset_rate_limiting})
 
-    _ = schedule_next_reset(interval)
+    timer = schedule_next_reset(interval)
 
-    {:noreply, state}
+    {:noreply, %{state | reset_timer: timer}}
   end
 
   defp schedule_next_reset(interval) do
-    _ref = Process.send_after(self(), :reset_limit, interval)
+    Process.send_after(self(), :reset_limit, interval)
+  end
+
+  defp cancel_reset_limit_timer(timer) do
+    case Process.cancel_timer(timer) do
+      false ->
+        receive do
+          :reset_limit -> :ok
+        after
+          0 -> raise "unknown timer #{inspect(timer)}"
+        end
+
+      _ ->
+        :ok
+    end
   end
 end
