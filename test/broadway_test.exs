@@ -61,7 +61,7 @@ defmodule BroadwayTest do
     end
 
     defp wrap_message(message, test_pid) do
-      ack = {CallerAcknowledger, {test_pid, make_ref()}, :ok}
+      ack = CallerAcknowledger.init({test_pid, make_ref()}, :ok)
       %Message{data: message, acknowledger: ack}
     end
   end
@@ -140,7 +140,7 @@ defmodule BroadwayTest do
 
       %Message{
         data: "#{event} transformed",
-        acknowledger: {Broadway.CallerAcknowledger, {test_pid, :ref}, :unused}
+        acknowledger: CallerAcknowledger.init({test_pid, :ref}, :unused)
       }
     end
   end
@@ -372,8 +372,8 @@ defmodule BroadwayTest do
         get_producer(broadway),
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 3, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
          ]}
       )
 
@@ -516,8 +516,8 @@ defmodule BroadwayTest do
       )
 
     Broadway.push_messages(broadway_name, [
-      %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-      %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+      %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+      %Message{data: 3, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
     ])
 
     assert_receive {:message_handled, 1}
@@ -2056,10 +2056,10 @@ defmodule BroadwayTest do
     test "messages are grouped by ack_ref + status (successful or failed) before sent for acknowledgement",
          %{broadway: broadway} do
       Broadway.push_messages(broadway, [
-        %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ack_ref_1}, :ok}},
-        %Message{data: :fail, acknowledger: {CallerAcknowledger, {self(), :ack_ref_2}, :ok}},
-        %Message{data: :fail, acknowledger: {CallerAcknowledger, {self(), :ack_ref_1}, :ok}},
-        %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ack_ref_2}, :ok}}
+        %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ack_ref_1}, :ok)},
+        %Message{data: :fail, acknowledger: CallerAcknowledger.init({self(), :ack_ref_2}, :ok)},
+        %Message{data: :fail, acknowledger: CallerAcknowledger.init({self(), :ack_ref_1}, :ok)},
+        %Message{data: 4, acknowledger: CallerAcknowledger.init({self(), :ack_ref_2}, :ok)}
       ])
 
       assert_receive {:ack, :ack_ref_1, [%{data: 1}], [%{data: :fail}]}
@@ -2237,7 +2237,7 @@ defmodule BroadwayTest do
         producer,
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
          ]}
       )
 
@@ -2253,7 +2253,7 @@ defmodule BroadwayTest do
         producer,
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
          ]}
       )
 
@@ -2285,11 +2285,11 @@ defmodule BroadwayTest do
         get_producer(broadway_name),
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 5, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 2, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 3, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 4, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 5, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
          ]}
       )
 
@@ -2337,9 +2337,9 @@ defmodule BroadwayTest do
         get_producer(broadway_name),
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 2, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 3, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
          ]}
       )
 
@@ -2395,9 +2395,9 @@ defmodule BroadwayTest do
         get_producer(broadway_name),
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 2, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 3, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
          ]}
       )
 
@@ -2451,10 +2451,10 @@ defmodule BroadwayTest do
         get_producer(broadway_name),
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
-           %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
+           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 2, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 3, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
+           %Message{data: 4, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
          ]}
       )
 

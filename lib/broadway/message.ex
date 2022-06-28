@@ -166,7 +166,7 @@ defmodule Broadway.Message do
     _ = Acknowledger.ack_messages(successful, failed)
 
     for message <- messages do
-      %{message | acknowledger: {NoopAcknowledger, _ack_ref = nil, _data = nil}}
+      %{message | acknowledger: NoopAcknowledger.init()}
     end
   end
 end

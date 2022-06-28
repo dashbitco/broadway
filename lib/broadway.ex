@@ -1252,7 +1252,7 @@ defmodule Broadway do
 
     acknowledger =
       Keyword.get(opts, :acknowledger, fn _data, ack_ref ->
-        {Broadway.CallerAcknowledger, ack_ref, :ok}
+        Broadway.CallerAcknowledger.init(ack_ref, :ok)
       end)
 
     ref = make_ref()
