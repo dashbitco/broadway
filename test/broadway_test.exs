@@ -2451,10 +2451,11 @@ defmodule BroadwayTest do
         get_producer(broadway_name),
         {:push_messages,
          [
-           %Message{data: 1, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
-           %Message{data: 2, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
-           %Message{data: 3, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)},
-           %Message{data: 4, acknowledger: CallerAcknowledger.init({self(), :ref}, :unused)}
+           %Message{data: 1, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 2, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 3, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 4, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}},
+           %Message{data: 5, acknowledger: {CallerAcknowledger, {self(), :ref}, :unused}}
          ]}
       )
 
@@ -2462,16 +2463,20 @@ defmodule BroadwayTest do
 
       refute_received {:handle_message_called, _message, _timestamp}
 
-      assert :ok = Broadway.update_rate_limiting(broadway_name, allowed_messages: 3)
+      # pass `reset` flag to force rate limiting to reset immediately
+      assert :ok = Broadway.update_rate_limiting(broadway_name, allowed_messages: 3, reset: true)
 
       assert Broadway.get_rate_limiting(broadway_name) ==
                {:ok, %{allowed_messages: 3, interval: 5000}}
 
-      send(get_rate_limiter(broadway_name), :reset_limit)
-
       assert_receive {:handle_message_called, %Message{data: 2}, _timestamp}
       assert_receive {:handle_message_called, %Message{data: 3}, _timestamp}
       assert_receive {:handle_message_called, %Message{data: 4}, _timestamp}
+
+      assert :ok = Broadway.update_rate_limiting(broadway_name, allowed_messages: 5)
+
+      # without the `reset` flag, rate limiting resets at the end of the current interval
+      refute_receive {:handle_message_called, %Message{data: 5}, _timestamp}
     end
 
     test "invalid options" do
@@ -2483,7 +2488,7 @@ defmodule BroadwayTest do
         )
 
       assert_raise ArgumentError,
-                   "invalid options, unknown options [:invalid_option], valid options are: [:allowed_messages, :interval]",
+                   "invalid options, unknown options [:invalid_option], valid options are: [:allowed_messages, :interval, :reset]",
                    fn -> Broadway.update_rate_limiting(broadway_name, invalid_option: 3) end
     end
   end

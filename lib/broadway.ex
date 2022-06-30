@@ -1301,7 +1301,8 @@ defmodule Broadway do
 
   @update_rate_limiting_options_schema NimbleOptions.new!(
                                          allowed_messages: [type: :pos_integer],
-                                         interval: [type: :pos_integer]
+                                         interval: [type: :pos_integer],
+                                         reset: [type: :boolean]
                                        )
 
   @doc """
@@ -1312,9 +1313,14 @@ defmodule Broadway do
 
     * `:allowed_messages`
     * `:interval`
+    * `:reset`
 
   Returns an `{:error, reason}` tuple if the given `broadway` pipeline doesn't
   have rate limiting enabled.
+
+  The option `:reset` defaults to `false`. This means the rate limit will reset
+  to the new rate limit at the end of the current interval. When `:reset` is `true`,
+  the new rate limit takes effect immediately.
 
   ## Examples
 

@@ -72,7 +72,7 @@ defmodule Broadway.Topology.RateLimiter do
 
     if Keyword.get(opts, :reset, false) do
       cancel_reset_limit_timer(prev_timer)
-      timer = schedule_next_reset(new_interval)
+      timer = schedule_next_reset(0)
       {:reply, :ok, %{state | reset_timer: timer}}
     else
       {:reply, :ok, state}
