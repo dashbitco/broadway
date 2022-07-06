@@ -617,7 +617,7 @@ defmodule Broadway do
       `Broadway.start_link/2`.
 
       * Measurement: `%{system_time: integer}`
-      * Metadata: `%{supervision: pid, config: keyword}`
+      * Metadata: `%{supervisor_pid: pid, config: keyword}`
 
     * `[:broadway, :processor, :start]` - Dispatched by a Broadway processor
       before the optional `c:prepare_messages/2`
