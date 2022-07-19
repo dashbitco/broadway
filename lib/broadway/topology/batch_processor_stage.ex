@@ -25,7 +25,8 @@ defmodule Broadway.Topology.BatchProcessorStage do
       name: args[:name],
       partition: args[:partition],
       module: args[:module],
-      context: args[:context]
+      context: args[:context],
+      producer: args[:producer]
     }
 
     {:consumer, state, []}
@@ -49,7 +50,8 @@ defmodule Broadway.Topology.BatchProcessorStage do
         index: state.partition,
         messages: messages,
         batch_info: batch_info,
-        context: state.context
+        context: state.context,
+        producer: state.producer
       },
       fn ->
         {successful_messages, failed_messages, returned} =
@@ -87,7 +89,8 @@ defmodule Broadway.Topology.BatchProcessorStage do
            successful_messages: successful_messages,
            failed_messages: failed_messages,
            batch_info: batch_info,
-           context: state.context
+           context: state.context,
+           producer: state.producer
          }}
       end
     )

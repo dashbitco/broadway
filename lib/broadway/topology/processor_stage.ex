@@ -29,7 +29,8 @@ defmodule Broadway.Topology.ProcessorStage do
       module: args[:module],
       context: args[:context],
       processor_key: args[:processor_key],
-      batchers: args[:batchers]
+      batchers: args[:batchers],
+      producer: args[:producer]
     }
 
     case type do
@@ -56,7 +57,8 @@ defmodule Broadway.Topology.ProcessorStage do
         index: state.partition,
         processor_key: state.processor_key,
         messages: messages,
-        context: state.context
+        context: state.context,
+        producer: state.producer
       },
       fn ->
         {prepared_messages, prepared_failed_messages} = maybe_prepare_messages(messages, state)
@@ -97,7 +99,8 @@ defmodule Broadway.Topology.ProcessorStage do
            successful_messages_to_forward: successful_messages_to_forward,
            processor_key: state.processor_key,
            failed_messages: failed_messages,
-           context: state.context
+           context: state.context,
+           producer: state.producer
          }}
       end
     )

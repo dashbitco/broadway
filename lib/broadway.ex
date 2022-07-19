@@ -632,7 +632,8 @@ defmodule Broadway do
           processor_key: atom,
           index: non_neg_integer,
           messages: [Broadway.Message.t],
-          telemetry_span_context: reference
+          telemetry_span_context: reference,
+          producer: {atom, list}
         }
         ```
 
@@ -653,7 +654,8 @@ defmodule Broadway do
           successful_messages_to_ack: [Broadway.Message.t],
           successful_messages_to_forward: [Broadway.Message.t],
           failed_messages: [Broadway.Message.t],
-          telemetry_span_context: reference
+          telemetry_span_context: reference,
+          producer: {atom, list}
         }
         ```
 
@@ -727,7 +729,8 @@ defmodule Broadway do
           index: non_neg_integer,
           messages: [Broadway.Message.t],
           batch_info: Broadway.BatchInfo.t,
-          telemetry_span_context: reference
+          telemetry_span_context: reference,
+          producer: {atom, list}
         }
         ```
 
@@ -746,7 +749,8 @@ defmodule Broadway do
           successful_messages: [Broadway.Message.t],
           failed_messages: [Broadway.Message.t],
           batch_info: Broadway.BatchInfo.t,
-          telemetry_span_context: reference
+          telemetry_span_context: reference,
+          producer: {atom, list}
         }
         ```
 
