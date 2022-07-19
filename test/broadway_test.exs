@@ -825,6 +825,7 @@ defmodule BroadwayTest do
                 assert is_integer(metadata.index)
 
                 if stage == :batch_processor do
+                  assert metadata.producer
                   assert metadata.batch_info.batch_key
                 else
                   assert metadata.processor_key

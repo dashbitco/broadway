@@ -387,8 +387,11 @@ defmodule Broadway.Topology do
       module: module,
       context: context,
       terminator: terminator,
-      shutdown: shutdown
+      shutdown: shutdown,
+      producer_config: producer_config
     } = config
+
+    {producer, _} = Keyword.get(producer_config, :module, {nil, nil})
 
     names = process_names(config, "BatchProcessor_#{key}", batcher_config)
 
@@ -398,7 +401,8 @@ defmodule Broadway.Topology do
       terminator: terminator,
       module: module,
       context: context,
-      batcher: batcher
+      batcher: batcher,
+      producer: producer
     ]
 
     specs =
