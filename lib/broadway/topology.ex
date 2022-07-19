@@ -258,7 +258,8 @@ defmodule Broadway.Topology do
       batchers_config: batchers_config,
       resubscribe_interval: resubscribe_interval,
       terminator: terminator,
-      shutdown: shutdown
+      shutdown: shutdown,
+      producer_config: producer_config
     } = config
 
     [{key, processor_config} | other_processors] = processors_config
@@ -297,6 +298,7 @@ defmodule Broadway.Topology do
       processor_key: key,
       processor_config: processor_config,
       producers: producers,
+      producer: producer_config[:module],
       batchers: batchers
     ]
 
@@ -391,8 +393,6 @@ defmodule Broadway.Topology do
       producer_config: producer_config
     } = config
 
-    {producer, _} = Keyword.get(producer_config, :module, {nil, nil})
-
     names = process_names(config, "BatchProcessor_#{key}", batcher_config)
 
     args = [
@@ -402,7 +402,7 @@ defmodule Broadway.Topology do
       module: module,
       context: context,
       batcher: batcher,
-      producer: producer
+      producer: producer_config[:module]
     ]
 
     specs =

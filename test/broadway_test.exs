@@ -823,9 +823,9 @@ defmodule BroadwayTest do
             case name do
               [:broadway, stage, _] when stage in [:processor, :batch_processor] ->
                 assert is_integer(metadata.index)
+                assert metadata.producer
 
                 if stage == :batch_processor do
-                  assert metadata.producer
                   assert metadata.batch_info.batch_key
                 else
                   assert metadata.processor_key
