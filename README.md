@@ -27,13 +27,7 @@ Broadway takes the burden of defining concurrent GenStage topologies and provide
 
 ### Producers
 
-There are many Broadway producers provided by the community for integrating with existing services. Here are a few:
-
-  * [Apache Kafka](https://github.com/dashbitco/broadway_kafka)
-  * [RabbitMQ](https://github.com/dashbitco/broadway_rabbitmq)
-  * [Google Cloud Pub/Sub](https://github.com/dashbitco/broadway_cloud_pub_sub)
-  * [AWS SQS](https://github.com/dashbitco/broadway_sqs)
-  * [Redis (streams)](https://github.com/akash-akya/off_broadway_redis_stream)
+There are several official producers that you can use to integrate with existing services. You can find a complete list [in the documentation](https://hexdocs.pm/broadway/introduction.html#official-producers).
 
 ## Installation
 
