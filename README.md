@@ -25,6 +25,10 @@ Broadway takes the burden of defining concurrent GenStage topologies and provide
   * Rate-limiting
   * Metrics
 
+### Producers
+
+There are several producers that you can use to integrate with existing services and technologies. [See the docs for detailed how-tos and supported producers](https://hexdocs.pm/broadway/introduction.html#official-producers).
+
 ## Installation
 
 Add `:broadway` to the list of dependencies in `mix.exs`:
@@ -79,8 +83,6 @@ end
 ```
 
 Once your Broadway module is defined, you just need to add it as a child of your application supervision tree as `{MyBroadway, []}`.
-
-[See the docs for detailed how-tos and supported adapters](https://hexdocs.pm/broadway).
 
 ## Comparison to Flow
 
