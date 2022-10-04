@@ -24,7 +24,7 @@ defmodule Broadway.Message do
           batch_mode: :bulk | :flush,
           status:
             :ok
-            | {:failed, reason :: binary}
+            | {:failed, reason :: term}
             | {:throw | :error | :exit, term, Exception.stacktrace()}
         }
 
@@ -135,7 +135,7 @@ defmodule Broadway.Message do
   Failing a message does not emit any log but it does trigger the
   `c:Broadway.handle_failed/2` callback.
   """
-  @spec failed(message :: Message.t(), reason :: binary) :: Message.t()
+  @spec failed(message :: Message.t(), reason :: term) :: Message.t()
   def failed(%Message{} = message, reason) do
     %Message{message | status: {:failed, reason}}
   end
