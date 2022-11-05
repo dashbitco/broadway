@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.4 (2022-11-05)
+
+### Enhancements
+
+  * Add `init` convenience function to acknowledgers
+  * Allow `:reset` option when calling `update_rate_limiting`. When set to true, the rate limit counter and interval is immediately reset
+  * Add the producer to the telemetry metadata
+  * Support custom function in `:batch_size` for customized batch splitting logic
+
 ## v1.0.3 (2022-03-18)
 
 ### Bug fixes
