@@ -110,30 +110,26 @@ defmodule Broadway.Topology.BatcherStage do
   defp handle_events_per_batch_key([event | _] = events, acc, state) do
     %{partition_by: partition_by} = state
     batch_key = batch_key(event, partition_by)
-    {current, pending_count, batch_splitter, timer} = init_or_get_batch(batch_key, state)
+    {current, batch_state, batch_splitter, timer} = init_or_get_batch(batch_key, state)
 
-    {current, pending_count, events, flush?} =
+    {current, batch_state, events, flush} =
       split_counting(
         batch_key,
         events,
-        pending_count,
+        batch_state,
         batch_splitter,
-        false,
+        nil,
         current,
         partition_by
       )
 
     acc =
-      deliver_or_update_batch(
-        batch_key,
-        current,
-        pending_count,
-        batch_splitter,
-        flush?,
-        timer,
-        acc,
-        state
-      )
+      if flush do
+        deliver_batch(batch_key, current, flush, timer, acc, state)
+      else
+        put_batch(batch_key, {current, batch_state, batch_splitter, timer})
+        acc
+      end
 
     handle_events_per_batch_key(events, acc, state)
   end
@@ -145,79 +141,40 @@ defmodule Broadway.Topology.BatcherStage do
   defp split_counting(
          batch_key,
          [event | remained] = events,
-         {_flag, count} = split_counter,
+         batch_state,
          batch_splitter,
-         flush?,
+         flush,
          acc,
          partition_by
        ) do
     event_batch_key = batch_key(event, partition_by)
-    {next_flag, _next_count} = next_split_counter = batch_splitter.(event, count)
 
-    cond do
-      event_batch_key != batch_key ->
-        # Switch to a different batch key
-        {acc, split_counter, events, flush?}
-
-      next_flag == :emit ->
+    # Switch to a different batch key
+    if event_batch_key != batch_key do
+      {acc, batch_state, events, flush}
+    else
+      case batch_splitter.(event, batch_state) do
         # Batch splitter indicates a full batch
-        {[event | acc], next_split_counter, remained, flush?}
+        {:emit, next_state} ->
+          {[event | acc], next_state, remained, :size}
 
-      true ->
         # Same batch key but not fulfill one batch size yet
-        flush? = flush? or event.batch_mode == :flush
-
-        split_counting(
-          batch_key,
-          remained,
-          next_split_counter,
-          batch_splitter,
-          flush?,
-          [event | acc],
-          partition_by
-        )
+        {:cont, next_state} ->
+          split_counting(
+            batch_key,
+            remained,
+            next_state,
+            batch_splitter,
+            flush || flush_batch(event),
+            [event | acc],
+            partition_by
+          )
+      end
     end
   end
 
-  defp deliver_or_update_batch(
-         batch_key,
-         current,
-         _pending_count,
-         _batch_splitter,
-         true,
-         timer,
-         acc,
-         state
-       ) do
-    deliver_batch(batch_key, current, :flush, timer, acc, state)
-  end
-
-  defp deliver_or_update_batch(
-         batch_key,
-         current,
-         {:emit, _acc},
-         _batch_splitter,
-         _flush?,
-         timer,
-         acc,
-         state
-       ) do
-    deliver_batch(batch_key, current, :size, timer, acc, state)
-  end
-
-  defp deliver_or_update_batch(
-         batch_key,
-         current,
-         pending_count,
-         batch_splitter,
-         _flush?,
-         timer,
-         acc,
-         _state
-       ) do
-    put_batch(batch_key, {current, pending_count, batch_splitter, timer})
-    acc
-  end
+  defp flush_batch(%{batch_mode: :flush}), do: :flush
+  defp flush_batch(%{}), do: nil
 
   defp deliver_batch(batch_key, current, trigger, timer, acc, state) do
     delete_batch(batch_key)
@@ -241,21 +198,22 @@ defmodule Broadway.Topology.BatcherStage do
     else
       %{batch_size: batch_size, batch_timeout: batch_timeout} = state
 
-      {batch_splitter, size} = get_batch_splitter(batch_size)
+      {batch_state, batch_splitter} = get_batch_splitter(batch_size)
       timer = schedule_batch_timeout(batch_key, batch_timeout)
       update_all_batches(&Map.put(&1, batch_key, true))
-      {[], {:cont, size}, batch_splitter, timer}
+      {[], batch_state, batch_splitter, timer}
     end
   end
 
   defp get_batch_splitter(batch_size) do
     if is_number(batch_size) do
-      {fn _message, remained ->
-         remained = remained - 1
-         if(remained == 0, do: {:emit, batch_size}, else: {:cont, remained})
-       end, batch_size}
+      {batch_size,
+       fn
+         _message, 1 -> {:emit, batch_size}
+         _message, count -> {:cont, count - 1}
+       end}
     else
-      # Customized batch splitter function and initial size tuple
+      # Customized batch splitter with initial state and function
       batch_size
     end
   end

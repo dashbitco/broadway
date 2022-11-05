@@ -231,7 +231,7 @@ defmodule BroadwayTest do
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [
-          sqs: [batch_size: {captured_fn, 0}]
+          sqs: [batch_size: {0, captured_fn}]
         ]
       ]
 
@@ -263,7 +263,7 @@ defmodule BroadwayTest do
 
       message = """
       invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
-      expected :batch_size to be a positive integer or a {&fun/2, acc} tuple, \
+      expected :batch_size to be a positive integer or a {acc, &fun/2} tuple, \
       got: #{inspect(captured_fn)}
       """
 
@@ -278,7 +278,7 @@ defmodule BroadwayTest do
         producer: [module: {ManualProducer, []}],
         processors: [default: []],
         batchers: [
-          sqs: [batch_size: {&BatchSplitter.even/2, 10}]
+          sqs: [batch_size: {10, &BatchSplitter.even/2}]
         ]
       ]
 
@@ -1252,7 +1252,7 @@ defmodule BroadwayTest do
           producer: [module: {ManualProducer, []}],
           processors: [default: []],
           batchers: [
-            default: [batch_size: {&BatchSplitter.odd/2, 16}, batch_timeout: 20, max_demand: 10]
+            default: [batch_size: {16, &BatchSplitter.odd/2}, batch_timeout: 20, max_demand: 10]
           ]
         )
 
@@ -1304,8 +1304,8 @@ defmodule BroadwayTest do
           producer: [module: {ManualProducer, []}],
           processors: [default: []],
           batchers: [
-            odd: [batch_size: {&BatchSplitter.odd/2, 16}, batch_timeout: 20, max_demand: 10],
-            even: [batch_size: {&BatchSplitter.even/2, 24}, batch_timeout: 20, max_demand: 10]
+            odd: [batch_size: {16, &BatchSplitter.odd/2}, batch_timeout: 20, max_demand: 10],
+            even: [batch_size: {24, &BatchSplitter.even/2}, batch_timeout: 20, max_demand: 10]
           ]
         )
 

@@ -222,17 +222,21 @@ defmodule Broadway.Options do
               default: 100,
               doc: """
               The size of the generated batches. Default value is `100`.
-              It is typically an integer but it can also be tuple of `{fun, init_acc}`
+
+              It is typically an integer but it can also be tuple of `{init_acc, fun}`
               where `fun` receives two arguments: a `Broadway.Message` and
               an `acc`. The function must return either `{:emit, acc}` to indicate
               all batched messages must be emitted or `{:cont, acc}` to continue
               batching. `init_acc` is the initial accumulator used on the first call.
+
               You can consider that setting the accumulator to an integer is the
               equivalent to custom batching function of:
-                  {fn _message, remained ->
-                     remained = remained - 1
-                     if(remained == 0, do: {:emit, batch_size}, else: {:cont, remained})
-                   end, batch_size}
+
+                  {batch_size,
+                   fn
+                     _message, 1 -> {:emit, batch_size}
+                     _message, count -> {:cont, count - 1}
+                   end}
               """
             ],
             max_demand: [
@@ -322,7 +326,7 @@ defmodule Broadway.Options do
 
   def validate_batch_size(size) when is_integer(size) and size > 0, do: {:ok, size}
 
-  def validate_batch_size({func, _acc} = batch_splitter) when is_function(func) do
+  def validate_batch_size({_acc, func} = batch_splitter) when is_function(func) do
     if is_function(func, 2) do
       {:ok, batch_splitter}
     else
@@ -332,6 +336,6 @@ defmodule Broadway.Options do
 
   def validate_batch_size(batch_size) do
     {:error,
-     "expected :batch_size to be a positive integer or a {&fun/2, acc} tuple, got: #{inspect(batch_size)}\n"}
+     "expected :batch_size to be a positive integer or a {acc, &fun/2} tuple, got: #{inspect(batch_size)}\n"}
   end
 end
