@@ -11,7 +11,7 @@ defmodule Broadway.Topology.BatcherStage do
       __MODULE__,
       args[:processors],
       args,
-      [max_demand: args[:batch_size]],
+      [max_demand: args[:max_demand] || args[:batch_size]],
       stage_options
     )
   end
@@ -77,9 +77,9 @@ defmodule Broadway.Topology.BatcherStage do
   @impl true
   def handle_info({:timeout, timer, batch_key}, state) do
     case get_timed_out_batch(batch_key, timer) do
-      {current, pending_count, _} ->
+      {current, _, _, _} ->
         delete_batch(batch_key)
-        {:noreply, [wrap_for_delivery(batch_key, current, pending_count, state)], state}
+        {:noreply, [wrap_for_delivery(batch_key, current, :timeout, state)], state}
 
       :error ->
         {:noreply, [], state}
@@ -89,9 +89,9 @@ defmodule Broadway.Topology.BatcherStage do
   def handle_info(:cancel_consumers, state) do
     events =
       for {batch_key, _} <- all_batches() do
-        {current, pending_count, timer} = delete_batch(batch_key)
+        {current, _, _, timer} = delete_batch(batch_key)
         cancel_batch_timeout(timer)
-        wrap_for_delivery(batch_key, current, pending_count, state)
+        wrap_for_delivery(batch_key, current, :flush, state)
       end
 
     {:noreply, events, state}
@@ -110,43 +110,76 @@ defmodule Broadway.Topology.BatcherStage do
   defp handle_events_per_batch_key([event | _] = events, acc, state) do
     %{partition_by: partition_by} = state
     batch_key = batch_key(event, partition_by)
-    {current, pending_count, timer} = init_or_get_batch(batch_key, state)
+    {current, batch_state, batch_splitter, timer} = init_or_get_batch(batch_key, state)
 
-    {current, pending_count, events, flush?} =
-      split_counting(batch_key, events, pending_count, false, current, partition_by)
+    {current, batch_state, events, flush} =
+      split_counting(
+        batch_key,
+        events,
+        batch_state,
+        batch_splitter,
+        nil,
+        current,
+        partition_by
+      )
 
-    acc = deliver_or_update_batch(batch_key, current, pending_count, flush?, timer, acc, state)
+    acc =
+      if flush do
+        deliver_batch(batch_key, current, flush, timer, acc, state)
+      else
+        put_batch(batch_key, {current, batch_state, batch_splitter, timer})
+        acc
+      end
+
     handle_events_per_batch_key(events, acc, state)
   end
 
-  defp split_counting(batch_key, events, count, flush?, acc, partition_by) do
-    with [event | events] when count > 0 <- events,
-         ^batch_key <- batch_key(event, partition_by) do
-      flush? = flush? or event.batch_mode == :flush
-      split_counting(batch_key, events, count - 1, flush?, [event | acc], partition_by)
+  defp split_counting(_batch_key, [], count, _batch_splitter, flush?, acc, _partition_by) do
+    {acc, count, [], flush?}
+  end
+
+  defp split_counting(
+         batch_key,
+         [event | remained] = events,
+         batch_state,
+         batch_splitter,
+         flush,
+         acc,
+         partition_by
+       ) do
+    event_batch_key = batch_key(event, partition_by)
+
+    # Switch to a different batch key
+    if event_batch_key != batch_key do
+      {acc, batch_state, events, flush}
     else
-      _ ->
-        {acc, count, events, flush?}
+      case batch_splitter.(event, batch_state) do
+        # Batch splitter indicates a full batch
+        {:emit, next_state} ->
+          {[event | acc], next_state, remained, :size}
+
+        # Same batch key but not fulfill one batch size yet
+        {:cont, next_state} ->
+          split_counting(
+            batch_key,
+            remained,
+            next_state,
+            batch_splitter,
+            flush || flush_batch(event),
+            [event | acc],
+            partition_by
+          )
+      end
     end
   end
 
-  defp deliver_or_update_batch(batch_key, current, pending_count, true, timer, acc, state) do
-    deliver_batch(batch_key, current, pending_count, timer, acc, state)
-  end
+  defp flush_batch(%{batch_mode: :flush}), do: :flush
+  defp flush_batch(%{}), do: nil
 
-  defp deliver_or_update_batch(batch_key, current, 0, _flush?, timer, acc, state) do
-    deliver_batch(batch_key, current, 0, timer, acc, state)
-  end
-
-  defp deliver_or_update_batch(batch_key, current, pending_count, _flush?, timer, acc, _state) do
-    put_batch(batch_key, {current, pending_count, timer})
-    acc
-  end
-
-  defp deliver_batch(batch_key, current, pending_count, timer, acc, state) do
+  defp deliver_batch(batch_key, current, trigger, timer, acc, state) do
     delete_batch(batch_key)
     cancel_batch_timeout(timer)
-    [wrap_for_delivery(batch_key, current, pending_count, state) | acc]
+    [wrap_for_delivery(batch_key, current, trigger, state) | acc]
   end
 
   ## General batch handling
@@ -164,20 +197,35 @@ defmodule Broadway.Topology.BatcherStage do
       batch
     else
       %{batch_size: batch_size, batch_timeout: batch_timeout} = state
+
+      {batch_state, batch_splitter} = get_batch_splitter(batch_size)
       timer = schedule_batch_timeout(batch_key, batch_timeout)
       update_all_batches(&Map.put(&1, batch_key, true))
-      {[], batch_size, timer}
+      {[], batch_state, batch_splitter, timer}
+    end
+  end
+
+  defp get_batch_splitter(batch_size) do
+    if is_number(batch_size) do
+      {batch_size,
+       fn
+         _message, 1 -> {:emit, batch_size}
+         _message, count -> {:cont, count - 1}
+       end}
+    else
+      # Customized batch splitter with initial state and function
+      batch_size
     end
   end
 
   defp get_timed_out_batch(batch_key, timer) do
     case Process.get(batch_key) do
-      {_, _, ^timer} = batch -> batch
+      {_, _, _, ^timer} = batch -> batch
       _ -> :error
     end
   end
 
-  defp put_batch(batch_key, {_, _, _} = batch) do
+  defp put_batch(batch_key, {_, _, _, _} = batch) do
     Process.put(batch_key, batch)
   end
 
@@ -212,29 +260,22 @@ defmodule Broadway.Topology.BatcherStage do
     end
   end
 
-  defp wrap_for_delivery(batch_key, reversed_events, pending, %{partition_by: nil} = state) do
-    wrap_for_delivery(batch_key, nil, reversed_events, pending, state)
+  defp wrap_for_delivery(batch_key, reversed_events, trigger, %{partition_by: nil} = state) do
+    wrap_for_delivery(batch_key, nil, reversed_events, trigger, state)
   end
 
-  defp wrap_for_delivery([batch_key | partition], reversed_events, pending, state) do
-    wrap_for_delivery(batch_key, partition, reversed_events, pending, state)
+  defp wrap_for_delivery([batch_key | partition], reversed_events, trigger, state) do
+    wrap_for_delivery(batch_key, partition, reversed_events, trigger, state)
   end
 
-  defp wrap_for_delivery(batch_key, partition, reversed_events, pending, state) do
-    %{batcher: batcher, batch_size: batch_size} = state
-    [event | _] = reversed_events
-
-    trigger =
-      case event.batch_mode do
-        :bulk -> if(pending == 0, do: :size, else: :timeout)
-        :flush -> :flush
-      end
+  defp wrap_for_delivery(batch_key, partition, reversed_events, trigger, state) do
+    %{batcher: batcher} = state
 
     batch_info = %BatchInfo{
       batcher: batcher,
       batch_key: batch_key,
       partition: partition,
-      size: batch_size - pending,
+      size: length(reversed_events),
       trigger: trigger
     }
 
