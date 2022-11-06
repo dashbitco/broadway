@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.5 (2022-11-06)
+
+### Bug fixes
+
+  * Fix NoopAckwnoledger metadata name
+
 ## v1.0.4 (2022-11-05)
 
 ### Enhancements
