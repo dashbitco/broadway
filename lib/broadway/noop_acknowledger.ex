@@ -12,8 +12,11 @@ defmodule Broadway.NoopAcknowledger do
 
   @behaviour Broadway.Acknowledger
 
+  @doc """
+  Returns the acknowledger metadata.
+  """
   def init do
-    {NoopAcknowledger, _ack_ref = nil, _data = nil}
+    {__MODULE__, _ack_ref = nil, _data = nil}
   end
 
   @impl true

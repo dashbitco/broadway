@@ -23,8 +23,11 @@ defmodule Broadway.CallerAcknowledger do
 
   @behaviour Broadway.Acknowledger
 
+  @doc """
+  Returns the acknowledger metadata.
+  """
   def init({pid, ref}, term) do
-    {Broadway.CallerAcknowledger, {pid, ref}, term}
+    {__MODULE__, {pid, ref}, term}
   end
 
   @impl true
