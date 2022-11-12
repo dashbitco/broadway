@@ -111,12 +111,10 @@ defmodule Broadway.Topology.ProcessorStage do
 
     if function_exported?(module, :prepare_messages, 2) do
       try do
-        prepared_messages =
-          messages
-          |> module.prepare_messages(context)
-          |> validate_prepared_messages(messages)
-
-        {prepared_messages, []}
+        messages
+        |> module.prepare_messages(context)
+        |> validate_prepared_messages(messages)
+        |> Enum.split_with(&match?(%{status: :ok}, &1))
       catch
         kind, reason ->
           reason = Exception.normalize(kind, reason, __STACKTRACE__)

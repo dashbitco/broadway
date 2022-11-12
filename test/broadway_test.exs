@@ -672,6 +672,9 @@ defmodule BroadwayTest do
         messages
         |> Enum.reduce([], fn message, acc ->
           case message.data do
+            :fail ->
+              [Message.failed(message, "Failed preparing message") | acc]
+
             :raise ->
               raise "Error raised in preparing message"
 
@@ -734,6 +737,13 @@ defmodule BroadwayTest do
     test "all prepared messages are passed", %{broadway: broadway} do
       ref = Broadway.test_batch(broadway, [1, 2], batch_mode: :bulk)
       assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}], []}
+    end
+
+    test "failed prepared messages are not passed to the handler", %{broadway: broadway} do
+      ref = Broadway.test_batch(broadway, [1, :fail, 2], batch_mode: :bulk)
+
+      assert_receive {:ack, ^ref, [%{data: 1}, %{data: 2}],
+                      [%{data: :fail, status: {:failed, "Failed preparing message"}}]}
     end
   end
 
