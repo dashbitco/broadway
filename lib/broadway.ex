@@ -816,8 +816,8 @@ defmodule Broadway do
 
   The length of the list of messages received by this callback is based on
   the `min_demand`/`max_demand` configuration in the processor. This callback
-  must always return all messages it receives, as `c:handle_message/3` is still
-  called individually for each message afterwards.
+  must always return all messages it receives. `c:handle_message/3` will be
+  called for each non-failed message afterwards.
   """
   @callback prepare_messages(messages :: [Message.t()], context :: term) :: [Message.t()]
 
