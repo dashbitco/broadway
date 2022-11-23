@@ -271,14 +271,14 @@ The `:offset_commit_interval_seconds` defines the time interval between two
 OffsetCommitRequest messages. The default is 5s.
 
 The `:offset_commit_on_ack`, when set to `true`, tells Broadway to send an
-OffsetCommitRequest immediately after each acknowledgemnt, bypassing any
+OffsetCommitRequest immediately after each acknowledgement, bypassing any
 interval defined in `:offset_commit_interval_seconds`. Setting this option to
 `false` can increase performance since any commit requests will start respecting
 the `:offset_commit_interval_seconds` option. This will usually result in fewer
 requests to be sent to the server. However, setting long commit intervals might
 lead to a large number of duplicated records to be processed after a server
 restart or connection loss. Since it is always possible that duplicate messages
-will be recieved by consumers, make sure your logic is idempotent when consuming
+will be received by consumers, make sure your logic is idempotent when consuming
 records to avoid inconsistencies. Also, bear in mind that the negative
 performance impact might be insignificant if you're using batchers since only
 one commit request will be performed per batch. As a basic rule, always take
