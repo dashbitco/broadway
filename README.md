@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dashbitco/broadway/actions/workflows/ci.yml/badge.svg)](https://github.com/dashbitco/broadway/actions/workflows/ci.yml)
 
-Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. Broadway allows developers to consume data efficiently from different sources, known as producers, such as Amazon SQS, Apache Kafka, Google Cloud PubSub, RabbitMQ, and others. Broadway pipelines are concurrent and robust, thanks to the Erlang VM and its actors.
+Build concurrent and multi-stage data ingestion and data processing pipelines with Elixir. Broadway allows developers to consume data efficiently from different sources, known as producers, such as Amazon SQS, Apache Kafka, Google Cloud PubSub, RabbitMQ, and others. Broadway pipelines are long-lived, concurrent, and robust, thanks to the Erlang VM and its actors.
 
 Broadway takes its name from the famous [Broadway street](https://en.wikipedia.org/wiki/Broadway_theatre) in New York City, renowned for its stages, actors, and producers.
 
@@ -86,7 +86,7 @@ Once your Broadway module is defined, you just need to add it as a child of your
 
 ## Comparison to Flow
 
-You may also be interested in [Flow by Dashbit](https://github.com/dashbitco/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway focuses on events and on operational features, such as metrics, automatic acknowledgements, failure handling, and so on.
+You may also be interested in [Flow by Dashbit](https://github.com/dashbitco/flow). Both Broadway and Flow are built on top of GenStage. Flow is a more general abstraction than Broadway that focuses on data as a whole, providing features like aggregation, joins, windows, etc. Broadway focuses on events and on operational features, such as metrics, automatic acknowledgements, failure handling, and so on. Broadway is recommended for continuous, long-running pipelines. Flow works with short- and long-lived data processing.
 
 ## License
 
