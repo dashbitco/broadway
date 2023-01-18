@@ -75,21 +75,21 @@ defmodule Broadway.Topology.BatcherStage do
   end
 
   @impl true
-  def handle_info({:timeout, timer, batch_key}, state) do
-    case get_timed_out_batch(batch_key, timer) do
-      {current, _, _, _} ->
-        delete_batch(batch_key)
+  def handle_info({:timeout, _timer, ref}, state) do
+    case all_batches() do
+      %{^ref => batch_key} ->
+        {current, _, _, _, _} = delete_batch(batch_key, ref)
         {:noreply, [wrap_for_delivery(batch_key, current, :timeout, state)], state}
 
-      :error ->
+      %{} ->
         {:noreply, [], state}
     end
   end
 
   def handle_info(:cancel_consumers, state) do
     events =
-      for {batch_key, _} <- all_batches() do
-        {current, _, _, timer} = delete_batch(batch_key)
+      for {ref, batch_key} <- all_batches() do
+        {current, _, _, timer, _} = delete_batch(batch_key, ref)
         cancel_batch_timeout(timer)
         wrap_for_delivery(batch_key, current, :flush, state)
       end
@@ -110,7 +110,7 @@ defmodule Broadway.Topology.BatcherStage do
   defp handle_events_per_batch_key([event | _] = events, acc, state) do
     %{partition_by: partition_by} = state
     batch_key = batch_key(event, partition_by)
-    {current, batch_state, batch_splitter, timer} = init_or_get_batch(batch_key, state)
+    {current, batch_state, batch_splitter, timer, ref} = init_or_get_batch(batch_key, state)
 
     {current, batch_state, events, flush} =
       split_counting(
@@ -125,9 +125,9 @@ defmodule Broadway.Topology.BatcherStage do
 
     acc =
       if flush do
-        deliver_batch(batch_key, current, flush, timer, acc, state)
+        deliver_batch(batch_key, current, flush, timer, ref, acc, state)
       else
-        put_batch(batch_key, {current, batch_state, batch_splitter, timer})
+        put_batch(batch_key, {current, batch_state, batch_splitter, timer, ref})
         acc
       end
 
@@ -176,8 +176,8 @@ defmodule Broadway.Topology.BatcherStage do
   defp flush_batch(%{batch_mode: :flush}), do: :flush
   defp flush_batch(%{}), do: nil
 
-  defp deliver_batch(batch_key, current, trigger, timer, acc, state) do
-    delete_batch(batch_key)
+  defp deliver_batch(batch_key, current, trigger, timer, ref, acc, state) do
+    delete_batch(batch_key, ref)
     cancel_batch_timeout(timer)
     [wrap_for_delivery(batch_key, current, trigger, state) | acc]
   end
@@ -199,9 +199,9 @@ defmodule Broadway.Topology.BatcherStage do
       %{batch_size: batch_size, batch_timeout: batch_timeout} = state
 
       {batch_state, batch_splitter} = get_batch_splitter(batch_size)
-      timer = schedule_batch_timeout(batch_key, batch_timeout)
-      update_all_batches(&Map.put(&1, batch_key, true))
-      {[], batch_state, batch_splitter, timer}
+      {timer, ref} = schedule_batch_timeout(batch_timeout)
+      update_all_batches(&Map.put(&1, ref, batch_key))
+      {[], batch_state, batch_splitter, timer, ref}
     end
   end
 
@@ -218,19 +218,12 @@ defmodule Broadway.Topology.BatcherStage do
     end
   end
 
-  defp get_timed_out_batch(batch_key, timer) do
-    case Process.get(batch_key) do
-      {_, _, _, ^timer} = batch -> batch
-      _ -> :error
-    end
-  end
-
-  defp put_batch(batch_key, {_, _, _, _} = batch) do
+  defp put_batch(batch_key, {_, _, _, _, _} = batch) do
     Process.put(batch_key, batch)
   end
 
-  defp delete_batch(batch_key) do
-    update_all_batches(&Map.delete(&1, batch_key))
+  defp delete_batch(batch_key, ref) do
+    update_all_batches(&Map.delete(&1, ref))
     Process.delete(batch_key)
   end
 
@@ -242,8 +235,9 @@ defmodule Broadway.Topology.BatcherStage do
     Process.put(@all_batches, fun.(Process.get(@all_batches)))
   end
 
-  defp schedule_batch_timeout(batch_key, batch_timeout) do
-    :erlang.start_timer(batch_timeout, self(), batch_key)
+  defp schedule_batch_timeout(batch_timeout) do
+    ref = make_ref()
+    {:erlang.start_timer(batch_timeout, self(), ref), ref}
   end
 
   defp cancel_batch_timeout(timer) do
@@ -252,7 +246,7 @@ defmodule Broadway.Topology.BatcherStage do
         receive do
           {:timeout, ^timer, _} -> :ok
         after
-          0 -> raise "unknown timer #{inspect(timer)}"
+          0 -> :ok
         end
 
       _ ->
