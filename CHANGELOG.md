@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.6 (2023-01-19)
+
+### Bug fixes
+
+  * Remove the assumption a cancelled timer has been delivered
+
 ## v1.0.5 (2022-11-06)
 
 ### Bug fixes
