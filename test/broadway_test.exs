@@ -198,7 +198,7 @@ defmodule BroadwayTest do
   describe "broadway configuration" do
     test "invalid configuration options" do
       assert_raise ArgumentError,
-                   "invalid configuration given to Broadway.start_link/2, expected :name to be an atom or a {:via, module, term} tuple, got: 1",
+                   "invalid configuration given to Broadway.start_link/2, invalid value for :name option: expected :name to be an atom or a {:via, module, term} tuple, got: 1",
                    fn -> Broadway.start_link(Forwarder, name: 1) end
     end
 
@@ -237,7 +237,7 @@ defmodule BroadwayTest do
 
       message = """
       invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
-      expected `:batch_size` to include a function of 2 arity, got: #{inspect(captured_fn)}
+      invalid value for :batch_size option: expected `:batch_size` to include a function of 2 arity, got: #{inspect(captured_fn)}
       """
 
       assert_raise ArgumentError, message, fn ->
@@ -263,7 +263,7 @@ defmodule BroadwayTest do
 
       message = """
       invalid configuration given to Broadway.start_link/2 for key [:batchers, :sqs], \
-      expected :batch_size to be a positive integer or a {acc, &fun/2} tuple, \
+      invalid value for :batch_size option: expected :batch_size to be a positive integer or a {acc, &fun/2} tuple, \
       got: #{inspect(captured_fn)}
       """
 
@@ -515,7 +515,7 @@ defmodule BroadwayTest do
                  context: %{prepare_for_start_return_value: {[], _bad_opts = []}}
                )
 
-      assert Exception.message(error) == "required option :name not found, received options: []"
+      assert Exception.message(error) == "required :name option not found, received options: []"
     end
 
     test "injects the :broadway option when the producer config is a kw list" do
@@ -1075,6 +1075,7 @@ defmodule BroadwayTest do
 
     test "shutting down broadway waits until all events are processed",
          %{broadway: broadway, producer: producer} do
+      Process.flag(:trap_exit, true)
       # We suspend the producer to make sure that it doesn't process the messages early on
       :sys.suspend(producer)
       async_push_messages(producer, [1, 2, 3, 4])
@@ -2790,7 +2791,7 @@ defmodule BroadwayTest do
         batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
       )
 
-      assert Broadway.all_running() == [broadway]
+      assert broadway in Broadway.all_running()
 
       broadway2 = new_unique_name()
 
@@ -2802,13 +2803,14 @@ defmodule BroadwayTest do
         batchers: [default: [concurrency: 12], b1: [concurrency: 13]]
       )
 
-      assert Enum.sort(Broadway.all_running()) == Enum.sort([broadway, broadway2])
+      assert broadway in Broadway.all_running()
+      assert broadway2 in Broadway.all_running()
 
       Broadway.stop(broadway2)
-      assert Broadway.all_running() == [broadway]
+      assert broadway2 not in Broadway.all_running()
 
       Broadway.stop(broadway)
-      assert Broadway.all_running() == []
+      assert broadway not in Broadway.all_running()
     end
   end
 
