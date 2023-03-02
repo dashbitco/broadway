@@ -140,6 +140,18 @@ defmodule Broadway.Options do
       subsection: """
       ### Processors options
 
+      > #### You don't need multiple processors {: .info}
+      >
+      > A common misconception is that, if your data requires multiple
+      > transformations, each with a different concern, then you must
+      > have several processors.
+      >
+      > However, that's not quite true. Separation of concerns is modeled
+      > by defining several modules and functions, not processors. Processors
+      > are ultimately about moving data around and you should only do it
+      > when necessary. Using processors for code organization purposes would
+      > lead to inefficient pipelines.
+
       """,
       keys: [
         *: [

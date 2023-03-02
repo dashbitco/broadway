@@ -1071,8 +1071,8 @@ defmodule Broadway do
   > #### Single producer and processor {: .info}
   >
   > Broadway does not accept multiple producers neither
-  > multiple processors, but we chose to keep in a list for simplicity
-  > and to ensure we're future proof.
+  > multiple processors, but we chose to keep in a list
+  > for consistency and to ensure we're future proof.
 
   ## Examples
 
