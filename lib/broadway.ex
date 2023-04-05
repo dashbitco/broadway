@@ -1060,24 +1060,29 @@ defmodule Broadway do
   @doc """
   Returns the topology details for a pipeline.
 
-  The stages that have the "concurrency" field indicates a list of
-  processes running with that name prefix. Each process has "name" as
-  prefix plus "_" and the index of `0..(concurrency - 1)`, as atom.
+  The stages that have the `:concurrency` field in their info indicate a list of
+  processes running with that name prefix. Each process has `:name` as a
+  prefix plus `_` and the index of `0..(concurrency - 1)` as an atom. For example, a
+  producer named `MyBroadway.Broadway.Producer` with concurrency of `1`
+  will only have a single process named `MyBroadway.Broadway.Producer_0` in its
+  topology.
 
-  For example, a producer named `MyBroadway.Broadway.Producer` with
-  concurrency of 1 represents only a process named
-  `MyBroadway.Broadway.Producer_0`.
-
-  Note that `Broadway` does not accept multiple producers neither
-  multiple processors. But we choose to keep in a list for simplicity
-  and future proof.
+  > #### Single producer and processor {: .info}
+  >
+  > Broadway does not accept multiple producers neither
+  > multiple processors, but we chose to keep in a list for simplicity
+  > and to ensure we're future proof.
 
   ## Examples
 
       iex> Broadway.topology(MyBroadway)
       [
-        producers: [%{name: MyBroadway.Broadway.Producer, concurrency: 1}],
-        processors: [%{name: MyBroadway.Broadway.Processor_default, concurrency: 10, processor_key: :default}],
+        producers: [
+          %{name: MyBroadway.Broadway.Producer, concurrency: 1}
+        ],
+        processors: [
+          %{name: MyBroadway.Broadway.Processor_default, concurrency: 10, processor_key: :default}
+        ],
         batchers: [
           %{
             batcher_name: MyBroadway.Broadway.Batcher_default,
@@ -1095,6 +1100,7 @@ defmodule Broadway do
       ]
 
   """
+  @doc since: "1.0.0"
   @spec topology(broadway :: name()) :: [
           {atom(),
            [
@@ -1116,6 +1122,7 @@ defmodule Broadway do
 
   It's important to notice that no order is guaranteed.
   """
+  @doc since: "1.0.0"
   def all_running do
     for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
         GenServer.whereis(name),
