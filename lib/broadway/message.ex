@@ -9,16 +9,44 @@ defmodule Broadway.Message do
   or internally by one of the built-in stages of Broadway.
 
   Instead of modifying the struct directly, you should use the functions
-  provided by this module to manipulate messages.
+  provided by this module to manipulate messages. However, if you are implementing
+  a `Broadway.Producer` of your own, see the [`%Broadway.Message{}`](`__struct__/0`)
+  documentation to see what fields you should set.
   """
 
   alias __MODULE__, as: Message
   alias Broadway.{Acknowledger, NoopAcknowledger}
 
+  @typedoc """
+  The acknowledger of the message.
+
+  This tuple contains:
+
+    * A module implementing the `Broadway.Acknowledger` behaviour.
+
+    * An ack reference that is passed to the `c:Broadway.Acknowledger.ack/3`
+      callback. See `c:Broadway.Acknowledger.ack/3` for more information.
+
+    * An arbitrary term that is passed to the optional
+      `c:Broadway.Acknowledger.configure/3` callback.
+
+  """
+  @typedoc since: "1.1.0"
+  @type acknowledger :: {module, ack_ref :: term, data :: term}
+
+  @typedoc """
+  The Broadway message struct.
+
+  Most of these fields are manipulated by Broadway itself. You can
+  *read* the `:metadata` field, and you can use the functions in this
+  module to update most of the other fields. If you are implementing
+  your own producer, see the `Broadway.Producer` documentation
+  for more information on how to create and manipulate message structs.
+  """
   @type t :: %Message{
           data: term,
           metadata: %{optional(atom) => term},
-          acknowledger: {module, ack_ref :: term, data :: term},
+          acknowledger: acknowledger,
           batcher: atom,
           batch_key: term,
           batch_mode: :bulk | :flush,

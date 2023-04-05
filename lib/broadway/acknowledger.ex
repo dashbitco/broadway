@@ -28,7 +28,8 @@ defmodule Broadway.Acknowledger do
       different producers. Broadway will use this information
       to correctly identify the acknowledger and pass it among
       with the messages so you can properly communicate with
-      the source of the data for acknowledgement.
+      the source of the data for acknowledgement. `ack_ref` is
+      part of `t:Broadway.Message.acknowledger/0`.
 
     * `successful` is the list of messages that were
       successfully processed and published.
@@ -51,6 +52,8 @@ defmodule Broadway.Acknowledger do
   Note that `options` are different for every acknowledger, as the acknowledger
   is what specifies what are the supported options. Check the documentation for the
   acknowledger you're using to see the supported options.
+
+  `ack_ref` and `ack_data` are part of `t:Broadway.Message.acknowledger/0`.
   """
   @callback configure(ack_ref :: term, ack_data :: term, options :: keyword) ::
               {:ok, new_ack_data :: term}
