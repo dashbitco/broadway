@@ -1099,6 +1099,9 @@ defmodule Broadway do
         ]
       ]
 
+  In the example above, for instance, the processor process names would be
+  `MyBroadway.Broadway.Processor_default_0`, `MyBroadway.Broadway.Processor_default_1`,
+  and so on.
   """
   @doc since: "1.0.0"
   @spec topology(broadway :: name()) :: [{key, [stage_info]}]
