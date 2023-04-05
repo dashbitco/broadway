@@ -61,7 +61,7 @@ defmodule Broadway do
     * Metrics - Broadway uses the `:telemetry` library for instrumentation,
       see ["Telemetry"](#module-telemetry) section below for more information.
 
-  ## The Broadway Behaviour
+  ## The Broadway behaviour
 
   In order to use Broadway, you need to:
 
@@ -994,7 +994,7 @@ defmodule Broadway do
   do this by passing a set of options to `start_link/2`.
   Each component of the pipeline has its own set of options.
 
-  The broadway options are:
+  The Broadway options are:
 
   #{NimbleOptions.docs(Broadway.Options.definition())}
 
