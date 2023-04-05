@@ -54,6 +54,7 @@ defmodule Broadway.Message do
   This function is usually used inside the `c:Broadway.handle_message/3` implementation
   to replace data with new processed data.
   """
+  @doc since: "1.0.0"
   @spec put_data(message :: Message.t(), term) :: Message.t()
   def put_data(%Message{} = message, data) do
     %Message{message | data: data}

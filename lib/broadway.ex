@@ -1366,14 +1366,14 @@ defmodule Broadway do
   @doc """
   Synchronously stops the Broadway pipeline with the given `reason`.
 
-  This function returns `:ok` if the server terminates with the
+  This function returns `:ok` if the pipeline terminates with the
   given reason; if it terminates with another reason, the call exits.
 
   This function keeps OTP semantics regarding error reporting.
   If the reason is any other than `:normal`, `:shutdown` or
   `{:shutdown, _}`, an error report is logged.
   """
-  @doc since: "0.8.0"
+  @doc since: "1.0.0"
   def stop(broadway, reason \\ :normal, timeout \\ :infinity)
       when is_broadway_name(broadway) or is_pid(broadway) do
     GenServer.stop(broadway, reason, timeout)
