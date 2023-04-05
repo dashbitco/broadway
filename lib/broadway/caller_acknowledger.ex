@@ -2,12 +2,22 @@ defmodule Broadway.CallerAcknowledger do
   @moduledoc """
   A simple acknowledger that sends a message back to a caller.
 
-  It must be stored as:
+  If you want to use this acknowledger in messages produced by your
+  `Broadway.Producer`, you can get its configuration by calling
+  the `init/0` function. For example, you can use it in
+  `Broadway.test_message/3`:
 
-      acknowledger: Broadway.CallerAcknowledger.init({pid, ref}, term)
+      some_ref = make_ref()
 
-  The first parameter is a tuple with the pid to receive the messages
-  and a unique identifier (usually a reference). The second parameter,
+      Broadway.test_message(
+        MyPipeline,
+        "some data",
+        acknowledger: Broadway.CallerAcknowledger.init({self(), some_ref}, :ignored)
+      )
+
+  The first parameter is a tuple with the PID to receive the messages
+  and a unique identifier (usually a reference). Such unique identifier
+  is then included in the messages sent to the PID. The second parameter,
   which is per message, is ignored.
 
   It sends a message in the format:
@@ -25,9 +35,12 @@ defmodule Broadway.CallerAcknowledger do
 
   @doc """
   Returns the acknowledger metadata.
+
+  See the module documentation.
   """
-  def init({pid, ref}, term) do
-    {__MODULE__, {pid, ref}, term}
+  @spec init({pid, ref :: term}, ignored_term :: term) :: Broadway.Message.acknowledger()
+  def init({pid, ref} = _pid_and_ref, ignored_term) when is_pid(pid) do
+    {__MODULE__, {pid, ref}, ignored_term}
   end
 
   @impl true

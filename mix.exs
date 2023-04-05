@@ -14,7 +14,8 @@ defmodule Broadway.MixProject do
       deps: deps(),
       docs: docs(),
       package: package(),
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [docs: :docs]
     ]
   end
 

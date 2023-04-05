@@ -40,6 +40,33 @@ defmodule Broadway.Producer do
   A `Broadway.Producer` can implement two optional Broadway callbacks,
   `c:prepare_for_start/2` and `c:prepare_for_draining/1`, which are useful
   for booting up and shutting down Broadway topologies respectively.
+
+  ## Producing Broadway messages
+
+  You should generally modify `Broadway.Message` structs by using the functions
+  in the `Broadway.Message` module. However, if you are implementing your
+  own producer, you **can manipulate** some of the struct's fields directly.
+
+  These fields are:
+
+    * `:data` (required) - the data of the message. Even though the function
+      `Broadway.Message.put_data/2` exists, when creating a `%Broadway.Message{}`
+      struct from scratch you will have to pass in the `:data` field directly.
+
+    * `:acknowledger` (required) - the acknowledger of the message, of type
+      `t:Broadway.Message.acknowledger/0`.
+
+    * `:metadata` (optional) - metadata about the message that your producer
+      can attach to the message. This is useful when you want to add some metadata
+      to messages, and document it for users to use in their pipelines.
+
+  For example, a producer could create a message by doing something like this:
+
+      %Broadway.Message{
+        data: "some data here",
+        acknowledger: Broadway.NoopAcknowledger.init()
+      }
+
   """
 
   @doc """
