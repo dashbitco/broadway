@@ -55,7 +55,7 @@ defmodule Broadway do
     * Rate limiting - Broadway allows developers to rate limit all producers in
       a single node by a given number of messages in a time period, allowing
       developers to easily work sources or sinks that cannot cope with a high
-      number of requests. See the ":rate_limiting" option for producers in
+      number of requests. See the `:rate_limiting` option for producers in
       `start_link/2`.
 
     * Metrics - Broadway uses the `:telemetry` library for instrumentation,
