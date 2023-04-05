@@ -1101,18 +1101,15 @@ defmodule Broadway do
 
   """
   @doc since: "1.0.0"
-  @spec topology(broadway :: name()) :: [
-          {atom(),
-           [
-             %{
+  @spec topology(broadway :: name()) :: [{key, [stage_info]}]
+        when key: :producers | :processors | :batchers,
+             stage_info: %{
                required(:name) => atom(),
                optional(:concurrency) => pos_integer(),
                optional(:batcher_name) => atom(),
                optional(:batcher_key) => atom(),
                optional(:processor_key) => atom()
              }
-           ]}
-        ]
   def topology(broadway) when is_broadway_name(broadway) do
     Topology.topology(broadway)
   end
@@ -1123,6 +1120,7 @@ defmodule Broadway do
   It's important to notice that no order is guaranteed.
   """
   @doc since: "1.0.0"
+  @spec all_running() :: [name()]
   def all_running do
     for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
         GenServer.whereis(name),
