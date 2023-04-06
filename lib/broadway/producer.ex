@@ -110,6 +110,7 @@ defmodule Broadway.Producer do
       end
 
   """
+  @doc since: "0.5.0"
   @callback prepare_for_start(module :: atom, options :: keyword) ::
               {[child_spec], updated_options :: keyword}
             when child_spec: :supervisor.child_spec() | {module, any} | module

@@ -142,6 +142,7 @@ defmodule Broadway.Message do
   This function can only be called if the acknowledger implements the `configure/3`
   callback. If it doesn't, an error is raised.
   """
+  @doc since: "0.5.0"
   @spec configure_ack(message :: Message.t(), options :: keyword) :: Message.t()
   def configure_ack(%Message{} = message, options) when is_list(options) do
     %{acknowledger: {module, ack_ref, ack_data}} = message
@@ -181,6 +182,7 @@ defmodule Broadway.Message do
   Returns the updated acked message if a message is passed in,
   or the updated list of acked messages if a list of messages is passed in.
   """
+  @doc since: "0.5.0"
   @spec ack_immediately(message :: Message.t()) :: Message.t()
   @spec ack_immediately(messages :: [Message.t(), ...]) :: [Message.t(), ...]
   def ack_immediately(message_or_messages)

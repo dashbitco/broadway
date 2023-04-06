@@ -1052,6 +1052,7 @@ defmodule Broadway do
       [MyBroadway.Producer_0, MyBroadway.Producer_1, ..., MyBroadway.Producer_7]
 
   """
+  @doc since: "0.5.0"
   @spec producer_names(name()) :: [name()]
   def producer_names(broadway) when is_broadway_name(broadway) do
     Topology.producer_names(broadway)
