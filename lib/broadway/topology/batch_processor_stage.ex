@@ -126,4 +126,13 @@ defmodule Broadway.Topology.BatchProcessorStage do
   defp split_by_status([%Message{} = message | rest], successful, failed, count) do
     split_by_status(rest, successful, [message | failed], count + 1)
   end
+
+  defp split_by_status([other | _rest], _successful, _failed, _count) do
+    raise "handle_batch/4 must return a list of %Broadway.Message{} structs, " <>
+            "but one element was: #{inspect(other)}"
+  end
+
+  defp split_by_status(other, _successful, _failed, _count) do
+    raise "handle_batch/4 must return a list of %Broadway.Message{} structs, got: #{inspect(other)}"
+  end
 end
