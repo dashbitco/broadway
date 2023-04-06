@@ -221,22 +221,21 @@ defmodule Broadway.Options do
               type: {:custom, __MODULE__, :validate_batch_size, []},
               default: 100,
               doc: """
-              The size of the generated batches. Default value is `100`.
-
-              It is typically an integer but it can also be tuple of `{init_acc, fun}`
+              The size of the generated batches. Default value is `100`. It is typically an
+              integer but it can also be tuple of `{init_acc, fun}`
               where `fun` receives two arguments: a `Broadway.Message` and
               an `acc`. The function must return either `{:emit, acc}` to indicate
               all batched messages must be emitted or `{:cont, acc}` to continue
-              batching. `init_acc` is the initial accumulator used on the first call.
-
-              You can consider that setting the accumulator to an integer is the
-              equivalent to custom batching function of:
+              batching. `init_acc` is the initial accumulator used on the first call. You can
+              consider that setting the accumulator to an integer is the equivalent to custom
+              batching function of:
 
                   {batch_size,
                    fn
                      _message, 1 -> {:emit, batch_size}
                      _message, count -> {:cont, count - 1}
                    end}
+
               """
             ],
             max_demand: [
