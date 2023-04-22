@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.7 (2023-04-22)
+
+### Enhancements
+
+  * Relax `nimble_options` dependency
+  * Improve documentation and error messages
+
 ## v1.0.6 (2023-01-19)
 
 ### Bug fixes
