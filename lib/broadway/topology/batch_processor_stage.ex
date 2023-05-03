@@ -33,6 +33,15 @@ defmodule Broadway.Topology.BatchProcessorStage do
   end
 
   @impl true
+  def handle_info({:EXIT, pid, reason}, state) when reason not in [:normal, :shutdown] do
+    Logger.error(
+      "Batch processor received a trapped exit from #{inspect(pid)} with reason: " <>
+        Exception.format_exit(reason)
+    )
+
+    {:noreply, [], state}
+  end
+
   def handle_info(_msg, state) do
     {:noreply, [], state}
   end
