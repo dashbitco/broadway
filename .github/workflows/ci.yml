@@ -20,8 +20,8 @@ jobs:
               elixir: 1.7.4
               otp: 21.3.8.17
           - pair:
-              elixir: 1.13.3
-              otp: 24.2.1
+              elixir: 1.15.4
+              otp: 26.0.2
             lint: lint
             coverage: coverage
     steps:
@@ -38,7 +38,10 @@ jobs:
           path: |
             deps
             _build
-          key: mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}
+          key: |
+            mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-
 
       - run: mix do deps.get, deps.compile
         if: steps.cache-deps.outputs.cache-hit != 'true'
