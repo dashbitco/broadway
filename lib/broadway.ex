@@ -1145,7 +1145,7 @@ defmodule Broadway do
     |> Topology.ProducerStage.push_messages(messages)
   end
 
-  test_messages_options_schema = [
+  test_batch_options_schema = [
     metadata: [
       type: :any,
       default: [],
@@ -1174,11 +1174,11 @@ defmodule Broadway do
     ]
   ]
 
-  @test_message_options_schema NimbleOptions.new!(test_messages_options_schema)
+  @test_batch_options_schema NimbleOptions.new!(test_batch_options_schema)
 
-  @test_batch_options_schema test_messages_options_schema
-                             |> Keyword.delete(:batch_mode)
-                             |> NimbleOptions.new!()
+  @test_message_options_schema test_batch_options_schema
+                               |> Keyword.delete(:batch_mode)
+                               |> NimbleOptions.new!()
 
   @doc """
   Sends a test message through the Broadway pipeline.
@@ -1262,7 +1262,7 @@ defmodule Broadway do
   @spec test_batch(broadway :: name(), data :: [term], opts :: Keyword.t()) :: reference
   def test_batch(broadway, batch_data, opts \\ [])
       when is_broadway_name(broadway) and is_list(batch_data) and is_list(opts) do
-    opts = NimbleOptions.validate!(opts, @test_message_options_schema)
+    opts = NimbleOptions.validate!(opts, @test_batch_options_schema)
     {batch_mode, opts} = Keyword.pop(opts, :batch_mode, :bulk)
     test_messages(broadway, batch_data, batch_mode, opts)
   end
