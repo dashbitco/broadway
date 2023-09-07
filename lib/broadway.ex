@@ -1177,8 +1177,8 @@ defmodule Broadway do
   @test_batch_options_schema NimbleOptions.new!(test_batch_options_schema)
 
   @test_message_options_schema test_batch_options_schema
-                             |> Keyword.delete(:batch_mode)
-                             |> NimbleOptions.new!()
+                               |> Keyword.delete(:batch_mode)
+                               |> NimbleOptions.new!()
 
   @doc """
   Sends a test message through the Broadway pipeline.
