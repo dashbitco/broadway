@@ -814,12 +814,12 @@ defmodule Broadway do
   by `c:handle_message/3`. For example, if you need to query the database,
   instead of doing it once per message, you can do it on this callback.
 
-  The length of the list of messages received by this callback is based on
-  the `min_demand`/`max_demand` configuration in the processor.  That is, this
-  will determine how frequently more items are requested. The length of the
-  list of messages ultimately depends on the producer. For example, the
-  `BroadwayRabbitMQ.Producer` is a streaming producer and it is more likely for
-  messages to appear as they are pushed. 
+  The length of the list of messages received by this callback is often based
+  on the `min_demand`/`max_demand` configuration in the processor but ultimately
+  it depends on the producer and the frequency data arrives. A pipeline that
+  receives one message per minute will most likely emit single element lists.
+  Producers which are push-based, rather than pull-based, such as
+  `BroadwayRabbitMQ.Producer`, are more likely to send messages as they appear.
 
   This callback must always return all messages it receives, as
   `c:handle_message/3` is still called individually for each message afterwards.
