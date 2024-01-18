@@ -815,9 +815,14 @@ defmodule Broadway do
   instead of doing it once per message, you can do it on this callback.
 
   The length of the list of messages received by this callback is based on
-  the `min_demand`/`max_demand` configuration in the processor. This callback
-  must always return all messages it receives, as `c:handle_message/3` is still
-  called individually for each message afterwards.
+  the `min_demand`/`max_demand` configuration in the processor.  That is, this
+  will determine how frequently more items are requested. The length of the
+  list of messages ultimately depends on the producer. For example, the
+  `BroadwayRabbitMQ.Producer` is a streaming producer and it is more likely for
+  messages to appear as they are pushed. 
+
+  This callback must always return all messages it receives, as
+  `c:handle_message/3` is still called individually for each message afterwards.
   """
   @callback prepare_messages(messages :: [Message.t()], context :: term) :: [Message.t()]
 
