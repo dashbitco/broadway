@@ -817,10 +817,13 @@ defmodule Broadway do
   The length of the list of messages received by this callback is often based
   on the `min_demand`/`max_demand` configuration in the processor but ultimately
   it depends on the producer and the frequency data arrives. A pipeline that
-  receives messages rarely will most likely emit lists below the `min_demand`
-  value. Producers which are push-based, rather than pull-based, such as
-  `BroadwayRabbitMQ.Producer`, are more likely to send messages as they arrive
-  (which may skip batching altogether and always be single element lists).
+  receives messages rarely will most likely emit lists of length below the
+  `min_demand` value. Producers which are push-based, rather than pull-based,
+  such as `BroadwayRabbitMQ.Producer`, are more likely to send messages as they
+  arrive (which may skip batching altogether and always be single element lists).
+  In other words, this callback is simply a convenience for preparing messages,
+  it does not guarantee the messages will be accumulated to a certain length.
+  For effective batching processing, see `c:handle_batch/4`.
 
   This callback must always return all messages it receives, as
   `c:handle_message/3` is still called individually for each message afterwards.
