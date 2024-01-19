@@ -812,7 +812,8 @@ defmodule Broadway do
 
   This is the place to prepare and preload any information that will be used
   by `c:handle_message/3`. For example, if you need to query the database,
-  instead of doing it once per message, you can do it on this callback.
+  instead of doing it once per message, you can do it on this callback as
+  a best-effort optimization.
 
   The length of the list of messages received by this callback is often based
   on the `min_demand`/`max_demand` configuration in the processor but ultimately
@@ -823,7 +824,7 @@ defmodule Broadway do
   arrive (which may skip batching altogether and always be single element lists).
   In other words, this callback is simply a convenience for preparing messages,
   it does not guarantee the messages will be accumulated to a certain length.
-  For effective batching processing, see `c:handle_batch/4`.
+  For effective batch processing, see `c:handle_batch/4`.
 
   This callback must always return all messages it receives, as
   `c:handle_message/3` is still called individually for each message afterwards.
