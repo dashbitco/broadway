@@ -20,19 +20,22 @@ jobs:
               elixir: 1.7.4
               otp: 21.3.8.17
           - pair:
-              elixir: 1.15.4
-              otp: 26.0.2
+              elixir: 1.16.1
+              otp: 26.2.2
             lint: lint
             coverage: coverage
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out this repository
+        uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - name: Set up Erlang and Elixir
+        uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.pair.otp}}
           elixir-version: ${{matrix.pair.elixir}}
 
-      - uses: actions/cache@v3
+      - name: Cache Mix dependencies
+        uses: actions/cache@v3
         id: cache-deps
         with:
           path: |
@@ -43,7 +46,7 @@ jobs:
           restore-keys: |
             mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-
 
-      - run: mix do deps.get, deps.compile
+      - run: mix do deps.get --check-locked, deps.compile
         if: steps.cache-deps.outputs.cache-hit != 'true'
 
       - run: mix format --check-formatted
