@@ -807,7 +807,7 @@ defmodule Broadway do
 
   It expects:
 
-    * `message` is the `Broadway.Message` struct to be processed.
+    * `messages` is a list of `Broadway.Message` structs to be processed.
     * `context` is the user defined data structure passed to `start_link/2`.
 
   This is the place to prepare and preload any information that will be used
@@ -817,7 +817,7 @@ defmodule Broadway do
 
   The length of the list of messages received by this callback is often based
   on the `min_demand`/`max_demand` configuration in the processor but ultimately
-  it depends on the producer and the frequency data arrives. A pipeline that
+  it depends on the producer and on the frequency data arrives. A pipeline that
   receives messages rarely will most likely emit lists of length below the
   `min_demand` value. Producers which are push-based, rather than pull-based,
   such as `BroadwayRabbitMQ.Producer`, are more likely to send messages as they
@@ -828,6 +828,14 @@ defmodule Broadway do
 
   This callback must always return all messages it receives, as
   `c:handle_message/3` is still called individually for each message afterwards.
+
+  > #### Failed Messages {: .warning}
+  >
+  > Even if `c:prepare_messages/2` **fails** some messages (`Broadway.Message.failed/2`),
+  > the failed messages are still passed down to `c:handle_message/3`.
+  > If your pipeline wants to avoid processing messages failed in `c:prepare_messages/2`,
+  > it will have to pattern match on `%Broadway.Message{status: {:failed, reason}}`
+  > in its `c:handle_message/3` callback and act accordingly.
   """
   @callback prepare_messages(messages :: [Message.t()], context :: term) :: [Message.t()]
 
