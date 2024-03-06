@@ -32,9 +32,8 @@ defmodule Broadway.MixProject do
       {:telemetry, "~> 0.4.3 or ~> 1.0"},
 
       # Dev/test dependencies.
-      {:castore, "~> 1.0", only: :test},
       {:ex_doc, ">= 0.19.0", only: :docs},
-      {:excoveralls, "~> 0.18.0", only: :test}
+      {:excoveralls, "~> 0.17.0", only: :test}
     ]
   end
 
