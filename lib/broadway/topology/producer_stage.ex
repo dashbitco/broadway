@@ -235,7 +235,7 @@ defmodule Broadway.Topology.ProducerStage do
     %{module: module, module_state: module_state} = state
 
     if function_exported?(module, :format_discarded, 2) do
-      module.format_discarded(discarded, state)
+      module.format_discarded(discarded, module_state)
     else
       true
     end
