@@ -16,12 +16,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - pair:
-              elixir: 1.7.4
-              otp: 21.3.8.17
-          - pair:
-              elixir: 1.16.1
-              otp: 26.2.2
+          # Earliest-supported versions.
+          - elixir: "1.7.4"
+            otp: "21.3.8.17"
+
+          # Latest versions.
+          - elixir: "1.17"
+            otp: "27.0"
             lint: lint
             coverage: coverage
     steps:
@@ -31,8 +32,8 @@ jobs:
       - name: Set up Erlang and Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: ${{matrix.pair.otp}}
-          elixir-version: ${{matrix.pair.elixir}}
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
 
       - name: Cache Mix dependencies
         uses: actions/cache@v3
@@ -42,9 +43,9 @@ jobs:
             deps
             _build
           key: |
-            mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}
+            mix-${{ runner.os }}-${{matrix.elixir}}-${{matrix.otp}}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-
+            mix-${{ runner.os }}-${{matrix.elixir}}-${{matrix.otp}}-
 
       - run: mix do deps.get --check-locked, deps.compile
         if: steps.cache-deps.outputs.cache-hit != 'true'
