@@ -27,7 +27,7 @@
 
 ### Bug fixes
 
-  * Fix NoopAckwnoledger metadata name
+  * Fix NoopAcknowledger metadata name
 
 ## v1.0.4 (2022-11-05)
 
