@@ -86,19 +86,21 @@ defmodule Broadway.Topology do
   end
 
   @impl true
-  def terminate(reason, %{name: name, supervisor_pid: supervisor_pid, terminator: terminator}) do
+  def terminate(reason, %{supervisor_pid: supervisor_pid, terminator: terminator}) do
     Broadway.Topology.Terminator.trap_exit(terminator)
     ref = Process.monitor(supervisor_pid)
     Process.exit(supervisor_pid, reason_to_signal(reason))
 
-    # We don't delete from persistent term on purpose. Since the process is
-    # named, we can assume it does not start dynamically, so it will either
-    # restart or the amount of memory it uses is negligibla to justify the
-    # process purging done by persistent_term. If the repo is restarted and
-    # stores the same metadata, then no purging happens either.
-    # receive do
-    #   {:DOWN, ^ref, _, _, _} -> :persistent_term.erase({Broadway, name})
-    # end
+    receive do
+      {:DOWN, ^ref, _, _, _} ->
+        # We don't delete from persistent term on purpose. Since the process is
+        # named, we can assume it does not start dynamically, so it will either
+        # restart or the amount of memory it uses is negligibla to justify the
+        # process purging done by persistent_term. If the repo is restarted and
+        # stores the same metadata, then no purging happens either.
+        # :persistent_term.erase({Broadway, name})
+        :ok
+    end
 
     :ok
   end
