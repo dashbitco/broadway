@@ -9,7 +9,7 @@ defmodule Broadway.ConfigStorage.Ets do
   @impl ConfigStorage
   def setup do
     if :undefined == :ets.whereis(table()) do
-      :ets.new(table(), [:named_table, :public, :set])
+      :ets.new(table(), [:named_table, :public, :set, {:read_concurrency, true}])
     end
 
     :ok
