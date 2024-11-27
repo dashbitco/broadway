@@ -2,6 +2,17 @@ defmodule Broadway.ConfigStorage.PersistentTerm do
   @behaviour Broadway.ConfigStorage
 
   @impl Broadway.ConfigStorage
+  def setup do
+    unless Code.ensure_loaded?(:persistent_term) do
+      require Logger
+      Logger.error("Broadway requires Erlang/OTP 21.3+")
+      raise "Broadway requires Erlang/OTP 21.3+"
+    end
+
+    :ok
+  end
+
+  @impl Broadway.ConfigStorage
   def list do
     for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get() do
       name

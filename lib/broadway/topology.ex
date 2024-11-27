@@ -8,9 +8,10 @@ defmodule Broadway.Topology do
     BatcherStage,
     BatchProcessorStage,
     Terminator,
-    RateLimiter,
+    RateLimiter
   }
-  alias Broadway.ConfigStorage.PersistentTerm
+
+  alias Broadway.ConfigStorage
 
   defstruct [:context, :topology, :producer_names, :batchers_names, :rate_limiter_name]
 
@@ -35,13 +36,11 @@ defmodule Broadway.Topology do
   end
 
   defp config(server) do
-    config_storage = get_config_storage()
+    config_storage = ConfigStorage.get_module()
 
     config_storage.get(server) ||
       exit({:noproc, {__MODULE__, :config, [server]}})
   end
-
-  defp get_config_storage(), do: Application.get_env(Broadway, :config_storage, PersistentTerm)
 
   ## Callbacks
 
@@ -49,10 +48,10 @@ defmodule Broadway.Topology do
   def init({module, opts}) do
     Process.flag(:trap_exit, true)
 
-    unless Code.ensure_loaded?(:persistent_term) do
-      require Logger
-      Logger.error("Broadway requires Erlang/OTP 21.3+")
-      raise "Broadway requires Erlang/OTP 21.3+"
+    config_storage = ConfigStorage.get_module()
+
+    if function_exported?(config_storage, :setup, 0) do
+      config_storage.setup()
     end
 
     # We want to invoke this as early as possible otherwise the
@@ -63,8 +62,6 @@ defmodule Broadway.Topology do
     {:ok, supervisor_pid} = start_supervisor(child_specs, config, opts)
 
     emit_init_event(opts, supervisor_pid)
-
-    config_storage = get_config_storage()
 
     config_storage.put(config.name, %__MODULE__{
       context: config.context,
@@ -100,7 +97,7 @@ defmodule Broadway.Topology do
 
     receive do
       {:DOWN, ^ref, _, _, _} ->
-        config_storage = get_config_storage()
+        config_storage = ConfigStorage.get_module()
         config_storage.delete(name)
         :ok
     end
