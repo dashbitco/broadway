@@ -8,8 +8,9 @@ defmodule Broadway.Topology do
     BatcherStage,
     BatchProcessorStage,
     Terminator,
-    RateLimiter
+    RateLimiter,
   }
+  alias Broadway.ConfigStorage.PersistentTerm
 
   defstruct [:context, :topology, :producer_names, :batchers_names, :rate_limiter_name]
 
@@ -34,9 +35,13 @@ defmodule Broadway.Topology do
   end
 
   defp config(server) do
-    :persistent_term.get({Broadway, server}, nil) ||
+    config_storage = get_config_storage()
+
+    config_storage.get(server) ||
       exit({:noproc, {__MODULE__, :config, [server]}})
   end
+
+  defp get_config_storage(), do: Application.get_env(Broadway, :config_storage, PersistentTerm)
 
   ## Callbacks
 
@@ -59,7 +64,9 @@ defmodule Broadway.Topology do
 
     emit_init_event(opts, supervisor_pid)
 
-    :persistent_term.put({Broadway, config.name}, %__MODULE__{
+    config_storage = get_config_storage()
+
+    config_storage.put(config.name, %__MODULE__{
       context: config.context,
       topology: build_topology_details(config),
       producer_names: process_names(config, "Producer", config.producer_config),
@@ -86,19 +93,15 @@ defmodule Broadway.Topology do
   end
 
   @impl true
-  def terminate(reason, %{supervisor_pid: supervisor_pid, terminator: terminator}) do
+  def terminate(reason, %{name: name, supervisor_pid: supervisor_pid, terminator: terminator}) do
     Broadway.Topology.Terminator.trap_exit(terminator)
     ref = Process.monitor(supervisor_pid)
     Process.exit(supervisor_pid, reason_to_signal(reason))
 
     receive do
       {:DOWN, ^ref, _, _, _} ->
-        # We don't delete from persistent term on purpose. Since the process is
-        # named, we can assume it does not start dynamically, so it will either
-        # restart or the amount of memory it uses is negligibla to justify the
-        # process purging done by persistent_term. If the repo is restarted and
-        # stores the same metadata, then no purging happens either.
-        # :persistent_term.erase({Broadway, name})
+        config_storage = get_config_storage()
+        config_storage.delete(name)
         :ok
     end
 

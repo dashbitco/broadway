@@ -793,7 +793,7 @@ defmodule Broadway do
 
   """
 
-  alias Broadway.{BatchInfo, Message, Topology}
+  alias Broadway.{BatchInfo, Message, Topology, ConfigStorage.PersistentTerm}
   alias NimbleOptions.ValidationError
 
   @typedoc """
@@ -1144,7 +1144,9 @@ defmodule Broadway do
   @doc since: "1.0.0"
   @spec all_running() :: [name()]
   def all_running do
-    for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
+    config_storage = Application.get_env(Broadway, :config_storage, PersistentTerm)
+
+    for name <- config_storage.list(),
         (try do
            GenServer.whereis(name)
          rescue
