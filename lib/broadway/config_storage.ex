@@ -30,6 +30,9 @@ defmodule Broadway.ConfigStorage do
 
   @optional_callbacks setup: 0
 
+  @doc """
+  Retrieves the configured module based on the `:config_storage` key.
+  """
   @spec get_module() :: module()
   def get_module() do
     Application.get_env(Broadway, :config_storage, PersistentTerm)
@@ -39,6 +42,9 @@ defmodule Broadway.ConfigStorage do
     end
   end
 
+  @doc """
+  Retrieves any options set on the `:config_storage` key.
+  """
   @spec get_options() :: keyword()
   def get_options() do
     Application.get_env(Broadway, :config_storage, PersistentTerm)

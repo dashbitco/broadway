@@ -607,6 +607,16 @@ defmodule Broadway do
   > Those issues happen regardless of Broadway and solutions to said
   > problems almost always need to be addressed outside of Broadway too.
 
+  ## Configuration Storage
+
+  Broadway comes with two configuration storage options:
+
+  - `Broadway.ConfigStorage.PersistentTerm`
+  - `Broadway.ConfigStorage.Ets`
+
+  `Broadway.ConfigStorage.PersistentTerm` is used by default.
+
+
   ## Telemetry
 
   Broadway currently exposes following Telemetry events:
