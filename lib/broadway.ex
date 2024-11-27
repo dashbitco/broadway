@@ -1145,7 +1145,11 @@ defmodule Broadway do
   @spec all_running() :: [name()]
   def all_running do
     for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
-        GenServer.whereis(name),
+        (try do
+           GenServer.whereis(name)
+         rescue
+           _ -> false
+         end),
         do: name
   end
 

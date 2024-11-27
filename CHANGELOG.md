@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.0 (2024-06-21)
+
+### Bug fix
+
+  * No longer set demand to `:accumulate` when draining, for compatibility with GenStage v1.2+. This means that any polling implementation must implement the `prepare_for_draining` callback and stop polling messages. You can check how [BroadwaySQS](https://github.com/dashbitco/broadway_sqs/commit/5b8f18a78e4760b5fcc839ad576be8c63345add0) tackles this problem as an example
+
+### Enhancements
+
+  * Log leaked trapped exits
+
 ## v1.0.7 (2023-04-22)
 
 ### Enhancements
@@ -17,7 +27,7 @@
 
 ### Bug fixes
 
-  * Fix NoopAckwnoledger metadata name
+  * Fix NoopAcknowledger metadata name
 
 ## v1.0.4 (2022-11-05)
 

@@ -1,7 +1,7 @@
 defmodule Broadway.MixProject do
   use Mix.Project
 
-  @version "1.0.7"
+  @version "1.1.0"
   @description "Build concurrent and multi-stage data ingestion and data processing pipelines"
 
   def project do
@@ -32,8 +32,9 @@ defmodule Broadway.MixProject do
       {:telemetry, "~> 0.4.3 or ~> 1.0"},
 
       # Dev/test dependencies.
+      {:castore, "~> 1.0", only: :test},
       {:ex_doc, ">= 0.19.0", only: :docs},
-      {:excoveralls, "~> 0.17.0", only: :test}
+      {:excoveralls, "~> 0.18.0", only: :test}
     ]
   end
 
