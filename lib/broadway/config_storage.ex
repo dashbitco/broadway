@@ -1,7 +1,6 @@
 defmodule Broadway.ConfigStorage do
-  @moduledoc """
-  Configuration storage behaviour that allows swapping out configuration storage options.
-  """
+  @moduledoc false
+  alias Broadway.ConfigStorage.{Ets, PersistentTerm}
 
   @doc """
   Optional setup for the configuration storage
@@ -35,9 +34,10 @@ defmodule Broadway.ConfigStorage do
   """
   @spec get_module() :: module()
   def get_module() do
-    Application.get_env(Broadway, :config_storage, PersistentTerm)
+    Application.get_env(Broadway, :config_storage, :persistent_term)
     |> case do
-      {mod, _opts} -> mod
+      :ets -> Ets
+      :persistent_term -> PersistentTerm
       mod -> mod
     end
   end
@@ -47,10 +47,6 @@ defmodule Broadway.ConfigStorage do
   """
   @spec get_options() :: keyword()
   def get_options() do
-    Application.get_env(Broadway, :config_storage, PersistentTerm)
-    |> case do
-      {_mod, opts} when is_list(opts) -> opts
-      _mod -> []
-    end
+    Application.get_env(Broadway, :config_storage_opts) || []
   end
 end

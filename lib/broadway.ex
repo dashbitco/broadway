@@ -609,12 +609,54 @@ defmodule Broadway do
 
   ## Configuration Storage
 
-  Broadway comes with two configuration storage options:
+  Broadway stores configuration globally in a chosen storage method. Broadway comes with two configuration storage options:
 
-  - `Broadway.ConfigStorage.PersistentTerm`
-  - `Broadway.ConfigStorage.Ets`
+  - `:persistent_term`, the default.
+  - `:ets`
 
-  `Broadway.ConfigStorage.PersistentTerm` is used by default.
+
+
+  ### Persistent Term
+
+  A `:persistent_term` backed configuration storage, which is the default storage option used. Configurations are not deleted when the Broadway server process goes down, so as to avoid a global GC.
+
+  ```elixir
+  config Broadway, config_storage: :persistent_term
+  ```
+
+  ### ETS
+  An ETS-backed configuration storage. Only use this if performance improvements over the default `:persistent_term`-based storage is needed.
+
+  To use this configuration storage option, set your application config.exs as so:
+
+  ```elixir
+  config Broadway, config_storage: :ets
+  ```
+
+  To pass options, use a tuple with a keyword list as so:
+
+  ```elixir
+  config Broadway,
+    config_storage: :ets,
+    config_storage_opts: [
+      table_name: :my_table
+    ]
+  ```
+
+  Accepted options:
+  - `:table_name` - configure the table name. Defaults to `:broadway_configs`.
+
+  #### Performance Improvements over `:persistent_term`
+  `:persistent_term` will trigger a global GC on each `put` or `erase`. For situations where there are a large number of dynamically created Broadway pipelines that are created or removed, this may result in the global GC being triggered multiple times. If there is a large number of processes, this may cause the system to be less responsive until all heaps have been scanned.
+
+    As `Broadway.ConfigStorage.PersistentTerm` does not perform an erase when the Broadway server process goes down, it may result in memory buildup over time within the `:persistent_term` hash table, especially when dynamic names are used for the Broadway servers.
+
+    Furthermore, the speed of storing and updating using `:persistent_term` is proportional to the number of already-created terms in the hash table, as the hash table (and term) is copied.
+
+    Using `:ets` as the config storage will allow for a large number of Broadway server configurations to be stored and fetched without the associated performance tradeoffs that `:persistent_term` has.
+
+
+
 
 
   ## Telemetry

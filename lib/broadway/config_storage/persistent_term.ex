@@ -1,16 +1,5 @@
 defmodule Broadway.ConfigStorage.PersistentTerm do
-  @moduledoc """
-  A `:persistent_term` backed configuration storage.
-
-  This configuration storage is used by default.
-
-  ```elixir
-  config Broadway, config_storage: Broadway.ConfigStorage.PersistentTerm
-  ```
-
-  Configurations are not deleted when the process goes down, so as to avoid a global GC.
-
-  """
+  @moduledoc false
   @behaviour Broadway.ConfigStorage
 
   @impl Broadway.ConfigStorage
