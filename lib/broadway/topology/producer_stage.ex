@@ -235,7 +235,6 @@ defmodule Broadway.Topology.ProducerStage do
     end
   end
 
-
   @impl true
   def terminate(reason, %{module: module, module_state: module_state}) do
     if function_exported?(module, :terminate, 2) do
