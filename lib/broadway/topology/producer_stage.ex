@@ -225,6 +225,17 @@ defmodule Broadway.Topology.ProducerStage do
   end
 
   @impl true
+  def format_discarded(discarded, state) do
+    %{module: module, module_state: module_state} = state
+
+    if function_exported?(module, :format_discarded, 2) do
+      module.format_discarded(discarded, module_state)
+    else
+      true
+    end
+  end
+
+  @impl true
   def terminate(reason, %{module: module, module_state: module_state}) do
     if function_exported?(module, :terminate, 2) do
       module.terminate(reason, module_state)

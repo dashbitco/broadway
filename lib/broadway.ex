@@ -975,7 +975,21 @@ defmodule Broadway do
   @callback process_name(broadway_name :: Broadway.name(), base_name :: String.t()) ::
               Broadway.name()
 
-  @optional_callbacks prepare_messages: 2, handle_batch: 4, handle_failed: 2, process_name: 2
+  @doc """
+  Invoked when items are discarded from the buffer. Gets passed to `GenStage.format_discarded/2`.
+
+  If true is returned by the callback, the default log message is emitted.
+
+  Allows controlling or customization of the log message emitted.
+  """
+  @doc since: "1.2.0"
+  @callback format_discarded(discarded :: non_neg_integer(), state :: term()) :: boolean()
+
+  @optional_callbacks prepare_messages: 2,
+                      handle_batch: 4,
+                      handle_failed: 2,
+                      process_name: 2,
+                      format_discarded: 2
 
   defguardp is_broadway_name(name)
             when is_atom(name) or (is_tuple(name) and tuple_size(name) == 3)
