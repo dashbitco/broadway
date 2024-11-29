@@ -1,13 +1,10 @@
 defmodule Broadway.ConfigStorage.Ets do
   @moduledoc false
-  alias Broadway.ConfigStorage
-  @behaviour ConfigStorage
+  @behaviour Broadway.ConfigStorage
 
-  @default_table :broadway_configs
+  def table(), do: __MODULE__
 
-  def default_table(), do: @default_table
-
-  @impl ConfigStorage
+  @impl true
   def setup do
     if :undefined == :ets.whereis(table()) do
       :ets.new(table(), [:named_table, :public, :set, {:read_concurrency, true}])
@@ -16,12 +13,12 @@ defmodule Broadway.ConfigStorage.Ets do
     :ok
   end
 
-  @impl ConfigStorage
+  @impl true
   def list do
     :ets.select(table(), [{{:"$1", :_}, [], [:"$1"]}])
   end
 
-  @impl ConfigStorage
+  @impl true
   def get(server) do
     case :ets.match(table(), {server, :"$1"}) do
       [[topology]] -> topology
@@ -29,18 +26,13 @@ defmodule Broadway.ConfigStorage.Ets do
     end
   end
 
-  @impl ConfigStorage
+  @impl true
   def put(server, topology) do
     :ets.insert(table(), {server, topology})
   end
 
-  @impl ConfigStorage
+  @impl true
   def delete(server) do
     :ets.delete(table(), server)
-  end
-
-  defp table() do
-    opts = ConfigStorage.get_options()
-    Keyword.get(opts, :table_name, @default_table)
   end
 end

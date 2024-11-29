@@ -2,7 +2,7 @@ defmodule Broadway.ConfigStorage.PersistentTerm do
   @moduledoc false
   @behaviour Broadway.ConfigStorage
 
-  @impl Broadway.ConfigStorage
+  @impl true
   def setup do
     unless Code.ensure_loaded?(:persistent_term) do
       require Logger
@@ -13,24 +13,24 @@ defmodule Broadway.ConfigStorage.PersistentTerm do
     :ok
   end
 
-  @impl Broadway.ConfigStorage
+  @impl true
   def list do
     for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get() do
       name
     end
   end
 
-  @impl Broadway.ConfigStorage
+  @impl true
   def get(server) do
     :persistent_term.get({Broadway, server}, nil)
   end
 
-  @impl Broadway.ConfigStorage
+  @impl true
   def put(server, topology) do
     :persistent_term.put({Broadway, server}, topology)
   end
 
-  @impl Broadway.ConfigStorage
+  @impl true
   def delete(_server) do
     # We don't delete from persistent term on purpose. Since the process is
     # named, we can assume it does not start dynamically, so it will either

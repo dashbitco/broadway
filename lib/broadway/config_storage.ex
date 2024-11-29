@@ -34,19 +34,10 @@ defmodule Broadway.ConfigStorage do
   """
   @spec get_module() :: module()
   def get_module() do
-    Application.get_env(Broadway, :config_storage, :persistent_term)
-    |> case do
+    case Application.fetch_env!(:broadway, :config_storage) do
       :ets -> Ets
       :persistent_term -> PersistentTerm
       mod -> mod
     end
-  end
-
-  @doc """
-  Retrieves any options set on the `:config_storage` key.
-  """
-  @spec get_options() :: keyword()
-  def get_options() do
-    Application.get_env(Broadway, :config_storage_opts) || []
   end
 end
