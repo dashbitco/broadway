@@ -50,7 +50,7 @@ defmodule Broadway.Topology do
 
     config_storage = ConfigStorage.get_module()
 
-    if function_exported?(config_storage, :setup, 0) do
+    if Code.ensure_loaded?(config_storage) and function_exported?(config_storage, :setup, 0) do
       config_storage.setup()
     end
 
