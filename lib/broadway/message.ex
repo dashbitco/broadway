@@ -10,8 +10,7 @@ defmodule Broadway.Message do
 
   Instead of modifying the struct directly, you should use the functions
   provided by this module to manipulate messages. However, if you are implementing
-  a `Broadway.Producer` of your own, see the [`%Broadway.Message{}`](`__struct__/0`)
-  documentation to see what fields you should set.
+  a `Broadway.Producer` of your own, see `t:t/0` to see what fields you should set.
   """
 
   alias __MODULE__, as: Message

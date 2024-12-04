@@ -607,18 +607,19 @@ defmodule Broadway do
   > Those issues happen regardless of Broadway and solutions to said
   > problems almost always need to be addressed outside of Broadway too.
 
-  ## Configuration Storage
+  ## Configuration storage
 
-  Broadway stores configuration globally in a chosen storage method.
+  Broadway stores configuration globally in a configurable storage method.
   Broadway comes with two configuration storage options:
 
-  - `:persistent_term`, the default.
-  - `:ets`
+    * `:persistent_term` (the default)
+    * `:ets`
 
-  ### Persistent Term
+  ### Persistent term
 
   This is the most efficient option for static Broadway pipeline definitions,
-  as this option never deletes the Broadway configuration from storage:
+  as this option never deletes the Broadway configuration from storage. It's based
+  on [`:persistent_term`](`:persistent_term`).
 
   ```elixir
   config :broadway, config_storage: :persistent_term
@@ -629,21 +630,23 @@ defmodule Broadway do
   several Broadway pipelines dynamically, that may affect the persistent term
   storage performance. Furthermore, even if you are restarting the same pipeline
   but you are using different parameters each time, that will require a global
-  GC to update the `:persistent_term` configuration. If you are starting Broadway
-  pipelines dynamically, you must use `:ets`.
+  garbage collection pass to update the `:persistent_term` configuration.
+  If you are starting Broadway pipelines dynamically, you must use the `:ets`
+  storage.
 
   ### ETS
 
-  An ETS-backed configuration storage, useful if Broadway pipelines are
-  started dynamically.
-  To use this configuration storage option, set your application config.exs as so:
+  An [ETS](`:ets`)-backed configuration storage, useful if Broadway pipelines are
+  started dynamically. To use this configuration storage option, configure the
+  `:broadway` application in :your configuration
 
   ```elixir
+  # For example, in config/config.exs:
   config :broadway, config_storage: :ets
   ```
 
   Using `:ets` as the config storage will allow for a dynamic number of Broadway server
-  configurations to be stored and fetched without the associated performance tradeoffs
+  configurations to be stored and fetched without the associated performance trade-offs
   that `:persistent_term` has.
 
   ## Telemetry
@@ -1015,9 +1018,10 @@ defmodule Broadway do
               Broadway.name()
 
   @doc """
-  Invoked when items are discarded from the buffer. Gets passed to `GenStage.format_discarded/2`.
+  Invoked when items are discarded from the buffer.
 
-  If true is returned by the callback, the default log message is emitted.
+  If this callback returns `true`, the default log message is emitted.
+  See `c:GenStage.format_discarded/2`.
 
   Allows controlling or customization of the log message emitted.
   """

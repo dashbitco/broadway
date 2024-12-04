@@ -1,13 +1,17 @@
 defmodule Broadway.ConfigStorage.Ets do
   @moduledoc false
+
   @behaviour Broadway.ConfigStorage
 
-  def table(), do: __MODULE__
+  @table __MODULE__
+
+  # Used in tests.
+  def table, do: @table
 
   @impl true
   def setup do
-    if :undefined == :ets.whereis(table()) do
-      :ets.new(table(), [:named_table, :public, :set, {:read_concurrency, true}])
+    if :undefined == :ets.whereis(@table) do
+      :ets.new(@table, [:named_table, :public, :set, {:read_concurrency, true}])
     end
 
     :ok
@@ -15,12 +19,12 @@ defmodule Broadway.ConfigStorage.Ets do
 
   @impl true
   def list do
-    :ets.select(table(), [{{:"$1", :_}, [], [:"$1"]}])
+    :ets.select(@table, [{{:"$1", :_}, [], [:"$1"]}])
   end
 
   @impl true
   def get(server) do
-    case :ets.match(table(), {server, :"$1"}) do
+    case :ets.match(@table, {server, :"$1"}) do
       [[topology]] -> topology
       _ -> nil
     end
@@ -28,11 +32,11 @@ defmodule Broadway.ConfigStorage.Ets do
 
   @impl true
   def put(server, topology) do
-    :ets.insert(table(), {server, topology})
+    :ets.insert(@table, {server, topology})
   end
 
   @impl true
   def delete(server) do
-    :ets.delete(table(), server)
+    :ets.delete(@table, server)
   end
 end

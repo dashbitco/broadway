@@ -1,5 +1,6 @@
 defmodule Broadway.ConfigStorage do
   @moduledoc false
+
   alias Broadway.ConfigStorage.{Ets, PersistentTerm}
 
   @doc """
