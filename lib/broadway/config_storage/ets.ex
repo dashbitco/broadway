@@ -1,4 +1,4 @@
-defmodule Broadway.ConfigStorage.Ets do
+defmodule Broadway.ConfigStorage.ETS do
   @moduledoc false
 
   @behaviour Broadway.ConfigStorage
