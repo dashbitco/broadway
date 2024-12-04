@@ -1,8 +1,6 @@
 defmodule Broadway.ConfigStorage do
   @moduledoc false
 
-  alias Broadway.ConfigStorage.{Ets, PersistentTerm}
-
   @doc """
   Optional setup for the configuration storage
   """
@@ -36,8 +34,8 @@ defmodule Broadway.ConfigStorage do
   @spec get_module() :: module()
   def get_module() do
     case Application.fetch_env!(:broadway, :config_storage) do
-      :ets -> Ets
-      :persistent_term -> PersistentTerm
+      :ets -> Broadway.ConfigStorage.ETS
+      :persistent_term -> Broadway.ConfigStorage.PersistentTerm
       mod -> mod
     end
   end
