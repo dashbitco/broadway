@@ -21,8 +21,8 @@ jobs:
             otp: "21.3.8.17"
 
           # Latest versions.
-          - elixir: "1.17"
-            otp: "27.0"
+          - elixir: "1.18"
+            otp: "27.2"
             lint: lint
             coverage: coverage
     steps:
