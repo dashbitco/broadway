@@ -31,6 +31,7 @@ For those interested in rolling their own Broadway Producers (which we actively 
 The following Off-Broadway libraries are available (feel free to send a PR adding your own in alphabetical order):
 
   * [off_broadway_amqp10](https://github.com/highmobility/off_broadway_amqp10): [Guide](https://hexdocs.pm/off_broadway_amqp10/)
+  * [off_broadway_elasticsearch](https://github.com/jonlunsford/off_broadway_elasticsearch): [Guide](https://hexdocs.pm/off_broadway_elasticsearch/)
   * [off_broadway_kafka](https://github.com/bbalser/off_broadway_kafka): [Guide](https://hexdocs.pm/off_broadway_kafka/)
   * [off_broadway_memory](https://github.com/elliotekj/off_broadway_memory): [Guide](https://hexdocs.pm/off_broadway_memory/)
   * [off_broadway_redis](https://github.com/amokan/off_broadway_redis): [Guide](https://hexdocs.pm/off_broadway_redis/)
