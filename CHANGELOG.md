@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.0 (2025-02-10)
+
+* Do not clean up persistent terms on shutdown
+* Add format_discarded callback
+* Allow different config storages
+
 ## v1.1.0 (2024-06-21)
 
 ### Bug fix
