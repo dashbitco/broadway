@@ -22,7 +22,8 @@ defmodule Broadway.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      env: [config_storage: :persistent_term]
+      env: [config_storage: :persistent_term],
+      mod: {Broadway.Application, []}
     ]
   end
 

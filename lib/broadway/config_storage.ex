@@ -2,12 +2,14 @@ defmodule Broadway.ConfigStorage do
   @moduledoc false
 
   @doc """
-  Optional setup for the configuration storage
+  Optional setup for the configuration storage.
+
+  Invoked when Broadway boots.
   """
   @callback setup() :: :ok
 
   @doc """
-  Lists all broadway names in the config storage
+  Lists all broadway names in the config storage.
   """
   @callback list() :: [term()]
 
@@ -17,12 +19,12 @@ defmodule Broadway.ConfigStorage do
   @callback put(server :: term(), value :: %Broadway.Topology{}) :: term()
 
   @doc """
-  Retrieves a configuration from the underlying storage
+  Retrieves a configuration from the underlying storage.
   """
   @callback get(server :: term()) :: term()
 
   @doc """
-  Deletes a configuration from the underlying storage
+  Deletes a configuration from the underlying storage.
   """
   @callback delete(server :: term()) :: boolean()
 

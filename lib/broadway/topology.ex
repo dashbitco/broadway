@@ -47,12 +47,7 @@ defmodule Broadway.Topology do
   @impl true
   def init({module, opts}) do
     Process.flag(:trap_exit, true)
-
     config_storage = ConfigStorage.get_module()
-
-    if Code.ensure_loaded?(config_storage) and function_exported?(config_storage, :setup, 0) do
-      config_storage.setup()
-    end
 
     # We want to invoke this as early as possible otherwise the
     # stacktrace gets deeper and deeper in case of errors.
