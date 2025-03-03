@@ -374,7 +374,7 @@ defmodule Broadway.Topology do
         concurrency: options[:concurrency]
       ] ++ options
 
-    opts = [name: name]
+    opts = start_options(name, options)
 
     spec = %{
       start: {BatcherStage, :start_link, [args, opts]},
