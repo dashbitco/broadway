@@ -968,10 +968,8 @@ defmodule Broadway do
 
   It expects:
 
-    * `messages` is the list of messages that failed. If a message is failed in
-      `c:handle_message/3`, this will be a list with a single message in it. If
-      some messages are failed in `c:handle_batch/4`, this will be the list of
-      failed messages.
+    * `messages` is the list of messages that failed. All messages passed in the same
+      call to `c:handle_failed/3` will come from the same processing stage.
 
     * `context` is the user-defined data structure passed to `start_link/2`.
 
