@@ -424,7 +424,7 @@ defmodule Broadway do
         end
       end
 
-  Now in config/test.exs you could do:
+  Now in `config/test.exs` you could do:
 
       config :my_app,
         producer_module: Broadway.DummyProducer,
@@ -474,9 +474,8 @@ defmodule Broadway do
   the code will behave with large batches. Otherwise the batcher will flush
   messages as soon as possible and in small batches.
 
-  However, keep in mind that, regardless of the `:batch_mode` you cannot
-  rely on ordering, as Broadway pipelines are inherently concurrent. For
-  example, if you send those messages:
+  Regardless of the `:batch_mode` you cannot rely on ordering, as Broadway pipelines
+  are inherently concurrent. For example, if you send those messages:
 
       test "multiple batch messages" do
         ref = Broadway.test_batch(MyBroadway, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
@@ -1277,6 +1276,11 @@ defmodule Broadway do
   See ["Testing"](#module-testing) section in module documentation
   for more information.
 
+  > #### Demand and Transform Options {: .warning}
+  >
+  > Messages sent using this function will ignore demand (`:min_demand` and `:max_demand`)
+  > and `:transform` options specified in the `:producer` option passed to `start_link/2`.
+
   ## Options
 
   #{NimbleOptions.docs(@test_message_options_schema)}
@@ -1293,8 +1297,6 @@ defmodule Broadway do
       acknowledger = fn data, ack_ref -> {MyAck, ack_ref, :ok} end
       Broadway.test_message(broadway, 1, acknowledger: acknowledger)
 
-  Note that messages sent using this function will ignore demand and :transform
-  option specified in :producer option in `Broadway.start_link/2`.
   """
   @spec test_message(broadway :: name(), term, opts :: Keyword.t()) :: reference
   def test_message(broadway, data, opts \\ [])
@@ -1322,6 +1324,11 @@ defmodule Broadway do
   See ["Testing"](#module-testing) section in module documentation
   for more information.
 
+  > #### Demand and Transform Options {: .warning}
+  >
+  > Messages sent using this function will ignore demand (`:min_demand` and `:max_demand`)
+  > and `:transform` options specified in the `:producer` option passed to `start_link/2`.
+
   ## Options
 
   #{NimbleOptions.docs(@test_batch_options_schema)}
@@ -1335,8 +1342,6 @@ defmodule Broadway do
       assert length(successful) == 3
       assert length(failed) == 0
 
-  Note that messages sent using this function will ignore demand and :transform
-  option specified in :producer option in `Broadway.start_link/2`.
   """
   @spec test_batch(broadway :: name(), data :: [term], opts :: Keyword.t()) :: reference
   def test_batch(broadway, batch_data, opts \\ [])
