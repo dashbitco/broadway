@@ -4,7 +4,7 @@ defmodule Broadway.ConfigStorage.PersistentTerm do
 
   @impl true
   def setup do
-    unless Code.ensure_loaded?(:persistent_term) do
+    if !Code.ensure_loaded?(:persistent_term) do
       require Logger
       Logger.error("Broadway requires Erlang/OTP 21.3+")
       raise "Broadway requires Erlang/OTP 21.3+"
