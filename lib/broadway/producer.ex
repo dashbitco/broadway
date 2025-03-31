@@ -71,7 +71,7 @@ defmodule Broadway.Producer do
 
   The goal of this callback is to manipulate the general topology options,
   if necessary at all, and introduce any new child specs that will be
-  started **before** the producers supervisor in Broadway's supervision tree.
+  started **before** the producer's supervisor in Broadway's supervision tree.
   Broadway's supervision tree is a `rest_for_one` supervisor (see the documentation
   for `Supervisor`), which means that if the children returned from this callback
   crash they will bring down the rest of the pipeline before being restarted.
@@ -86,8 +86,8 @@ defmodule Broadway.Producer do
   is the list of child specs to be started under Broadway's supervision tree.
   `updated_options` is a potentially-updated list of Broadway options
   that will be used instead of the ones passed to `Broadway.start_link/2`. This can be
-  used to modify the characteristics of the Broadway topology to accommodated
-  for the children started here.
+  used to modify the characteristics of the Broadway topology to accommodate
+  the children started here.
 
   ## Examples
 
