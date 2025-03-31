@@ -18,8 +18,8 @@ defmodule Broadway.Producer do
   ## Injected Broadway configuration
 
   If `options` is a keyword list, Broadway injects a `:broadway` option
-  into such keyword list. This option contains the configuration for the
-  complete Broadway topology (see `Broadway.start_link/2`. For example,
+  into the keyword list. This option contains the configuration for the
+  complete Broadway topology (see `Broadway.start_link/2`). For example,
   you can use `options[:broadway][:name]` to uniquely identify the topology.
 
   The `:broadway` configuration also has an `:index` key. This
