@@ -102,7 +102,7 @@ defmodule Broadway.Producer do
              {DynamicSupervisor, strategy: :one_for_one, name: MyApp.DynamicSupervisor}
            ]
 
-           {children, broadway_options}
+           {children, updated_options}
         end
       end
 
