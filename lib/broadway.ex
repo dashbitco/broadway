@@ -968,7 +968,7 @@ defmodule Broadway do
   It expects:
 
     * `messages` is the list of messages that failed. All messages passed in the same
-      call to `c:handle_failed/3` will come from the same processing stage.
+      call to `c:handle_failed/2` will come from the same processing stage.
 
     * `context` is the user-defined data structure passed to `start_link/2`.
 
