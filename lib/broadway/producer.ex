@@ -24,7 +24,7 @@ defmodule Broadway.Producer do
 
   The `:broadway` configuration also has an `:index` key. This
   is the index of the producer in its supervision tree (starting
-  from `0`). This allows a features such having even producers
+  from `0`). This allows features such as having even producers
   connect to some server while odd producers connect to another.
 
   If `options` is any other term, it is passed as is to the `c:GenStage.init/1`
