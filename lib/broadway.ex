@@ -329,7 +329,7 @@ defmodule Broadway do
   `c:handle_failed/2` callback, that callback will be invoked with
   all the failed messages before they get acknowledged.
 
-  Note however, that `Broadway` does not provide any sort of retries
+  Note however, that `Broadway` does not provide retries
   out of the box. This is left completely as a responsibility of the
   producer. For instance, if you are using Amazon SQS, the default
   behaviour is to retry unacknowledged messages after a user-defined
@@ -891,7 +891,7 @@ defmodule Broadway do
 
   And it must return the (potentially) updated `Broadway.Message` struct.
 
-  This is the place to do any kind of processing with the incoming message,
+  This is the place to process the incoming message,
   e.g., transform the data into another data structure, call specific business
   logic to do calculations. Basically, any CPU bounded task that runs against
   a single message should be processed here.
