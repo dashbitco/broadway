@@ -15,12 +15,11 @@ In order to use Broadway with RabbitMQ, we need to:
   1. [Run the Broadway pipeline](#run-the-broadway-pipeline)
   1. [Tuning the configuration](#tuning-the-configuration) (Optional)
 
-In case you want to work with an existing queue, you can skip [step 1](#create-a-queue)
+To work with an existing queue, skip [step 1](#create-a-queue)
 and jump to [Configure the project](#configure-the-project).
 
-> Note: `BroadwayRabbitMQ` does not automatically create any queue. If you
-configure a pipeline with a non-existent queue, the producers will crash,
-bringing down the pipeline.
+> Note: `BroadwayRabbitMQ` does not automatically create queues.
+> Without a queue the producers will crash, bringing down the pipeline.
 
 ## Create a queue
 
@@ -30,12 +29,12 @@ further information. Also, make sure you have the
 [Management](https://www.rabbitmq.com/management.html) plugin enabled, which ships
 with the command line tool, `rabbitmqadmin`.
 
-After successfully installing RabbitMQ, you can declare a new queue with the
+After successfully installing RabbitMQ, declare a new queue with the
 following command:
 
     $ rabbitmqadmin declare queue name=my_queue durable=true
 
-You can list all declared queues to see the one we've created:
+List all declared queues to see the one we've created:
 
     $ rabbitmqctl list_queues
     Timeout: 60.0 seconds ...
@@ -173,17 +172,16 @@ purpose. First, we update the message's data individually inside
 For more information, see `c:Broadway.handle_message/3` and
 `c:Broadway.handle_batch/4`.
 
-> Note: Since Broadway v0.2, batching is optional. In case you don't need to
-> group messages as batches for further processing/publishing, you can remove
-> the `:batchers` configuration along with the `handle_batch/4` callback. This
-> is perfectly fine for RabbitMQ, where messages are acknowledged individually
-> and never as a batch.
+> Note: Since Broadway v0.2, batching is optional. Remove
+> the `:batchers` configuration along with the `c:handle_batch/4` callback
+> to send single messages for further processing/publishing. This
+> works because RabbitMQ messages acknowledges messages individually.
 
 ## Run the Broadway pipeline
 
 To run your `Broadway` pipeline, you need to add as a child in
 a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
+at `lib/my_app/application.ex`. Add Broadway as a child to a
 supervisor as follows:
 
     children = [
@@ -197,7 +195,7 @@ Also, if your Broadway has any dependency (for example, it needs to talk
 to the database), make sure that Broadway is listed *after* its dependencies
 in the supervision tree.
 
-You can now test your pipeline by entering an `iex` session:
+Test your pipeline by entering an `iex` session:
 
     $ iex -S mix
 
