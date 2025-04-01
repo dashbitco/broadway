@@ -18,14 +18,14 @@ to get started. Instead of testing against a live environment, you may also cons
 [emulator](https://cloud.google.com/pubsub/docs/emulator) to simulate integrating with Cloud
 Pub/Sub.
 
-If you have an existing project, topic, subscription, and credentials, you can skip [step
+Existing projects, topics, subscriptions, and credentials can skip [step
 1](#setup-cloud-pub-sub-project) and jump to [Configure the project](#configure-the-project)
 section.
 
 ## Setup Cloud Pub/Sub project
 
 In this tutorial we'll use the [`gcloud`](https://cloud.google.com/sdk/gcloud/) command-line tool
-to set everything up in Google Cloud. Alternatively, you can roughly follow this guide by using
+to set everything up in Google Cloud. Alternatively, follow this
 [Cloud Console](https://console.cloud.google.com).
 
 To install `gcloud` follow the [documentation](https://cloud.google.com/sdk/gcloud/). If you are
@@ -46,7 +46,7 @@ A new topic:
     $ gcloud pubsub topics create test-topic --project test-pubsub
     Created topic [projects/test-pubsub/topics/test-topic].
 
-> Note: If you run this command immediately after creating a new Google Cloud project, you may receive an error indicating that your project's organization policy is still being provisioned. wait a couple minutes and try again.
+> Note: If an error indicates the organization policy is still provisioning after creating a new Google Cloud project, wait a couple minutes and try again.
 
 And a new subscription:
 
@@ -196,7 +196,7 @@ For more information, see `c:Broadway.handle_message/3` and `c:Broadway.handle_b
 ## Run the Broadway pipeline
 
 To run your `Broadway` pipeline, you need to add it as a child in a supervision tree. Most
-applications have a supervision tree defined at `lib/my_app/application.ex`. You can add Broadway
+applications have a supervision tree defined at `lib/my_app/application.ex`. Add Broadway
 as a child to a supervisor as follows:
 
     children = [
@@ -205,7 +205,7 @@ as a child to a supervisor as follows:
 
     Supervisor.start_link(children, strategy: :one_for_one)
 
-The final step is to configure credentials. You can set the following environment variable:
+The final step is to configure credentials. Set the following environment variable:
 
     export GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
 
@@ -216,7 +216,7 @@ Now the Broadway pipeline should be started when your application starts. Also, 
 pipeline has any dependency (for example, it needs to talk to the database), make sure that
 it is listed *after* its dependencies in the supervision tree.
 
-If you followed the previous section about setting the project with `gcloud`, you can now test the
+In the previous section `gcloud` set up the project. Now test the
 the pipeline. In one terminal tab start the application:
 
     $ iex -S mix
