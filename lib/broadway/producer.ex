@@ -100,6 +100,7 @@ defmodule Broadway.Producer do
            children = [
              {DynamicSupervisor, strategy: :one_for_one, name: MyApp.DynamicSupervisor}
            ]
+            updated_options = put_in(broadway_options, [:producer, :rate_limiting], [interval: 1000, allowed_messages: 10])
 
            {children, updated_options}
         end
