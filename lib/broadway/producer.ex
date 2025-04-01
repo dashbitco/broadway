@@ -18,13 +18,13 @@ defmodule Broadway.Producer do
   ## Injected Broadway configuration
 
   If `options` is a keyword list, Broadway injects a `:broadway` option
-  into such keyword list. This option contains the configuration for the
-  complete Broadway topology (see `Broadway.start_link/2`. For example,
+  into the keyword list. This option contains the configuration for the
+  complete Broadway topology (see `Broadway.start_link/2`). For example,
   you can use `options[:broadway][:name]` to uniquely identify the topology.
 
   The `:broadway` configuration also has an `:index` key. This
   is the index of the producer in its supervision tree (starting
-  from `0`). This allows a features such having even producers
+  from `0`). This allows features such as having even producers
   connect to some server while odd producers connect to another.
 
   If `options` is any other term, it is passed as is to the `c:GenStage.init/1`
@@ -71,7 +71,7 @@ defmodule Broadway.Producer do
 
   The goal of this callback is to manipulate the general topology options,
   if necessary at all, and introduce any new child specs that will be
-  started **before** the producers supervisor in Broadway's supervision tree.
+  started **before** the producers' supervisor in Broadway's supervision tree.
   Broadway's supervision tree is a `rest_for_one` supervisor (see the documentation
   for `Supervisor`), which means that if the children returned from this callback
   crash they will bring down the rest of the pipeline before being restarted.
@@ -86,8 +86,8 @@ defmodule Broadway.Producer do
   is the list of child specs to be started under Broadway's supervision tree.
   `updated_options` is a potentially-updated list of Broadway options
   that will be used instead of the ones passed to `Broadway.start_link/2`. This can be
-  used to modify the characteristics of the Broadway topology to accommodated
-  for the children started here.
+  used to modify the characteristics of the Broadway topology to accommodate
+  the children started here.
 
   ## Examples
 
@@ -101,8 +101,9 @@ defmodule Broadway.Producer do
            children = [
              {DynamicSupervisor, strategy: :one_for_one, name: MyApp.DynamicSupervisor}
            ]
+            updated_options = put_in(broadway_options, [:producer, :rate_limiting], [interval: 1000, allowed_messages: 10])
 
-           {children, broadway_options}
+           {children, updated_options}
         end
       end
 
