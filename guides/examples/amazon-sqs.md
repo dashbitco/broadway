@@ -108,7 +108,7 @@ The above configuration also assumes that you have the AWS credentials
 set up in your environment, for instance, by having the `AWS_ACCESS_KEY_ID`
 and `AWS_SECRET_ACCESS_KEY` environment variables set. If that's
 not the case, you will need to pass that information to the client so it
-can properly connect to the AWS servers. Here is how you can do it:
+can properly connect to the AWS servers. Here's how to do it:
 
     ...
     producer: [
@@ -171,7 +171,7 @@ For more information, see `c:Broadway.handle_message/3` and
 
 To run your `Broadway` pipeline, you need to add as a child in
 a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
+at `lib/my_app/application.ex`. Add Broadway as a child to a
 supervisor as follows:
 
     children = [
