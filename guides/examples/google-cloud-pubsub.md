@@ -288,5 +288,4 @@ your needs.
 In order to get a good set of configurations for your pipeline, it's
 important to respect the limitations of the servers you're running,
 as well as the limitations of the services you're providing/consuming
-data to/from. Broadway comes with telemetry, so you can measure your
-pipeline and help ensure your changes are effective.
+data to/from. Measure your pipeline with [telemetry](https://hexdocs.pm/telemetry/readme.html) to ensure your changes are effective. (It comes standard.)
