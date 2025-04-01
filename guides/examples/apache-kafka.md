@@ -20,7 +20,7 @@ In order to use Broadway with Kafka, we need to:
 
 In case you don't have Kafka installed yet, please follow the instructions on Kafka's
 [Quickstart](https://kafka.apache.org/quickstart) for a clean installation. After
-initializing Kafka, you can create a new stream by running:
+initializing Kafka, create a new stream by running:
 
     $ kafka-topics --create --zookeeper localhost:2181 --partitions 3 --topic test
 
@@ -158,14 +158,14 @@ For more information, see `c:Broadway.handle_message/3` and
 `c:Broadway.handle_batch/4`.
 
 > Note: Since Broadway v0.2, batching is optional. In case you don't need to
-> group messages as batches for further processing/publishing, you can remove
+> group messages as batches for further processing/publishing, remove
 > the `:batchers` configuration along with the `handle_batch/4` callback.
 
 ## Run the Broadway pipeline
 
 To run your `Broadway` pipeline, you need to add as a child in
 a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
+at `lib/my_app/application.ex`. Add Broadway as a child to a
 supervisor as follows:
 
     children = [
@@ -179,7 +179,7 @@ Also, if your Broadway has any dependency (for example, it needs to talk
 to the database), make sure that Broadway is listed *after* its dependencies
 in the supervision tree.
 
-You can now test your pipeline by entering an `iex` session:
+Test your pipeline by entering an `iex` session:
 
     $ iex -S mix
 
