@@ -287,9 +287,4 @@ tuning `:offset_commit_interval_seconds` and `:offset_commit_on_ack`.
 
 ## Handling failed messages
 
-`broadway_kafka` never stops the flow of the stream, i.e. it will **always ack** the messages
-even when they fail. Unlike queue-based connectors, where you can mark a single message as failed.
-In Kafka that's not possible due to its single offset per topic/partition ack strategy. If you
-want to reprocess failed messages, you need to roll your own strategy. A possible way to do that
-is to implement `handle_failed/2` and send failed messages to a separated stream or queue for
-later processing.
+`broadway_kafka` never stops the flow of the stream and will **always ack messages**, even when they fail. Unlike queue-based connectors, which allow marking individual messages as failed, Kafka's single offset per topic/partition strategy prevents that. To reprocess failed messages, implement your own strategy, such as using `handle_failed/2` to send failed messages to a separate stream or queue for later processing.
