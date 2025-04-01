@@ -42,8 +42,9 @@ defmodule Broadway.Producer do
 
   You should generally modify `Broadway.Message` structs by using the functions
   in the `Broadway.Message` module. However, if you are implementing your
-  own producer, you **can manipulate** some of the struct's fields directly,
-  such as:
+  own producer, you **can manipulate** some of the struct's fields directly.
+
+  These fields are:
 
     * `:data` (required) - the data of the message. Even though the function
       `Broadway.Message.put_data/2` exists, when creating a `%Broadway.Message{}`
