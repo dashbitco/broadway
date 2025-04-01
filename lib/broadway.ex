@@ -38,7 +38,7 @@ defmodule Broadway do
       event was properly processed.
 
     * Custom failure handling - Broadway provides a `c:handle_failed/2` callback
-      where developers can outline custom code to handle errors. For example,
+      to outline custom code to handle errors. For example,
       if they want to move messages to another queue for further processing.
 
     * Dynamic batching - Broadway allows developers to batch messages based on
@@ -48,9 +48,9 @@ defmodule Broadway do
 
     * Ordering and Partitioning - Broadway allows developers to partition
       messages across workers, guaranteeing messages within the same partition
-      are processed in order. For example, if you want to guarantee all events
-      tied to a given `user_id` are processed in order and not concurrently,
-      you can set the `:partition_by` option. See ["Ordering and partitioning"](#module-ordering-and-partitioning).
+      are processed in order. For example, set the `:partition_by` option to
+      guarantee all events tied to a given `user_id` are processed in order
+      and not concurrently. See ["Ordering and partitioning"](#module-ordering-and-partitioning).
 
     * Rate limiting - Broadway allows developers to rate limit all producers in
       a single node by a given number of messages in a time period, allowing
@@ -104,12 +104,12 @@ defmodule Broadway do
 
       Supervisor.start_link(children, strategy: :one_for_one)
 
-  Adding your pipeline to your supervision tree in this way
+  Adding your pipeline to your supervision tree this way
   calls the default `child_spec/1` function that is generated
-  when `use Broadway` is invoked. If you would like to customize
-  the child spec passed to the supervisor, you can override the
-  `child_spec/1` function in your module or explicitly pass a
-  child spec to the supervisor when adding it to your supervision tree.
+  when `use Broadway` is invoked. Customize child specifications
+  by overriding the `child_spec/1` function in your module or
+  by explicitly passing the `:child_spec` option to the supervisor
+  when adding it to your supervision tree.
 
   The configuration above defines a pipeline with:
 
@@ -198,8 +198,8 @@ defmodule Broadway do
      [batch_sqs_1] [batch_sqs_2]    [batch_s3_1] <- process each batch
   ```
 
-  Additionally, you have to define the `c:handle_batch/4` callback,
-  which batch processors invoke for each batch. You can then
+  Next, define the `c:handle_batch/4` callback,
+  which batch processors invoke with each batch. Then
   call `Broadway.Message.put_batcher/2` inside `c:handle_message/3` to
   control which batcher the message should go to.
 
@@ -265,7 +265,7 @@ defmodule Broadway do
   to raise an error.
 
   For example, imagine you want to batch "special" messages and handle them differently
-  then all other messages. You can configure your pipeline like this:
+  then all other messages. Configure your pipeline like this:
 
       defmodule MyBroadway do
         use Broadway
@@ -386,8 +386,8 @@ defmodule Broadway do
   `test_message/3` and `test_batch/3` functions should be used to publish
   messages.
 
-  With `test_message/3`, you can push a message into the pipeline and receive
-  a process message when the pipeline acknowledges the data you have pushed
+  Call `test_message/3` to push a message into the pipeline and receive
+  back a process message when the pipeline acknowledges the message data
   has been processed.
 
   Let's see an example. Imagine the following `Broadway` module:
@@ -445,7 +445,7 @@ defmodule Broadway do
 
       {:ack, ^ref, successful_messages, failure_messages}
 
-  You can use the acknowledgment to guarantee the message has been
+  Use the acknowledgement to guarantee the message has been
   processed and therefore any side-effect from the pipeline should be
   visible.
 
@@ -572,8 +572,8 @@ defmodule Broadway do
   across partitions. So some partitions may be more overloaded than
   others, slowing down the whole pipeline.
 
-  In the example above, we have set the same partition for all
-  processors and batchers. You can also specify the `:partition_by`
+  In the example above, we set the same partition for all
+  processors and batchers. Alternatively, specify the `:partition_by`
   function for each "processor" and "batcher" individually.
 
   > #### Even partitions {: .warning}
@@ -852,9 +852,8 @@ defmodule Broadway do
     * `context` is the user defined data structure passed to `start_link/2`.
 
   This is the place to prepare and preload any information that will be used
-  by `c:handle_message/3`. For example, if you need to query the database,
-  instead of doing it once per message, you can do it on this callback as
-  a best-effort optimization.
+  by `c:handle_message/3`. For example, query the database on this callback as
+  a best-effort optimization instead of doing it once per message.
 
   The length of the list of messages received by this callback is often based
   on the `min_demand`/`max_demand` configuration in the processor but ultimately
@@ -908,7 +907,7 @@ defmodule Broadway do
 
   In case more than one batcher have been defined in the configuration,
   you need to specify which of them the resulting message will be forwarded
-  to. You can do this by calling `put_batcher/2` and returning the new
+  to. Do this by calling `put_batcher/2` and returning the new
   updated message:
 
       @impl true
