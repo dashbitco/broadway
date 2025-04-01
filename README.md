@@ -27,7 +27,7 @@ Broadway takes the burden of defining concurrent GenStage topologies and provide
 
 ### Producers
 
-There are several producers that you can use to integrate with existing services and technologies. [See the docs for detailed how-tos and supported producers](https://hexdocs.pm/broadway/introduction.html#official-producers).
+Currently we officially support four Broadway producers that integrate with existing services and technologies. [See the docs for detailed how-tos and supported producers](https://hexdocs.pm/broadway/introduction.html#official-producers).
 
 ## Installation
 
