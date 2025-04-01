@@ -146,7 +146,7 @@ defmodule Broadway.Options do
       > transformations, each with a different concern, then you must
       > have several processors.
       >
-      > However, that's not quite true. Separation of concerns is modeled
+      > However, that's not true. Separation of concerns is modeled
       > by defining several modules and functions, not processors. Processors
       > are ultimately about moving data around and you should only do it
       > when necessary. Using processors for code organization purposes would
