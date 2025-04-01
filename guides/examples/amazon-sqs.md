@@ -43,7 +43,7 @@ which is a Broadway SQS Connector provided by [Dashbit](https://dashbit.co/).
 
 ### Starting a new project
 
-If you plan to start a new project, just run:
+If you plan to start a new project, run:
 
     $ mix new my_app --sup
 
@@ -137,7 +137,7 @@ module docs as well as `Broadway.start_link/2`.
 
 In order to process incoming messages, we need to implement the
 required callbacks. For the sake of simplicity, we're considering that
-all messages received from the queue are just numbers:
+all messages received from the queue are numbers:
 
     defmodule MyBroadway do
       use Broadway
@@ -169,7 +169,7 @@ For more information, see `c:Broadway.handle_message/3` and
 
 ## Run the Broadway pipeline
 
-To run your `Broadway` pipeline, you just need to add as a child in
+To run your `Broadway` pipeline, you need to add as a child in
 a supervision tree. Most applications have a supervision tree defined
 at `lib/my_app/application.ex`. You can add Broadway as a child to a
 supervisor as follows:

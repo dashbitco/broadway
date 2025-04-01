@@ -13,7 +13,7 @@ In order to use Broadway with Cloud Pub/Sub you need to:
   1. Run the Broadway pipeline
   1. Tune the configuration (Optional)
 
-If you are just getting familiar with Google Pub/Sub, refer to [the documentation](https://cloud.google.com/pubsub/docs/)
+If you are getting familiar with Google Pub/Sub, refer to [the documentation](https://cloud.google.com/pubsub/docs/)
 to get started. Instead of testing against a live environment, you may also consider using the
 [emulator](https://cloud.google.com/pubsub/docs/emulator) to simulate integrating with Cloud
 Pub/Sub.
@@ -46,7 +46,7 @@ A new topic:
     $ gcloud pubsub topics create test-topic --project test-pubsub
     Created topic [projects/test-pubsub/topics/test-topic].
 
-> Note: If you run this command immediately after creating a new Google Cloud project, you may receive an error indicating that your project's organization policy is still being provisioned. Just wait a couple minutes and try again.
+> Note: If you run this command immediately after creating a new Google Cloud project, you may receive an error indicating that your project's organization policy is still being provisioned. wait a couple minutes and try again.
 
 And a new subscription:
 
@@ -91,7 +91,7 @@ which is a Broadway Cloud Pub/Sub Connector provided by [Dashbit](https://dashbi
 
 ### Starting a new project
 
-If you plan to start a new project, just run:
+If you plan to start a new project, run:
 
     $ mix new my_app --sup
 

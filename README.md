@@ -82,7 +82,7 @@ defmodule MyBroadway do
 end
 ```
 
-Once your Broadway module is defined, you just need to add it as a child of your application supervision tree as `{MyBroadway, []}`.
+Once your Broadway module is defined, you need to add it as a child of your application supervision tree as `{MyBroadway, []}`.
 
 ## Comparison to Flow
 
