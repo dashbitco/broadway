@@ -71,15 +71,14 @@ Don't forget to check for the latest version of dependencies.
 ## Define the pipeline configuration
 
 Broadway is a process-based behaviour and to define a Broadway pipeline,
-we need to define three functions: `start_link/1`, `handle_message/3`
-and optionally `handle_batch/4`. We will cover `start_link/1` in this
-section and the `handle_` callbacks in the next one.
+we need to define the `start_link/1` function, the `c:handle_message/3`
+callback, and optionally, the `c:handle_batch/4` callback. We will cover `start_link/1` in this section and the `handle_` callbacks in the next one.
 
 Similar to other process-based behaviours, `start_link/1` simply
-delegates to `Broadway.start_link/2`, which should define the
+delegates to `Broadway.start_link/2`, which defines the
 producers, processors, and batchers in the Broadway pipeline.
 Assuming we want to consume messages from a queue called
-`my_queue`, one possible configuration would be:
+`my_queue` with the following configuration:
 
     defmodule MyBroadway do
       use Broadway
