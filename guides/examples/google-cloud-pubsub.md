@@ -2,7 +2,7 @@
 
 Cloud Pub/Sub is a fully-managed real-time messaging service provided by Google.
 
-## Getting Started
+## Getting started
 
 In order to use Broadway with Cloud Pub/Sub you need to:
 

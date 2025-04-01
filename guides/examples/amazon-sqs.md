@@ -18,7 +18,7 @@ queues:
 
 Broadway can work seamlessly with both, Standard and FIFO queues.
 
-## Getting Started
+## Getting started
 
 In order to use Broadway with SQS, we need to:
 

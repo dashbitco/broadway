@@ -4,7 +4,7 @@ RabbitMQ is an open source message broker designed to be highly scalable and
 distributed. It supports multiple protocols including the Advanced Message
 Queuing Protocol (AMQP).
 
-## Getting Started
+## Getting started
 
 In order to use Broadway with RabbitMQ, we need to:
 

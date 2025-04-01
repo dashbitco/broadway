@@ -6,7 +6,7 @@ Kafka is a distributed streaming platform that has three key capabilities:
   * Store streams of records in a fault-tolerant durable way
   * Process streams of records as they occur
 
-## Getting Started
+## Getting started
 
 In order to use Broadway with Kafka, we need to:
 
