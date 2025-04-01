@@ -118,7 +118,7 @@ Broadway is a process-based behaviour and to define a Broadway pipeline, we need
 functions: `start_link/1`, `handle_message/3` and `handle_batch/4`. We will cover `start_link/1`
 in this section and the `handle_` callbacks in the next one.
 
-Similar to other process-based behaviour, `start_link/1` simply delegates to
+Similar to other process-based behaviour, `start_link/1` delegates to
 `Broadway.start_link/2`, which should define the producers, processors, and batchers in the
 Broadway pipeline. Assuming we want to consume messages from the `test-subscription`, the minimal
 configuration would be:

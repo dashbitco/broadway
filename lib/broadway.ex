@@ -863,7 +863,7 @@ defmodule Broadway do
   `min_demand` value. Producers which are push-based, rather than pull-based,
   such as `BroadwayRabbitMQ.Producer`, are more likely to send messages as they
   arrive (which may skip batching altogether and always be single element lists).
-  In other words, this callback is simply a convenience for preparing messages,
+  In other words, this callback is a convenience for preparing messages,
   it does not guarantee the messages will be accumulated to a certain length.
   For effective batch processing, see `c:handle_batch/4`.
 
