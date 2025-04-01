@@ -583,7 +583,7 @@ defmodule Broadway do
   > all order partitions. This implies two things:
   >
   > * Using `:partition_by` with a high level of concurrency can
-  >   actually be detrimental to performance. For example, if
+  >   be detrimental to performance. For example, if
   >   concurrency is set to 100, you need all 100 processors to
   >   make progress at the same time.
   >
