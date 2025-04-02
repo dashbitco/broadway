@@ -67,7 +67,7 @@ defmodule Broadway.Producer do
   """
 
   @doc """
-  Invoked once by Broadway during `Broadway.start_link/2`.
+  Broadway invokes this callback once during `Broadway.start_link/2`.
 
   The goal of this callback is to manipulate the general topology options,
   if necessary at all, and introduce any new child specs that will be
@@ -76,7 +76,7 @@ defmodule Broadway.Producer do
   for `Supervisor`), which means that if the children returned from this callback
   crash they will bring down the rest of the pipeline before being restarted.
 
-  This callback is guaranteed to be invoked inside the Broadway main process.
+  Broadway invokes this callback within the main Broadway process.
 
   `module` is the Broadway module passed as the first argument to
   `Broadway.start_link/2`. `options` is all of Broadway topology options passed
@@ -114,12 +114,12 @@ defmodule Broadway.Producer do
             when child_spec: :supervisor.child_spec() | {module, any} | module
 
   @doc """
-  Invoked by the terminator right before Broadway starts draining in-flight
+  The terminator invokes this callback right before Broadway starts draining in-flight
   messages during shutdown.
 
-  This callback should be implemented by producers that need to do additional
+  Implement this callback for producers that need to do additional
   work before shutting down. That includes active producers like RabbitMQ that
-  must ask the data provider to stop sending messages. It will be invoked for
+  must ask the data provider to stop sending messages. Broadway will invoke this for
   each producer stage.
 
   `state` is the current state of the producer.
