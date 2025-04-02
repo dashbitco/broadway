@@ -18,9 +18,9 @@ defmodule Broadway.Producer do
   ## Injected Broadway configuration
 
   If `options` is a keyword list, Broadway injects a `:broadway` option
-  into the keyword list. This option contains the configuration for the
-  complete Broadway topology (see `Broadway.start_link/2`). For example,
-  you can use `options[:broadway][:name]` to uniquely identify the topology.
+    into that list. This option contains the configuration for the
+    complete Broadway topology (see `Broadway.start_link/2`). For example,
+    use `options[:broadway][:name]` to uniquely identify the topology.
 
   The `:broadway` configuration also has an `:index` key. This
   is the index of the producer in its supervision tree (starting
@@ -40,22 +40,19 @@ defmodule Broadway.Producer do
 
   ## Producing Broadway messages
 
-  You should generally modify `Broadway.Message` structs by using the functions
-  in the `Broadway.Message` module. However, if you are implementing your
-  own producer, you **can manipulate** some of the struct's fields directly.
+  The pipeline modifies `Broadway.Message` structs using functions
+  from the `Broadway.Message` module, except for [custom producers](https://hexdocs.pm/broadway/custom-producers.html).
 
   These fields are:
 
-    * `:data` (required) - the data of the message. Even though the function
-      `Broadway.Message.put_data/2` exists, when creating a `%Broadway.Message{}`
-      struct from scratch you will have to pass in the `:data` field directly.
+    * `:data` (required) - the message data.
+      Pass in the `:data` field directly. (Don't use `Broadway.Message.put_data/2`.)
 
     * `:acknowledger` (required) - the acknowledger of the message, of type
       `t:Broadway.Message.acknowledger/0`.
 
-    * `:metadata` (optional) - metadata about the message that your producer
-      can attach to the message. This is useful when you want to add some metadata
-      to messages, and document it for users to use in their pipelines.
+    * `:metadata` (optional) - the producer-attached message metadata.
+      Optionally document information for users to use in their pipelines.
 
   For example, a producer could create a message by doing something like this:
 
