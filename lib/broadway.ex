@@ -63,14 +63,14 @@ defmodule Broadway do
 
   ## The Broadway behaviour
 
-  In order to use Broadway, you need to:
+  To use Broadway:
 
-    1. Define your pipeline configuration
-    2. Define a module implementing the Broadway behaviour
+    1. define your pipeline configuration
+    2. define a module implementing the Broadway behaviour
 
   ### Example
 
-  Broadway is a process-based behaviour, and you begin by
+  Broadway is a process-based behaviour, so begin by
   defining a module that invokes `use Broadway`. Processes
   defined by these modules will often be started by a
   supervisor, and so a `start_link/1` function is frequently
@@ -127,7 +127,7 @@ defmodule Broadway do
                [processor_1] [processor_2]   <- process each message
   ```
 
-  After the pipeline is defined, you need to implement the `c:handle_message/3`
+  After the pipeline is defined, implement the `c:handle_message/3`
   callback which will be invoked by processors for each message.
 
   `c:handle_message/3` receives every message as a `Broadway.Message`
@@ -484,9 +484,8 @@ defmodule Broadway do
 
   ### Testing with Ecto
 
-  If you are using Ecto in your Broadway processors and you want
-  to run your tests concurrently, you need to tell Broadway to
-  use the Ecto SQL Sandbox during tests. This can be done in two
+  If your processors use Ecto, use the Ecto SQL Sandbox
+  during tests to run them concurrently. Tell Broadway in two
   steps.
 
   First, when you call `test_messages/3` in your tests, include
@@ -905,9 +904,9 @@ defmodule Broadway do
         |> update_data(&do_calculation_and_returns_the_new_data/1)
       end
 
-  In case more than one batcher have been defined in the configuration,
-  you need to specify which of them the resulting message will be forwarded
-  to. Do this by calling `put_batcher/2` and returning the new
+  In case more than one batcher has been defined in the configuration,
+  specify which will be forwarded the resulting message.
+  Do this by calling `put_batcher/2` and returning the new
   updated message:
 
       @impl true
@@ -1060,9 +1059,8 @@ defmodule Broadway do
 
   ## Options
 
-  In order to set up how the pipeline created by Broadway should work,
-  you need to specify the blueprint of the pipeline. You can
-  do this by passing a set of options to `start_link/2`.
+  Specify a Broadway pipeline's blueprint to set up how it works
+  by passing a set of options to `start_link/2`.
   Each component of the pipeline has its own set of options.
 
   The Broadway options are:

@@ -195,7 +195,7 @@ For more information, see `c:Broadway.handle_message/3` and `c:Broadway.handle_b
 
 ## Run the Broadway pipeline
 
-To run your `Broadway` pipeline, you need to add it as a child in a supervision tree. Most
+To run your `Broadway` pipeline, add it as a child in a supervision tree. Most
 applications have a supervision tree defined at `lib/my_app/application.ex`. Add Broadway
 as a child to a supervisor as follows:
 
