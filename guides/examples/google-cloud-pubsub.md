@@ -79,7 +79,7 @@ This command generated a `credentials.json` file which will be useful later. Not
 pattern is `<account>@<project>.iam.gserviceaccount.com`. Run `gcloud iam service-accounts list --project test-pubsub`
 to see all service accounts associated with the given project.
 
-Finally, we need to enable Pub/Sub for our project:
+Finally, enable Pub/Sub for our project:
 
     $ gcloud services enable pubsub --project test-pubsub
     Operation "operations/xxx" finished successfully.
@@ -114,7 +114,8 @@ Don't forget to check for the latest version of dependencies.
 
 ## Define the pipeline configuration
 
-Broadway is a process-based behaviour and to define a Broadway pipeline, we need to define three
+Broadway is a process-based behaviour and a Broadway pipeline
+is defined with three
 functions: `start_link/1`, `handle_message/3` and `handle_batch/4`. We will cover `start_link/1`
 in this section and the `handle_` callbacks in the next one.
 
@@ -164,7 +165,7 @@ For general information about setting up Broadway, see `Broadway` module docs as
 
 ## Implement Broadway callbacks
 
-In order to process incoming messages, we need to implement the required callbacks. For the sake
+In order to process incoming messages, implement the required callbacks. For the sake
 of simplicity, we're considering that all messages received from the queue are strings and our
 processor calls `String.upcase/1` on them:
 

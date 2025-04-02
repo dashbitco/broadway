@@ -8,7 +8,7 @@ Kafka is a distributed streaming platform that has three key capabilities:
 
 ## Getting started
 
-In order to use Broadway with Kafka, we need to:
+To use Broadway with Kafka:
 
   1. Create a stream of records (or use an existing one)
   1. Configure your Elixir project to use Broadway
@@ -125,8 +125,8 @@ module docs as well as `Broadway.start_link/2`.
 
 ## Implement Broadway callbacks
 
-In order to process incoming messages, we need to implement the
-required callbacks. For the sake of simplicity, we're considering that
+Implement callbacks to process incoming messages.
+In this example,
 all messages received from the topic are numbers:
 
     defmodule MyBroadway do
