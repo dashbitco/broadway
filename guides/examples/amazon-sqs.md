@@ -107,7 +107,7 @@ Assuming we want to consume messages from a queue called
 The above configuration also assumes that you have the AWS credentials
 set up in your environment, for instance, by having the `AWS_ACCESS_KEY_ID`
 and `AWS_SECRET_ACCESS_KEY` environment variables set. If that's
-not the case, you will need to pass that information to the client so it
+not the case, pass that information to the client so it
 can properly connect to the AWS servers. Here's how to do it:
 
     ...

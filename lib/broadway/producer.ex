@@ -114,7 +114,7 @@ defmodule Broadway.Producer do
   The terminator invokes this callback right before Broadway starts draining in-flight
   messages during shutdown.
 
-  Implement this callback for producers that need to do additional
+  Implement this callback for producers that do additional
   work before shutting down. That includes active producers like RabbitMQ that
   must ask the data provider to stop sending messages. Broadway will invoke this for
   each producer stage.

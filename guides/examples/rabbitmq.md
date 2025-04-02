@@ -116,7 +116,7 @@ Assuming we want to consume messages from a queue called
     end
 
 If you're consuming data from an existing broker that requires authorization,
-you'll need to provide your credentials using the `connection` option:
+provide your credentials using the `connection` option:
 
     ...
     producer: [
