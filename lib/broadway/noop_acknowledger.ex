@@ -1,30 +1,41 @@
 defmodule Broadway.NoopAcknowledger do
   @moduledoc """
-  An acknowledger that does nothing.
+  An acknowledger that performs no operations.
 
-  If you want to use this acknowledger in messages produced by your
-  `Broadway.Producer`, you can get its configuration by calling
-  the `init/0` function. For example, you can use it in
-  `Broadway.test_message/3`:
+  Use this module to configure messages produced by `Broadway.Producer`
+  when no acknowledgment is needed.
 
-      Broadway.test_message(MyPipeline, "some data", acknowledger: Broadway.NoopAcknowledger.init())
+  ## Example
 
-  Broadway sets this acknowledger automatically on messages that have been acked
-  via `Broadway.Message.ack_immediately/1`.
+  Use with `Broadway.test_message/3` for testing purposes:
+
+      Broadway.test_message(
+        MyPipeline,
+        "some data",
+        acknowledger: Broadway.NoopAcknowledger.init()
+      )
+
+  This acknowledger is automatically set by Broadway for messages
+  acknowledged via `Broadway.Message.ack_immediately/1`.
   """
 
   @behaviour Broadway.Acknowledger
 
   @doc """
-  Returns the acknowledger metadata.
+  Returns a no-op acknowledger tuple.
+
+  The tuple format `{module, ack_ref, data}` satisfies the
+  `Broadway.Acknowledger` contract without performing any operation.
+
+  ## Example
+
+      iex> Broadway.NoopAcknowledger.init()
+      {Broadway.NoopAcknowledger, nil, nil}
   """
   @spec init() :: Broadway.Message.acknowledger()
-  def init do
-    {__MODULE__, _ack_ref = nil, _data = nil}
-  end
+  def init, do: {__MODULE__, nil, nil}
 
   @impl true
-  def ack(_ack_ref = nil, _successful, _failed) do
-    :ok
-  end
+  @doc false
+  def ack(_ack_ref, _successful, _failed), do: :ok
 end
