@@ -232,7 +232,7 @@ And in another tab, send a couple of test messages to Pub/Sub:
     messageIds:
     - '651427034966696'
 
-Now, In the first tab, you should see output similar to:
+In the first tab, see output similar to:
 
 ```
 Got batch of finished jobs from processors, sending ACKs to Pub/Sub as a batch.: ["TEST 1", "TEST 2"]

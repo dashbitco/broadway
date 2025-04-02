@@ -198,7 +198,7 @@ Test your pipeline by entering an `iex` session:
 
     $ iex -S mix
 
-If everything went fine, you should see lots of `info` log messages from the `amqp`
+If everything went fine, you will see lots of `info` log messages from the `amqp`
 supervisors. If you think that's too verbose and want to do something
 about it, please take a look at the _"Log related to amqp supervisors are too verbose"_
 subsection in the `amqp`'s  [Troubleshooting](https://hexdocs.pm/amqp/readme.html#troubleshooting)

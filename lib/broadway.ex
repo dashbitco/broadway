@@ -342,7 +342,7 @@ defmodule Broadway do
   Setting producer concurrency is a tradeoff between latency and internal
   queueing.
 
-  For efficiency, you should generally limit the amount of internal queueing.
+  For efficiency, limit the amount of internal queueing.
   Whenever additional messages are sitting in a busy processor's mailbox, they
   can't be delivered to another processor which may be available or become
   available first.
@@ -455,7 +455,7 @@ defmodule Broadway do
   and verify single messages, without imposing high timeouts to our test
   suites.
 
-  In case you want to test multiple messages, then you need to use
+  To test multiple messages, use
   `test_batch/3`. `test_batch/3` will respect the batching configuration,
   which most likely means you need to increase your test timeouts:
 
@@ -518,7 +518,7 @@ defmodule Broadway do
 
       BroadwayEctoSandbox.attach(MyApp.Repo)
 
-  And now you should have concurrent Broadway tests that talk to the database.
+  And now you have concurrent Broadway tests that talk to the database.
 
   ## Ordering and partitioning
 

@@ -8,9 +8,9 @@ defmodule Broadway.Message do
   through the `c:Broadway.handle_message/3` callback
   or internally by one of the built-in stages of Broadway.
 
-  Instead of modifying the struct directly, you should use the functions
+  Instead of modifying the struct directly, use the functions
   provided by this module to manipulate messages. However, if you are implementing
-  a `Broadway.Producer` of your own, see `t:t/0` to see what fields you should set.
+  a `Broadway.Producer` of your own, see `t:t/0` for what fields to set.
   """
 
   alias __MODULE__, as: Message
