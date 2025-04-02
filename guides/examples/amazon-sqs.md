@@ -190,7 +190,7 @@ in the supervision tree.
 Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However those values might not suit your
 requirements. Depending on the number of messages you get, how much processing
-they need and how much IO work is going to take place, you might need completely
+they need and how much IO work is going to take place, you need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, among with
 `max_demand`, `batch_size`, and `batch_timeout` can give you a great deal
@@ -202,7 +202,7 @@ See the notes on [`Producer concurrency`](https://hexdocs.pm/broadway/Broadway.h
 and [`Batcher concurrency`](https://hexdocs.pm/broadway/Broadway.html#module-batcher-concurrency)
 for details.
 
-Here's an example on how you could tune them according to
+Here's an example on how you tune them according to
 your needs.
 
     defmodule MyBroadway do

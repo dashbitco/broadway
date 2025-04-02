@@ -424,7 +424,7 @@ defmodule Broadway do
         end
       end
 
-  Now in `config/test.exs` you could do:
+  Now in `config/test.exs` you do:
 
       config :my_app,
         producer_module: Broadway.DummyProducer,
@@ -972,7 +972,7 @@ defmodule Broadway do
     * `context` is the user-defined data structure passed to `start_link/2`.
 
   This callback must return the same messages given to it, possibly updated.
-  For example, you could update the message data or use `Broadway.Message.configure_ack/2`
+  For example, you update the message data or use `Broadway.Message.configure_ack/2`
   in a centralized place to configure how to ack the message based on the failure
   reason.
 

@@ -231,7 +231,7 @@ You should see the output showing the generated batches:
 Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However, those values might not suit your
 requirements. Depending on the number of records you get, how much processing
-they need and how much IO work is going to take place, you might need completely
+they need and how much IO work is going to take place, you need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, along with
 `batch_size` and `batch_timeout` can give you a great deal of flexibility.
