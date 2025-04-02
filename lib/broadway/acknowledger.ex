@@ -22,20 +22,16 @@ defmodule Broadway.Acknowledger do
   @doc """
   Invoked to acknowledge successful and failed messages.
 
-    * `ack_ref` is a term that uniquely identifies how messages
-      should be grouped and sent for acknowledgement. Imagine
-      you have a scenario where messages are coming from
-      different producers. Broadway will use this information
-      to correctly identify the acknowledger and pass it among
-      with the messages so you can properly communicate with
-      the source of the data for acknowledgement. `ack_ref` is
+    * `ack_ref` - a unique identifier used to determine how messages
+      are to be grouped and sent for acknowledgement. For example,
+      if messages come from different producers, Broadway uses its
+      value to identify the acknowledger and pass it along with messages
+      to coordinate acknowledgements with the data source . `ack_ref` is
       part of `t:Broadway.Message.acknowledger/0`.
 
-    * `successful` is the list of messages that were
-      successfully processed and published.
+    * `successful` - the list of messages both processed and published.
 
-    * `failed` is the list of messages that, for some reason,
-      could not be processed or published.
+    * `failed` - the list of messages that failed processing or publishing.
 
   """
   @callback ack(ack_ref :: term, successful :: [Message.t()], failed :: [Message.t()]) ::
