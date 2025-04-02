@@ -20,7 +20,7 @@ Broadway can work seamlessly with both, Standard and FIFO queues.
 
 ## Getting started
 
-In order to use Broadway with SQS, we need to:
+To use Broadway with SQS:
 
   1. Create a SQS queue (or use an existing one)
   1. Configure our Elixir project to use Broadway
@@ -71,7 +71,7 @@ is defined by three functions: `start_link/1`,
 `handle_message/3` and `handle_batch/4`. We will cover `start_link/1`
 in this section and the `handle_` callbacks in the next one.
 
-Similar to other process-based behaviour, `start_link/1` simply
+Similar to other process-based behaviour, `start_link/1`
 delegates to `Broadway.start_link/2`, which should define the
 producers, processors, and batchers in the Broadway pipeline.
 Assuming we want to consume messages from a queue called

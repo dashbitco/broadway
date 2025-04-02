@@ -43,7 +43,7 @@ end
 
 ## A quick example: SQS integration
 
-Assuming you have added [`broadway_sqs`](https://github.com/dashbitco/broadway_sqs) as a dependency and configured your SQS credentials accordingly, you can consume Amazon SQS events in only 20 LOCs:
+Assuming you have added [`broadway_sqs`](https://github.com/dashbitco/broadway_sqs) as a dependency and configured your SQS credentials accordingly, consume Amazon SQS events in only 20 LOCs:
 
 ```elixir
 defmodule MyBroadway do

@@ -457,7 +457,7 @@ defmodule Broadway do
 
   To test multiple messages, use
   `test_batch/3`. `test_batch/3` will respect the batching configuration,
-  which most likely means you need to increase your test timeouts:
+  which most likely means increasing your test timeouts:
 
       test "batch messages" do
         ref = Broadway.test_batch(MyBroadway, [1, 2, 3])
@@ -529,8 +529,8 @@ defmodule Broadway do
   This can be done with the `:partition_by` option, which enforces that
   messages with a given property are always forwarded to the same stage.
 
-  In order to provide partitioning throughout the whole pipeline, just
-  set `:partition_by` at the root of your configuration:
+  Set `:partition_by` at the root of your configuration to provide
+  partitioning throughout the whole pipeline:
 
       defmodule MyBroadway do
         use Broadway
@@ -603,7 +603,7 @@ defmodule Broadway do
   > may be undesired. If your producer supports retrying, the
   > failed message may be retried later, out of its original order.
   > Those issues happen regardless of Broadway and solutions to said
-  > problems almost always need to be addressed outside of Broadway too.
+  > problems are almost always addressed outside of Broadway, too.
 
   ## Configuration storage
 
@@ -894,9 +894,8 @@ defmodule Broadway do
   logic to do calculations. Basically, any CPU bounded task that runs against
   a single message should be processed here.
 
-  In order to update the data after processing, use the
-  `Broadway.Message.update_data/2` function. This way the new message can be
-  properly forwarded and handled by the batcher:
+  Use the `Broadway.Message.update_data/2` function to update the data after processing,
+  so the new message can be properly forwarded and handled by the batcher:
 
       @impl true
       def handle_message(_, message, _) do
@@ -1267,7 +1266,7 @@ defmodule Broadway do
   for the Broadway pipeline `batch_size` to be filled or the
   `batch_timeout` to be triggered.
 
-  It returns a reference that can be used to identify the ack
+  It returns a reference used to identify the ack
   messages.
 
   See ["Testing"](#module-testing) section in module documentation
@@ -1315,7 +1314,7 @@ defmodule Broadway do
   or if the messages in the batch take more time to process than
   `batch_timeout` then the caller will receive multiple messages.
 
-  It returns a reference that can be used to identify the ack
+  It returns a reference used to identify the ack
   messages.
 
   See ["Testing"](#module-testing) section in module documentation

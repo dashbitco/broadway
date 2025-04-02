@@ -74,7 +74,7 @@ Broadway is a process-based behaviour, and a Broadway pipeline
 is defined by the `start_link/1` function, the `c:handle_message/3`
 callback, and optionally, the `c:handle_batch/4` callback. We will cover `start_link/1` in this section and the `handle_` callbacks in the next one.
 
-Similar to other process-based behaviours, `start_link/1` simply
+Similar to other process-based behaviours, `start_link/1`
 delegates to `Broadway.start_link/2`, which defines the
 producers, processors, and batchers in the Broadway pipeline.
 Assuming we want to consume messages from a queue called

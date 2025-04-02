@@ -54,7 +54,7 @@ And a new subscription:
     Created subscription [projects/test-pubsub/subscriptions/test-subscription].
 
 We also need a [service account](https://cloud.google.com/iam/docs/service-accounts), an IAM
-policy, as well as API credentials in order to programmatically work with the service. First, let's
+policy, as well as API credentials to programmatically work with the service. First, let's
 create the service account:
 
     $ gcloud iam service-accounts create test-account --project test-pubsub
@@ -165,8 +165,8 @@ For general information about setting up Broadway, see `Broadway` module docs as
 
 ## Implement Broadway callbacks
 
-In order to process incoming messages, implement the required callbacks. For the sake
-of simplicity, we're considering that all messages received from the queue are strings and our
+Implement the required callbacks to process incoming messages.
+In this example, all messages received from the queue are strings and our
 processor calls `String.upcase/1` on them:
 
     defmodule MyBroadway do

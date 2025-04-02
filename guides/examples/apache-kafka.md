@@ -2,9 +2,9 @@
 
 Kafka is a distributed streaming platform that has three key capabilities:
 
-  * Publish and subscribe to streams of records
-  * Store streams of records in a fault-tolerant durable way
-  * Process streams of records as they occur
+  * Publish and subscribe to record streams
+  * Store record streams with fault-tolerant durability
+  * Process record streams in real-time
 
 ## Getting started
 
@@ -26,9 +26,7 @@ initializing Kafka, create a new stream by running:
 
 ## Configure your Elixir project to use Broadway
 
-This guide describes the steps necessary to integrate Broadway with Kafka using
-[BroadwayKafka](https://github.com/dashbitco/broadway_kafka),
-which is a Broadway Kafka Connector provided by [Dashbit](https://dashbit.co/).
+This guide uses [BroadwayKafka](https://github.com/dashbitco/broadway_kafka) from Dashbit to integrate Broadway with Kafka.
 
 BroadwayKafka can subscribe to one or more topics and process streams of records
 using Kafka's [Consumer API](https://kafka.apache.org/documentation.html#consumerapi).
@@ -157,9 +155,7 @@ purpose. First, we update the message's data individually inside
 For more information, see `c:Broadway.handle_message/3` and
 `c:Broadway.handle_batch/4`.
 
-> Note: Since Broadway v0.2, batching is optional. In case you don't need to
-> group messages as batches for further processing/publishing, remove
-> the `:batchers` configuration along with the `handle_batch/4` callback.
+> Note: Broadway v0.2 makes batching optional. Remove the `:batchers` configuration along with the `c:handle_batch/4` callback if unneeded.
 
 ## Run the Broadway pipeline
 
@@ -191,7 +187,7 @@ under the hood to communicate with Kafka.
 
 ### Sending messages to Kafka
 
-Finally, we can send some sample messages to Kafka using using `:brod` with the following snippet:
+Use `:brod` to send sample messages to Kafka:
 
     topic = "test"
     client_id = :my_client
@@ -205,7 +201,7 @@ Finally, we can send some sample messages to Kafka using using `:brod` with the 
       :ok = :brod.produce_sync(client_id, topic, partition, _key="", "#{i}")
     end)
 
-You should see the output showing the generated batches:
+See the output showing the generated batches:
 
     Got batch: [
       {"2", 4},
@@ -254,11 +250,11 @@ can still receive more assignments than planned. For instance, if another consum
 the server will reassign all its topic/partition to other available consumers, including
 any Broadway producer subscribed to the same topic.
 
-There are other options that you may want to take a closer look when tuning your configuration.
-The `:max_bytes` option, for instance, belongs to the `:fetch_config` group and defines the
-maximum amount of data to be fetched at a time from a single partition. The default is
+Other options require attention during configuration tuning.
+The `:max_bytes` option (part of `:fetch_config`) defines the
+maximum data fetched at a time from a single partition. The default is
 1048576 (1 MiB). Setting greater values can improve throughput at the cost of more
-memory consumption. For more information and other fetch options, please refer to the
+memory consumption. For more fetch options, please refer to the
 "Fetch config options" in the official [BroadwayKafka](https://hexdocs.pm/broadway_kafka/)
 documentation.
 
@@ -285,4 +281,4 @@ tuning `:offset_commit_interval_seconds` and `:offset_commit_on_ack`.
 
 ## Handling failed messages
 
-`broadway_kafka` never stops the flow of the stream and will **always ack messages**, even when they fail. Unlike queue-based connectors, which allow marking individual messages as failed, Kafka's single offset per topic/partition strategy prevents that. To reprocess failed messages, implement your own strategy, such as using `handle_failed/2` to send failed messages to a separate stream or queue for later processing.
+`broadway_kafka` **always acknowledges** (yes, also failed) messages, so the stream flow is never stopped. Unlike queue-based connectors, Kafka’s single offset-per-topic/partition strategy prevents marking individual messages as failed. To reprocess failures, implement a custom strategy (e.g., using `handle_failed/2` to redirect failed messages to a separate stream or queue).
