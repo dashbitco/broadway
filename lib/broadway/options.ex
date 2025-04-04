@@ -248,6 +248,16 @@ defmodule Broadway.Options do
                      _message, count -> {:cont, count - 1}
                    end}
 
+              We start with the batch size as the accumulator, and then we go down for every
+              event. When we get down to `1`, we emit the batch and *reset* the accumulator
+              to the batch size. That's because when returning `{:emit, acc}`, `acc` is
+              used for the next call to the `:batch_size` function.
+
+              > #### When is this called {: .info}
+              >
+              > If you pass a function as the batch size, that function is invoked *after*
+              > `c:handle_message/3`.
+
               """
             ],
             max_demand: [
