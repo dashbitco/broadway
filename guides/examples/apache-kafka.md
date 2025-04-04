@@ -2,13 +2,13 @@
 
 Kafka is a distributed streaming platform that has three key capabilities:
 
-  * Publish and subscribe to streams of records
-  * Store streams of records in a fault-tolerant durable way
-  * Process streams of records as they occur
+  * Publish and subscribe to record streams
+  * Store record streams with fault-tolerant durability
+  * Process record streams in real-time
 
-## Getting Started
+## Getting started
 
-In order to use Broadway with Kafka, we need to:
+To use Broadway with Kafka:
 
   1. Create a stream of records (or use an existing one)
   1. Configure your Elixir project to use Broadway
@@ -20,15 +20,13 @@ In order to use Broadway with Kafka, we need to:
 
 In case you don't have Kafka installed yet, please follow the instructions on Kafka's
 [Quickstart](https://kafka.apache.org/quickstart) for a clean installation. After
-initializing Kafka, you can create a new stream by running:
+initializing Kafka, create a new stream by running:
 
     $ kafka-topics --create --zookeeper localhost:2181 --partitions 3 --topic test
 
 ## Configure your Elixir project to use Broadway
 
-This guide describes the steps necessary to integrate Broadway with Kafka using
-[BroadwayKafka](https://github.com/dashbitco/broadway_kafka),
-which is a Broadway Kafka Connector provided by [Dashbit](https://dashbit.co/).
+This guide uses [BroadwayKafka](https://github.com/dashbitco/broadway_kafka) from Dashbit to integrate Broadway with Kafka.
 
 BroadwayKafka can subscribe to one or more topics and process streams of records
 using Kafka's [Consumer API](https://kafka.apache.org/documentation.html#consumerapi).
@@ -125,9 +123,9 @@ module docs as well as `Broadway.start_link/2`.
 
 ## Implement Broadway callbacks
 
-In order to process incoming messages, we need to implement the
-required callbacks. For the sake of simplicity, we're considering that
-all messages received from the topic are just numbers:
+Implement callbacks to process incoming messages.
+In this example,
+all messages received from the topic are numbers:
 
     defmodule MyBroadway do
       use Broadway
@@ -157,16 +155,12 @@ purpose. First, we update the message's data individually inside
 For more information, see `c:Broadway.handle_message/3` and
 `c:Broadway.handle_batch/4`.
 
-> Note: Since Broadway v0.2, batching is optional. In case you don't need to
-> group messages as batches for further processing/publishing, you can remove
-> the `:batchers` configuration along with the `handle_batch/4` callback.
+> Note: Broadway v0.2 makes batching optional. Remove the `:batchers` configuration along with the `c:handle_batch/4` callback if unneeded.
 
 ## Run the Broadway pipeline
 
-To run your `Broadway` pipeline, you just need to add as a child in
-a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
-supervisor as follows:
+Add your `Broadway` pipeline as a child in a supervision tree to run it. Most applications have a supervision tree defined at `lib/my_app/application.ex`.
+Add the child process `{MyBroadway, []}` to a supervisor as follows:
 
     children = [
       {MyBroadway, []}
@@ -179,7 +173,7 @@ Also, if your Broadway has any dependency (for example, it needs to talk
 to the database), make sure that Broadway is listed *after* its dependencies
 in the supervision tree.
 
-You can now test your pipeline by entering an `iex` session:
+Test your pipeline by entering an `iex` session:
 
     $ iex -S mix
 
@@ -193,7 +187,7 @@ under the hood to communicate with Kafka.
 
 ### Sending messages to Kafka
 
-Finally, we can send some sample messages to Kafka using using `:brod` with the following snippet:
+Use `:brod` to send sample messages to Kafka:
 
     topic = "test"
     client_id = :my_client
@@ -207,7 +201,7 @@ Finally, we can send some sample messages to Kafka using using `:brod` with the 
       :ok = :brod.produce_sync(client_id, topic, partition, _key="", "#{i}")
     end)
 
-You should see the output showing the generated batches:
+See the output showing the generated batches:
 
     Got batch: [
       {"2", 4},
@@ -231,7 +225,7 @@ You should see the output showing the generated batches:
 Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However, those values might not suit your
 requirements. Depending on the number of records you get, how much processing
-they need and how much IO work is going to take place, you might need completely
+they need and how much IO work is going to take place, you need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, along with
 `batch_size` and `batch_timeout` can give you a great deal of flexibility.
@@ -256,11 +250,11 @@ can still receive more assignments than planned. For instance, if another consum
 the server will reassign all its topic/partition to other available consumers, including
 any Broadway producer subscribed to the same topic.
 
-There are other options that you may want to take a closer look when tuning your configuration.
-The `:max_bytes` option, for instance, belongs to the `:fetch_config` group and defines the
-maximum amount of data to be fetched at a time from a single partition. The default is
+Other options require attention during configuration tuning.
+The `:max_bytes` option (part of `:fetch_config`) defines the
+maximum data fetched at a time from a single partition. The default is
 1048576 (1 MiB). Setting greater values can improve throughput at the cost of more
-memory consumption. For more information and other fetch options, please refer to the
+memory consumption. For more fetch options, please refer to the
 "Fetch config options" in the official [BroadwayKafka](https://hexdocs.pm/broadway_kafka/)
 documentation.
 
@@ -287,9 +281,4 @@ tuning `:offset_commit_interval_seconds` and `:offset_commit_on_ack`.
 
 ## Handling failed messages
 
-`broadway_kafka` never stops the flow of the stream, i.e. it will **always ack** the messages
-even when they fail. Unlike queue-based connectors, where you can mark a single message as failed.
-In Kafka that's not possible due to its single offset per topic/partition ack strategy. If you
-want to reprocess failed messages, you need to roll your own strategy. A possible way to do that
-is to implement `handle_failed/2` and send failed messages to a separated stream or queue for
-later processing.
+`broadway_kafka` **always acknowledges** (yes, also failed) messages, so the stream flow is never stopped. Unlike queue-based connectors, Kafka’s single offset-per-topic/partition strategy prevents marking individual messages as failed. To reprocess failures, implement a custom strategy (e.g., using `handle_failed/2` to redirect failed messages to a separate stream or queue).
