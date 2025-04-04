@@ -1213,7 +1213,14 @@ defmodule Broadway do
   Sends a list of `Broadway.Message`s to the Broadway pipeline.
 
   The producer is randomly chosen among all sets of producers/stages.
-  This is used to send out of band data to a Broadway pipeline.
+  This is used to send out of band data to a Broadway pipeline, regardless
+  of which producer module you are using.
+
+  > #### Sync Operation {: .info}
+  >
+  > This function is synchronous, that is, it waits for the producer
+  > to enqueue `messages` before returning. It's a "call".
+
   """
   @spec push_messages(broadway :: name(), messages :: [Message.t()]) :: :ok
   def push_messages(broadway, messages) when is_broadway_name(broadway) and is_list(messages) do
