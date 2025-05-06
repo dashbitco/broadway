@@ -8,9 +8,9 @@ defmodule Broadway.Message do
   through the `c:Broadway.handle_message/3` callback
   or internally by one of the built-in stages of Broadway.
 
-  Instead of modifying the struct directly, you should use the functions
+  Instead of modifying the struct directly, use the functions
   provided by this module to manipulate messages. However, if you are implementing
-  a `Broadway.Producer` of your own, see `t:t/0` to see what fields you should set.
+  a `Broadway.Producer` of your own, see `t:t/0` for what fields to set.
   """
 
   alias __MODULE__, as: Message
@@ -36,11 +36,12 @@ defmodule Broadway.Message do
   @typedoc """
   The Broadway message struct.
 
-  Most of these fields are manipulated by Broadway itself. You can
-  *read* the `:metadata` field, and you can use the functions in this
-  module to update most of the other fields. If you are implementing
-  your own producer, see the `Broadway.Producer` documentation
-  for more information on how to create and manipulate message structs.
+  `%Broadway.Message{}` is manipulated by the main Broadway process.
+  Use this module's functions to update message fields. The `:metadata`
+  is **read-only**.
+
+  See the `Broadway.Producer` documentation
+  on how custom producers create and manipulate message structs.
   """
   @type t :: %Message{
           data: term,

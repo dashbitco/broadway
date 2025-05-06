@@ -27,7 +27,7 @@ Broadway takes the burden of defining concurrent GenStage topologies and provide
 
 ### Producers
 
-There are several producers that you can use to integrate with existing services and technologies. [See the docs for detailed how-tos and supported producers](https://hexdocs.pm/broadway/introduction.html#official-producers).
+Currently we officially support four Broadway producers that integrate with existing services and technologies. [See the docs for detailed how-tos and supported producers](https://hexdocs.pm/broadway/introduction.html#official-producers).
 
 ## Installation
 
@@ -43,7 +43,7 @@ end
 
 ## A quick example: SQS integration
 
-Assuming you have added [`broadway_sqs`](https://github.com/dashbitco/broadway_sqs) as a dependency and configured your SQS credentials accordingly, you can consume Amazon SQS events in only 20 LOCs:
+Assuming you have added [`broadway_sqs`](https://github.com/dashbitco/broadway_sqs) as a dependency and configured your SQS credentials accordingly, consume Amazon SQS events in only 20 LOCs:
 
 ```elixir
 defmodule MyBroadway do
@@ -82,7 +82,7 @@ defmodule MyBroadway do
 end
 ```
 
-Once your Broadway module is defined, you just need to add it as a child of your application supervision tree as `{MyBroadway, []}`.
+Once your Broadway module is defined, add it as a child of your application supervision tree as `{MyBroadway, []}`.
 
 ## Comparison to Flow
 
