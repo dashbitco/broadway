@@ -10,8 +10,7 @@ defmodule Broadway.Message do
 
   Instead of modifying the struct directly, you should use the functions
   provided by this module to manipulate messages. However, if you are implementing
-  a `Broadway.Producer` of your own, see the [`%Broadway.Message{}`](`__struct__/0`)
-  documentation to see what fields you should set.
+  a `Broadway.Producer` of your own, see `t:t/0` to see what fields you should set.
   """
 
   alias __MODULE__, as: Message
@@ -73,7 +72,7 @@ defmodule Broadway.Message do
   """
   @spec update_data(message :: Message.t(), fun :: (term -> term)) :: Message.t()
   def update_data(%Message{} = message, fun) when is_function(fun, 1) do
-    %Message{message | data: fun.(message.data)}
+    %{message | data: fun.(message.data)}
   end
 
   @doc """
@@ -85,7 +84,7 @@ defmodule Broadway.Message do
   @doc since: "1.0.0"
   @spec put_data(message :: Message.t(), term) :: Message.t()
   def put_data(%Message{} = message, data) do
-    %Message{message | data: data}
+    %{message | data: data}
   end
 
   @doc """
@@ -93,7 +92,7 @@ defmodule Broadway.Message do
   """
   @spec put_batcher(message :: Message.t(), batcher :: atom) :: Message.t()
   def put_batcher(%Message{} = message, batcher) when is_atom(batcher) do
-    %Message{message | batcher: batcher}
+    %{message | batcher: batcher}
   end
 
   @doc """
@@ -113,7 +112,7 @@ defmodule Broadway.Message do
   """
   @spec put_batch_key(message :: Message.t(), batch_key :: term) :: Message.t()
   def put_batch_key(%Message{} = message, batch_key) do
-    %Message{message | batch_key: batch_key}
+    %{message | batch_key: batch_key}
   end
 
   @doc """
@@ -130,7 +129,7 @@ defmodule Broadway.Message do
   """
   @spec put_batch_mode(message :: Message.t(), mode :: :bulk | :flush) :: Message.t()
   def put_batch_mode(%Message{} = message, mode) when mode in [:bulk, :flush] do
-    %Message{message | batch_mode: mode}
+    %{message | batch_mode: mode}
   end
 
   @doc """
@@ -167,7 +166,7 @@ defmodule Broadway.Message do
   """
   @spec failed(message :: Message.t(), reason :: term) :: Message.t()
   def failed(%Message{} = message, reason) do
-    %Message{message | status: {:failed, reason}}
+    %{message | status: {:failed, reason}}
   end
 
   @doc """

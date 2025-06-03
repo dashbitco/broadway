@@ -140,6 +140,18 @@ defmodule Broadway.Options do
       subsection: """
       ### Processors options
 
+      > #### You don't need multiple processors {: .info}
+      >
+      > A common misconception is that, if your data requires multiple
+      > transformations, each with a different concern, then you must
+      > have several processors.
+      >
+      > However, that's not quite true. Separation of concerns is modeled
+      > by defining several modules and functions, not processors. Processors
+      > are ultimately about moving data around and you should only do it
+      > when necessary. Using processors for code organization purposes would
+      > lead to inefficient pipelines.
+
       """,
       keys: [
         *: [
@@ -235,6 +247,16 @@ defmodule Broadway.Options do
                      _message, 1 -> {:emit, batch_size}
                      _message, count -> {:cont, count - 1}
                    end}
+
+              We start with the batch size as the accumulator, and then we go down for every
+              event. When we get down to `1`, we emit the batch and *reset* the accumulator
+              to the batch size. That's because when returning `{:emit, acc}`, `acc` is
+              used for the next call to the `:batch_size` function.
+
+              > #### When is this called {: .info}
+              >
+              > If you pass a function as the batch size, that function is invoked *after*
+              > `c:handle_message/3`.
 
               """
             ],

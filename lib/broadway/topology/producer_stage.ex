@@ -17,12 +17,6 @@ defmodule Broadway.Topology.ProducerStage do
 
   @spec drain(GenServer.server()) :: :ok
   def drain(producer) do
-    # First we set the demand to accumulate. This is to avoid
-    # polling implementations from re-entering the polling loop
-    # once they flush any timers during draining. Push implementations
-    # will still empty out their queues as long as they put them
-    # in the GenStage buffer.
-    GenStage.demand(producer, :accumulate)
     GenStage.cast(producer, {__MODULE__, :prepare_for_draining})
     GenStage.async_info(producer, {__MODULE__, :cancel_consumers})
   end
@@ -228,6 +222,17 @@ defmodule Broadway.Topology.ProducerStage do
     message
     |> module.handle_info(module_state)
     |> handle_no_reply(state)
+  end
+
+  @impl true
+  def format_discarded(discarded, state) do
+    %{module: module, module_state: module_state} = state
+
+    if function_exported?(module, :format_discarded, 2) do
+      module.format_discarded(discarded, module_state)
+    else
+      true
+    end
   end
 
   @impl true

@@ -424,7 +424,7 @@ defmodule Broadway do
         end
       end
 
-  Now in config/test.exs you could do:
+  Now in `config/test.exs` you could do:
 
       config :my_app,
         producer_module: Broadway.DummyProducer,
@@ -474,9 +474,8 @@ defmodule Broadway do
   the code will behave with large batches. Otherwise the batcher will flush
   messages as soon as possible and in small batches.
 
-  However, keep in mind that, regardless of the `:batch_mode` you cannot
-  rely on ordering, as Broadway pipelines are inherently concurrent. For
-  example, if you send those messages:
+  Regardless of the `:batch_mode` you cannot rely on ordering, as Broadway pipelines
+  are inherently concurrent. For example, if you send those messages:
 
       test "multiple batch messages" do
         ref = Broadway.test_batch(MyBroadway, [1, 2, 3, 4, 5, 6, 7], batch_mode: :bulk)
@@ -606,6 +605,48 @@ defmodule Broadway do
   > failed message may be retried later, out of its original order.
   > Those issues happen regardless of Broadway and solutions to said
   > problems almost always need to be addressed outside of Broadway too.
+
+  ## Configuration storage
+
+  Broadway stores configuration globally in a configurable storage method.
+  Broadway comes with two configuration storage options:
+
+    * `:persistent_term` (the default)
+    * `:ets`
+
+  ### Persistent term
+
+  This is the most efficient option for static Broadway pipeline definitions,
+  as this option never deletes the Broadway configuration from storage. It's based
+  on [`:persistent_term`](`:persistent_term`).
+
+  ```elixir
+  config :broadway, config_storage: :persistent_term
+  ```
+
+  The speed of storing and updating using `:persistent_term` is proportional
+  to the number of already-created terms in the storage. If you are creating
+  several Broadway pipelines dynamically, that may affect the persistent term
+  storage performance. Furthermore, even if you are restarting the same pipeline
+  but you are using different parameters each time, that will require a global
+  garbage collection pass to update the `:persistent_term` configuration.
+  If you are starting Broadway pipelines dynamically, you must use the `:ets`
+  storage.
+
+  ### ETS
+
+  An [ETS](`:ets`)-backed configuration storage, useful if Broadway pipelines are
+  started dynamically. To use this configuration storage option, configure the
+  `:broadway` application in :your configuration
+
+  ```elixir
+  # For example, in config/config.exs:
+  config :broadway, config_storage: :ets
+  ```
+
+  Using `:ets` as the config storage will allow for a dynamic number of Broadway server
+  configurations to be stored and fetched without the associated performance trade-offs
+  that `:persistent_term` has.
 
   ## Telemetry
 
@@ -793,7 +834,7 @@ defmodule Broadway do
 
   """
 
-  alias Broadway.{BatchInfo, Message, Topology}
+  alias Broadway.{BatchInfo, Message, Topology, ConfigStorage}
   alias NimbleOptions.ValidationError
 
   @typedoc """
@@ -807,17 +848,35 @@ defmodule Broadway do
 
   It expects:
 
-    * `message` is the `Broadway.Message` struct to be processed.
+    * `messages` is a list of `Broadway.Message` structs to be processed.
     * `context` is the user defined data structure passed to `start_link/2`.
 
   This is the place to prepare and preload any information that will be used
   by `c:handle_message/3`. For example, if you need to query the database,
-  instead of doing it once per message, you can do it on this callback.
+  instead of doing it once per message, you can do it on this callback as
+  a best-effort optimization.
 
-  The length of the list of messages received by this callback is based on
-  the `min_demand`/`max_demand` configuration in the processor. This callback
-  must always return all messages it receives, as `c:handle_message/3` is still
-  called individually for each message afterwards.
+  The length of the list of messages received by this callback is often based
+  on the `min_demand`/`max_demand` configuration in the processor but ultimately
+  it depends on the producer and on the frequency data arrives. A pipeline that
+  receives messages rarely will most likely emit lists of length below the
+  `min_demand` value. Producers which are push-based, rather than pull-based,
+  such as `BroadwayRabbitMQ.Producer`, are more likely to send messages as they
+  arrive (which may skip batching altogether and always be single element lists).
+  In other words, this callback is simply a convenience for preparing messages,
+  it does not guarantee the messages will be accumulated to a certain length.
+  For effective batch processing, see `c:handle_batch/4`.
+
+  This callback must always return all messages it receives, as
+  `c:handle_message/3` is still called individually for each message afterwards.
+
+  > #### Failed Messages {: .warning}
+  >
+  > Even if `c:prepare_messages/2` **fails** some messages (`Broadway.Message.failed/2`),
+  > the failed messages are still passed down to `c:handle_message/3`.
+  > If your pipeline wants to avoid processing messages failed in `c:prepare_messages/2`,
+  > it will have to pattern match on `%Broadway.Message{status: {:failed, reason}}`
+  > in its `c:handle_message/3` callback and act accordingly.
   """
   @callback prepare_messages(messages :: [Message.t()], context :: term) :: [Message.t()]
 
@@ -908,10 +967,8 @@ defmodule Broadway do
 
   It expects:
 
-    * `messages` is the list of messages that failed. If a message is failed in
-      `c:handle_message/3`, this will be a list with a single message in it. If
-      some messages are failed in `c:handle_batch/4`, this will be the list of
-      failed messages.
+    * `messages` is the list of messages that failed. All messages passed in the same
+      call to `c:handle_failed/2` will come from the same processing stage.
 
     * `context` is the user-defined data structure passed to `start_link/2`.
 
@@ -957,7 +1014,22 @@ defmodule Broadway do
   @callback process_name(broadway_name :: Broadway.name(), base_name :: String.t()) ::
               Broadway.name()
 
-  @optional_callbacks prepare_messages: 2, handle_batch: 4, handle_failed: 2, process_name: 2
+  @doc """
+  Invoked when items are discarded from the buffer.
+
+  If this callback returns `true`, the default log message is emitted.
+  See `c:GenStage.format_discarded/2`.
+
+  Allows controlling or customization of the log message emitted.
+  """
+  @doc since: "1.2.0"
+  @callback format_discarded(discarded :: non_neg_integer(), state :: term()) :: boolean()
+
+  @optional_callbacks prepare_messages: 2,
+                      handle_batch: 4,
+                      handle_failed: 2,
+                      process_name: 2,
+                      format_discarded: 2
 
   defguardp is_broadway_name(name)
             when is_atom(name) or (is_tuple(name) and tuple_size(name) == 3)
@@ -1071,8 +1143,8 @@ defmodule Broadway do
   > #### Single producer and processor {: .info}
   >
   > Broadway does not accept multiple producers neither
-  > multiple processors, but we chose to keep in a list for simplicity
-  > and to ensure we're future proof.
+  > multiple processors, but we chose to keep in a list
+  > for consistency and to ensure we're future proof.
 
   ## Examples
 
@@ -1126,8 +1198,14 @@ defmodule Broadway do
   @doc since: "1.0.0"
   @spec all_running() :: [name()]
   def all_running do
-    for {{Broadway, name}, %Broadway.Topology{}} <- :persistent_term.get(),
-        GenServer.whereis(name),
+    config_storage = ConfigStorage.get_module()
+
+    for name <- config_storage.list(),
+        (try do
+           GenServer.whereis(name)
+         rescue
+           _ -> false
+         end),
         do: name
   end
 
@@ -1135,7 +1213,14 @@ defmodule Broadway do
   Sends a list of `Broadway.Message`s to the Broadway pipeline.
 
   The producer is randomly chosen among all sets of producers/stages.
-  This is used to send out of band data to a Broadway pipeline.
+  This is used to send out of band data to a Broadway pipeline, regardless
+  of which producer module you are using.
+
+  > #### Sync Operation {: .info}
+  >
+  > This function is synchronous, that is, it waits for the producer
+  > to enqueue `messages` before returning. It's a "call".
+
   """
   @spec push_messages(broadway :: name(), messages :: [Message.t()]) :: :ok
   def push_messages(broadway, messages) when is_broadway_name(broadway) and is_list(messages) do
@@ -1145,7 +1230,7 @@ defmodule Broadway do
     |> Topology.ProducerStage.push_messages(messages)
   end
 
-  test_messages_options_schema = [
+  test_batch_options_schema = [
     metadata: [
       type: :any,
       default: [],
@@ -1174,11 +1259,11 @@ defmodule Broadway do
     ]
   ]
 
-  @test_message_options_schema NimbleOptions.new!(test_messages_options_schema)
+  @test_batch_options_schema NimbleOptions.new!(test_batch_options_schema)
 
-  @test_batch_options_schema test_messages_options_schema
-                             |> Keyword.delete(:batch_mode)
-                             |> NimbleOptions.new!()
+  @test_message_options_schema test_batch_options_schema
+                               |> Keyword.delete(:batch_mode)
+                               |> NimbleOptions.new!()
 
   @doc """
   Sends a test message through the Broadway pipeline.
@@ -1198,6 +1283,11 @@ defmodule Broadway do
   See ["Testing"](#module-testing) section in module documentation
   for more information.
 
+  > #### Demand and Transform Options {: .warning}
+  >
+  > Messages sent using this function will ignore demand (`:min_demand` and `:max_demand`)
+  > and `:transform` options specified in the `:producer` option passed to `start_link/2`.
+
   ## Options
 
   #{NimbleOptions.docs(@test_message_options_schema)}
@@ -1214,8 +1304,6 @@ defmodule Broadway do
       acknowledger = fn data, ack_ref -> {MyAck, ack_ref, :ok} end
       Broadway.test_message(broadway, 1, acknowledger: acknowledger)
 
-  Note that messages sent using this function will ignore demand and :transform
-  option specified in :producer option in `Broadway.start_link/2`.
   """
   @spec test_message(broadway :: name(), term, opts :: Keyword.t()) :: reference
   def test_message(broadway, data, opts \\ [])
@@ -1243,6 +1331,11 @@ defmodule Broadway do
   See ["Testing"](#module-testing) section in module documentation
   for more information.
 
+  > #### Demand and Transform Options {: .warning}
+  >
+  > Messages sent using this function will ignore demand (`:min_demand` and `:max_demand`)
+  > and `:transform` options specified in the `:producer` option passed to `start_link/2`.
+
   ## Options
 
   #{NimbleOptions.docs(@test_batch_options_schema)}
@@ -1256,13 +1349,11 @@ defmodule Broadway do
       assert length(successful) == 3
       assert length(failed) == 0
 
-  Note that messages sent using this function will ignore demand and :transform
-  option specified in :producer option in `Broadway.start_link/2`.
   """
   @spec test_batch(broadway :: name(), data :: [term], opts :: Keyword.t()) :: reference
   def test_batch(broadway, batch_data, opts \\ [])
       when is_broadway_name(broadway) and is_list(batch_data) and is_list(opts) do
-    opts = NimbleOptions.validate!(opts, @test_message_options_schema)
+    opts = NimbleOptions.validate!(opts, @test_batch_options_schema)
     {batch_mode, opts} = Keyword.pop(opts, :batch_mode, :bulk)
     test_messages(broadway, batch_data, batch_mode, opts)
   end

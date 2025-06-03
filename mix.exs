@@ -1,7 +1,7 @@
 defmodule Broadway.MixProject do
   use Mix.Project
 
-  @version "1.0.7"
+  @version "1.2.1"
   @description "Build concurrent and multi-stage data ingestion and data processing pipelines"
 
   def project do
@@ -21,7 +21,9 @@ defmodule Broadway.MixProject do
 
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      env: [config_storage: :persistent_term],
+      mod: {Broadway.Application, []}
     ]
   end
 
@@ -30,8 +32,11 @@ defmodule Broadway.MixProject do
       {:gen_stage, "~> 1.0"},
       {:nimble_options, "~> 0.3.7 or ~> 0.4 or ~> 1.0"},
       {:telemetry, "~> 0.4.3 or ~> 1.0"},
+
+      # Dev/test dependencies.
+      {:castore, "~> 1.0", only: :test},
       {:ex_doc, ">= 0.19.0", only: :docs},
-      {:excoveralls, "~> 0.14.4", only: :test}
+      {:excoveralls, "~> 0.18.0", only: :test}
     ]
   end
 

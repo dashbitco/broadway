@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env:
       MIX_ENV: test
       GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -16,31 +16,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - pair:
-              elixir: 1.7.4
-              otp: 21.3.8.17
-          - pair:
-              elixir: 1.13.3
-              otp: 24.2.1
+          # Earliest-supported versions.
+          - elixir: "1.7.4"
+            otp: "21.3.8.17"
+
+          # Latest versions.
+          - elixir: "1.18"
+            otp: "27.2"
             lint: lint
             coverage: coverage
     steps:
-      - uses: actions/checkout@v2
+      - name: Check out this repository
+        uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - name: Set up Erlang and Elixir
+        uses: erlef/setup-beam@v1
         with:
-          otp-version: ${{matrix.pair.otp}}
-          elixir-version: ${{matrix.pair.elixir}}
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
 
-      - uses: actions/cache@v2
+      - name: Cache Mix dependencies
+        uses: actions/cache@v3
         id: cache-deps
         with:
           path: |
             deps
             _build
-          key: mix-${{ runner.os }}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}
+          key: |
+            mix-${{ runner.os }}-${{matrix.elixir}}-${{matrix.otp}}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            mix-${{ runner.os }}-${{matrix.elixir}}-${{matrix.otp}}-
 
-      - run: mix do deps.get, deps.compile
+      - run: mix do deps.get --check-locked, deps.compile
         if: steps.cache-deps.outputs.cache-hit != 'true'
 
       - run: mix format --check-formatted

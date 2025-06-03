@@ -11,6 +11,8 @@ defmodule Broadway.Topology do
     RateLimiter
   }
 
+  alias Broadway.ConfigStorage
+
   defstruct [:context, :topology, :producer_names, :batchers_names, :rate_limiter_name]
 
   def start_link(module, opts) do
@@ -34,7 +36,9 @@ defmodule Broadway.Topology do
   end
 
   defp config(server) do
-    :persistent_term.get({Broadway, server}, nil) ||
+    config_storage = ConfigStorage.get_module()
+
+    config_storage.get(server) ||
       exit({:noproc, {__MODULE__, :config, [server]}})
   end
 
@@ -43,12 +47,7 @@ defmodule Broadway.Topology do
   @impl true
   def init({module, opts}) do
     Process.flag(:trap_exit, true)
-
-    unless Code.ensure_loaded?(:persistent_term) do
-      require Logger
-      Logger.error("Broadway requires Erlang/OTP 21.3+")
-      raise "Broadway requires Erlang/OTP 21.3+"
-    end
+    config_storage = ConfigStorage.get_module()
 
     # We want to invoke this as early as possible otherwise the
     # stacktrace gets deeper and deeper in case of errors.
@@ -59,7 +58,7 @@ defmodule Broadway.Topology do
 
     emit_init_event(opts, supervisor_pid)
 
-    :persistent_term.put({Broadway, config.name}, %__MODULE__{
+    config_storage.put(config.name, %__MODULE__{
       context: config.context,
       topology: build_topology_details(config),
       producer_names: process_names(config, "Producer", config.producer_config),
@@ -92,7 +91,10 @@ defmodule Broadway.Topology do
     Process.exit(supervisor_pid, reason_to_signal(reason))
 
     receive do
-      {:DOWN, ^ref, _, _, _} -> :persistent_term.erase({Broadway, name})
+      {:DOWN, ^ref, _, _, _} ->
+        config_storage = ConfigStorage.get_module()
+        config_storage.delete(name)
+        :ok
     end
 
     :ok
@@ -372,7 +374,7 @@ defmodule Broadway.Topology do
         concurrency: options[:concurrency]
       ] ++ options
 
-    opts = [name: name]
+    opts = start_options(name, options)
 
     spec = %{
       start: {BatcherStage, :start_link, [args, opts]},
