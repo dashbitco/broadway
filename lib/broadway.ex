@@ -843,6 +843,18 @@ defmodule Broadway do
   @type on_start() :: {:ok, pid()} | :ignore | {:error, {:already_started, pid()} | term()}
   @type name :: atom() | {:via, module(), term()}
 
+  @typedoc """
+  A function used to dynamically determine the batch size.
+  """
+  @typedoc since: "1.3.0"
+  @type batch_size_fun() :: (Message.t(), acc :: term() -> {:emit | :cont, acc :: term()})
+
+  @typedoc """
+  Value for the `:batch_size` option.
+  """
+  @typedoc since: "1.3.0"
+  @type batch_size() :: pos_integer() | {initial_acc :: term(), batch_size_fun()}
+
   @doc """
   Invoked for preparing messages before handling (if defined).
 
