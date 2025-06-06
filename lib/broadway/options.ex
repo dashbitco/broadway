@@ -231,6 +231,7 @@ defmodule Broadway.Options do
             ],
             batch_size: [
               type: {:custom, __MODULE__, :validate_batch_size, []},
+              type_doc: "`t:batch_size/0`",
               default: 100,
               doc: """
               The size of the generated batches. Default value is `100`. It is typically an
