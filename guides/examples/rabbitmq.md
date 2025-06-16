@@ -4,7 +4,7 @@ RabbitMQ is an open source message broker designed to be highly scalable and
 distributed. It supports multiple protocols including the Advanced Message
 Queuing Protocol (AMQP).
 
-## Getting Started
+## Getting started
 
 In order to use Broadway with RabbitMQ, we need to:
 
@@ -15,12 +15,11 @@ In order to use Broadway with RabbitMQ, we need to:
   1. [Run the Broadway pipeline](#run-the-broadway-pipeline)
   1. [Tuning the configuration](#tuning-the-configuration) (Optional)
 
-In case you want to work with an existing queue, you can skip [step 1](#create-a-queue)
+To work with an existing queue, skip [step 1](#create-a-queue)
 and jump to [Configure the project](#configure-the-project).
 
-> Note: `BroadwayRabbitMQ` does not automatically create any queue. If you
-configure a pipeline with a non-existent queue, the producers will crash,
-bringing down the pipeline.
+> Note: `BroadwayRabbitMQ` does not automatically create queues.
+> Without a queue the producers will crash, bringing down the pipeline.
 
 ## Create a queue
 
@@ -30,12 +29,12 @@ further information. Also, make sure you have the
 [Management](https://www.rabbitmq.com/management.html) plugin enabled, which ships
 with the command line tool, `rabbitmqadmin`.
 
-After successfully installing RabbitMQ, you can declare a new queue with the
+After successfully installing RabbitMQ, declare a new queue with the
 following command:
 
     $ rabbitmqadmin declare queue name=my_queue durable=true
 
-You can list all declared queues to see our the one we've just created:
+List all declared queues to see the one we've created:
 
     $ rabbitmqctl list_queues
     Timeout: 60.0 seconds ...
@@ -71,16 +70,15 @@ Don't forget to check for the latest version of dependencies.
 
 ## Define the pipeline configuration
 
-Broadway is a process-based behaviour and to define a Broadway pipeline,
-we need to define three functions: `start_link/1`, `handle_message/3`
-and optionally `handle_batch/4`. We will cover `start_link/1` in this
-section and the `handle_` callbacks in the next one.
+Broadway is a process-based behaviour, and a Broadway pipeline
+is defined by the `start_link/1` function, the `c:handle_message/3`
+callback, and optionally, the `c:handle_batch/4` callback. We will cover `start_link/1` in this section and the `handle_` callbacks in the next one.
 
-Similar to other process-based behaviours, `start_link/1` simply
-delegates to `Broadway.start_link/2`, which should define the
+Similar to other process-based behaviours, `start_link/1`
+delegates to `Broadway.start_link/2`, which defines the
 producers, processors, and batchers in the Broadway pipeline.
 Assuming we want to consume messages from a queue called
-`my_queue`, one possible configuration would be:
+`my_queue` with the following configuration:
 
     defmodule MyBroadway do
       use Broadway
@@ -118,7 +116,7 @@ Assuming we want to consume messages from a queue called
     end
 
 If you're consuming data from an existing broker that requires authorization,
-you'll need to provide your credentials using the `connection` option:
+provide your credentials using the `connection` option:
 
     ...
     producer: [
@@ -141,9 +139,9 @@ module docs as well as `Broadway.start_link/2`.
 
 ## Implement Broadway callbacks
 
-In order to process incoming messages, we need to implement the
+In order to process incoming messages, implement the
 required callbacks. For the sake of simplicity, we're considering that
-all messages received from the queue are just numbers:
+all messages received from the queue are numbers:
 
     defmodule MyBroadway do
       use Broadway
@@ -173,17 +171,16 @@ purpose. First, we update the message's data individually inside
 For more information, see `c:Broadway.handle_message/3` and
 `c:Broadway.handle_batch/4`.
 
-> Note: Since Broadway v0.2, batching is optional. In case you don't need to
-> group messages as batches for further processing/publishing, you can remove
-> the `:batchers` configuration along with the `handle_batch/4` callback. This
-> is perfectly fine for RabbitMQ, where messages are acknowledged individually
-> and never as a batch.
+> Note: Since Broadway v0.2, batching is optional. Remove
+> the `:batchers` configuration along with the `c:handle_batch/4` callback
+> to send single messages for further processing/publishing. This
+> works because RabbitMQ messages acknowledges messages individually.
 
 ## Run the Broadway pipeline
 
-To run your `Broadway` pipeline, you just need to add as a child in
+To run your `Broadway` pipeline, add it as a child in
 a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
+at `lib/my_app/application.ex`. Add Broadway as a child to a
 supervisor as follows:
 
     children = [
@@ -197,11 +194,11 @@ Also, if your Broadway has any dependency (for example, it needs to talk
 to the database), make sure that Broadway is listed *after* its dependencies
 in the supervision tree.
 
-You can now test your pipeline by entering an `iex` session:
+Test your pipeline by entering an `iex` session:
 
     $ iex -S mix
 
-If everything went fine, you should see lots of `info` log messages from the `amqp`
+If everything went fine, you will see lots of `info` log messages from the `amqp`
 supervisors. If you think that's too verbose and want to do something
 about it, please take a look at the _"Log related to amqp supervisors are too verbose"_
 subsection in the `amqp`'s  [Troubleshooting](https://hexdocs.pm/amqp/readme.html#troubleshooting)
@@ -244,7 +241,7 @@ You should see the output showing the generated batches:
 Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However, those values might not suit your
 requirements. Depending on the number of messages you get, how much processing
-they need and how much IO work is going to take place, you might need completely
+they need and how much IO work is going to take place, you need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, among with
 `max_demand`, `batch_size`, and `batch_timeout` can give you a great deal
@@ -263,5 +260,4 @@ section of the `BroadwayRabbitMQ` documentation for details.
 In order to get a good set of configurations for your pipeline, it's
 important to respect the limitations of the servers you're running,
 as well as the limitations of the services you're providing/consuming
-data to/from. Broadway comes with telemetry, so you can measure your
-pipeline and help ensure your changes are effective.
+data to/from. Measure your pipeline with [telemetry](https://hexdocs.pm/telemetry/readme.html) to ensure your changes are effective. (It comes standard.)

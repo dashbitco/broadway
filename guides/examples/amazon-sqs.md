@@ -18,9 +18,9 @@ queues:
 
 Broadway can work seamlessly with both, Standard and FIFO queues.
 
-## Getting Started
+## Getting started
 
-In order to use Broadway with SQS, we need to:
+To use Broadway with SQS:
 
   1. Create a SQS queue (or use an existing one)
   1. Configure our Elixir project to use Broadway
@@ -43,7 +43,7 @@ which is a Broadway SQS Connector provided by [Dashbit](https://dashbit.co/).
 
 ### Starting a new project
 
-If you plan to start a new project, just run:
+If you plan to start a new project, run:
 
     $ mix new my_app --sup
 
@@ -66,12 +66,12 @@ Don't forget to check for the latest version of dependencies.
 
 ## Define the pipeline configuration
 
-Broadway is a process-based behaviour and to define a Broadway
-pipeline, we need to define three functions: `start_link/1`,
+A Broadway pipeline is an implementation of a process-based behaviour and
+is defined by three functions: `start_link/1`,
 `handle_message/3` and `handle_batch/4`. We will cover `start_link/1`
 in this section and the `handle_` callbacks in the next one.
 
-Similar to other process-based behaviour, `start_link/1` simply
+Similar to other process-based behaviour, `start_link/1`
 delegates to `Broadway.start_link/2`, which should define the
 producers, processors, and batchers in the Broadway pipeline.
 Assuming we want to consume messages from a queue called
@@ -107,8 +107,8 @@ Assuming we want to consume messages from a queue called
 The above configuration also assumes that you have the AWS credentials
 set up in your environment, for instance, by having the `AWS_ACCESS_KEY_ID`
 and `AWS_SECRET_ACCESS_KEY` environment variables set. If that's
-not the case, you will need to pass that information to the client so it
-can properly connect to the AWS servers. Here is how you can do it:
+not the case, pass that information to the client so it
+can properly connect to the AWS servers. Here's how to do it:
 
     ...
     producer: [
@@ -135,9 +135,8 @@ module docs as well as `Broadway.start_link/2`.
 
 ## Implement Broadway callbacks
 
-In order to process incoming messages, we need to implement the
-required callbacks. For the sake of simplicity, we're considering that
-all messages received from the queue are just numbers:
+Implement the required callbacks to process incoming messages.
+In this example, all messages received from the queue are numbers:
 
     defmodule MyBroadway do
       use Broadway
@@ -169,9 +168,9 @@ For more information, see `c:Broadway.handle_message/3` and
 
 ## Run the Broadway pipeline
 
-To run your `Broadway` pipeline, you just need to add as a child in
+To run your `Broadway` pipeline, add it as a child in
 a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
+at `lib/my_app/application.ex`. Add Broadway as a child to a
 supervisor as follows:
 
     children = [
@@ -190,7 +189,7 @@ in the supervision tree.
 Some of the configuration options available for Broadway come already with a
 "reasonable" default value. However those values might not suit your
 requirements. Depending on the number of messages you get, how much processing
-they need and how much IO work is going to take place, you might need completely
+they need and how much IO work is going to take place, you need completely
 different values to optimize the flow of your pipeline. The `concurrency` option
 available for every set of producers, processors and batchers, among with
 `max_demand`, `batch_size`, and `batch_timeout` can give you a great deal
@@ -202,7 +201,7 @@ See the notes on [`Producer concurrency`](https://hexdocs.pm/broadway/Broadway.h
 and [`Batcher concurrency`](https://hexdocs.pm/broadway/Broadway.html#module-batcher-concurrency)
 for details.
 
-Here's an example on how you could tune them according to
+Here's an example on how you tune them according to
 your needs.
 
     defmodule MyBroadway do
@@ -236,5 +235,4 @@ your needs.
 In order to get a good set of configurations for your pipeline, it's
 important to respect the limitations of the servers you're running,
 as well as the limitations of the services you're providing/consuming
-data to/from. Broadway comes with telemetry, so you can measure your
-pipeline and help ensure your changes are effective.
+data to/from. Measure your pipeline with [telemetry](https://hexdocs.pm/telemetry/readme.html) to ensure your changes are effective. (It comes standard.)
