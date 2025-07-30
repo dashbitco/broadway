@@ -10,6 +10,9 @@ defmodule Broadway.Topology.Terminator do
   @spec trap_exit(GenServer.server()) :: :ok
   def trap_exit(terminator) do
     GenServer.call(terminator, :trap_exit)
+  catch
+    # If it is already down, we ignore it
+    :exit, _ -> :ok
   end
 
   @impl true
