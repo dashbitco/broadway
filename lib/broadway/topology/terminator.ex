@@ -9,7 +9,7 @@ defmodule Broadway.Topology.Terminator do
 
   @spec trap_exit(GenServer.server()) :: :ok
   def trap_exit(terminator) do
-    GenServer.cast(terminator, :trap_exit)
+    GenServer.call(terminator, :trap_exit)
   end
 
   @impl true
@@ -24,9 +24,9 @@ defmodule Broadway.Topology.Terminator do
   end
 
   @impl true
-  def handle_cast(:trap_exit, state) do
+  def handle_call(:trap_exit, _from, state) do
     Process.flag(:trap_exit, true)
-    {:noreply, state}
+    {:reply, :ok, state}
   end
 
   @impl true
