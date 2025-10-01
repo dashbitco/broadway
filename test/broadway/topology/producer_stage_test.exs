@@ -184,4 +184,27 @@ defmodule Broadway.Topology.ProducerStageTest do
       assert ProducerStage.terminate(:normal, state) == :ok
     end
   end
+
+  test "sets process label with topology name and index" do
+    topology_name = :test_topology
+    index = 2
+
+    args = %{
+      module: {FakeProducer, []},
+      broadway: [name: topology_name, index: index],
+      transformer: nil,
+      dispatcher: GenStage.DemandDispatcher,
+      rate_limiter: nil
+    }
+
+    {:ok, pid} = ProducerStage.start_link(args, index)
+
+    if Broadway.Process.labels_supported?() do
+      label = Process.info(pid, :label)
+      assert label == {:label, {:broadway_producer, topology_name, index}}
+    else
+      # Labels not supported in this Elixir version, skip assertion
+      :ok
+    end
+  end
 end

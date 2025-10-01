@@ -33,6 +33,10 @@ defmodule Broadway.Topology.ProcessorStage do
       producer: args[:producer]
     }
 
+    Broadway.Process.set_label(
+      {:broadway_processor, state.topology_name, state.processor_key, state.partition}
+    )
+
     case type do
       :consumer ->
         {:consumer, state, []}

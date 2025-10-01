@@ -29,6 +29,8 @@ defmodule Broadway.Topology.BatchProcessorStage do
       producer: args[:producer]
     }
 
+    Broadway.Process.set_label({:broadway_batch_processor, state.topology_name, state.partition})
+
     {:consumer, state, []}
   end
 

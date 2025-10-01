@@ -16,9 +16,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Earliest-supported versions.
-          - elixir: "1.7.4"
-            otp: "21.3.8.17"
+          # Minimum supported versions on ubuntu-22.04.
+          # OTP 24.2 is the earliest available on ubuntu-22.04.
+          # Elixir 1.12 is the earliest version compatible with OTP 24.
+          - elixir: "1.12"
+            otp: "24.2"
 
           # Latest versions.
           - elixir: "1.18"
@@ -34,6 +36,7 @@ jobs:
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
+          version-type: strict
 
       - name: Cache Mix dependencies
         uses: actions/cache@v3

@@ -61,6 +61,9 @@ defmodule Broadway.Topology.ProducerStage do
       rate_limiting: rate_limiting_state
     }
 
+    topology_name = args[:broadway][:name]
+    Broadway.Process.set_label({:broadway_producer, topology_name, index})
+
     case module.init(arg) do
       {:producer, module_state} ->
         {:producer, %{state | module_state: module_state}, dispatcher: dispatcher}

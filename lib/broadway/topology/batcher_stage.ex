@@ -45,6 +45,8 @@ defmodule Broadway.Topology.BatcherStage do
       context: args[:context]
     }
 
+    Broadway.Process.set_label({:broadway_batcher, state.topology_name, state.batcher})
+
     {:producer_consumer, state, dispatcher: dispatcher}
   end
 
