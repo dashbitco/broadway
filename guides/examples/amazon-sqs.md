@@ -33,7 +33,7 @@ In order to use Broadway with SQS, we need to:
 
 Amazon provides a comprehensive [Step-by-step Guide](https://aws.amazon.com/getting-started/tutorials/send-messages-distributed-applications/)
 on creating SQS queues. In case you don't have an AWS account and want to
-test Broadway locally, use can easily install [ElasticMQ](https://github.com/softwaremill/elasticmq),
+test Broadway locally, install [ElasticMQ](https://github.com/softwaremill/elasticmq),
 which is a message queue system that offers a SQS-compatible query interface.
 
 ## Configure the project
@@ -71,7 +71,7 @@ pipeline, we need to define three functions: `start_link/1`,
 `handle_message/3` and `handle_batch/4`. We will cover `start_link/1`
 in this section and the `handle_` callbacks in the next one.
 
-Similar to other process-based behaviour, `start_link/1` simply
+Similar to other process-based behaviour, `start_link/1`
 delegates to `Broadway.start_link/2`, which should define the
 producers, processors, and batchers in the Broadway pipeline.
 Assuming we want to consume messages from a queue called
@@ -161,17 +161,17 @@ all messages received from the queue are just numbers:
     end
 
 We are not doing anything fancy here, but it should be enough for our
-purpose. First we update the message's data individually inside
-`handle_message/3` and then we print each batch inside `handle_batch/4`.
+purpose. First, we update the message's data individually inside
+`handle_message/3` and then print each batch inside `handle_batch/4`.
 
 For more information, see `c:Broadway.handle_message/3` and
 `c:Broadway.handle_batch/4`.
 
 ## Run the Broadway pipeline
 
-To run your `Broadway` pipeline, you just need to add as a child in
+To run your `Broadway` pipeline, add it as a child in
 a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
+at `lib/my_app/application.ex`. Add Broadway as a child to a
 supervisor as follows:
 
     children = [
@@ -187,8 +187,8 @@ in the supervision tree.
 
 ## Tuning the configuration
 
-Some of the configuration options available for Broadway come already with a
-"reasonable" default value. However those values might not suit your
+Some of the configuration options available for Broadway come with a
+"reasonable" default value. However, those values might not suit your
 requirements. Depending on the number of messages you get, how much processing
 they need and how much IO work is going to take place, you might need completely
 different values to optimize the flow of your pipeline. The `concurrency` option

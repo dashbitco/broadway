@@ -69,7 +69,7 @@ we need to define three functions: `start_link/1`, `handle_message/3`
 and optionally `handle_batch/4`. We will cover `start_link/1` in this
 section and the `handle_` callbacks in the next one.
 
-Similar to other process-based behaviours, `start_link/1` simply
+Similar to other process-based behaviours, `start_link/1`
 delegates to `Broadway.start_link/2`, which should define the
 producers, processors, and batchers in the Broadway pipeline.
 Assuming we want to consume messages from a topic called
@@ -152,7 +152,7 @@ all messages received from the topic are just numbers:
 
 We are not doing anything fancy here, but it should be enough for our
 purpose. First, we update the message's data individually inside
-`handle_message/3` and then we print each batch inside `handle_batch/4`.
+`handle_message/3` and then print each batch inside `handle_batch/4`.
 
 For more information, see `c:Broadway.handle_message/3` and
 `c:Broadway.handle_batch/4`.
@@ -163,9 +163,9 @@ For more information, see `c:Broadway.handle_message/3` and
 
 ## Run the Broadway pipeline
 
-To run your `Broadway` pipeline, you just need to add as a child in
+To run your `Broadway` pipeline, add it as a child in
 a supervision tree. Most applications have a supervision tree defined
-at `lib/my_app/application.ex`. You can add Broadway as a child to a
+at `lib/my_app/application.ex`. Add Broadway as a child to a
 supervisor as follows:
 
     children = [
@@ -193,7 +193,7 @@ under the hood to communicate with Kafka.
 
 ### Sending messages to Kafka
 
-Finally, we can send some sample messages to Kafka using using `:brod` with the following snippet:
+Finally, we can send some sample messages to Kafka using `:brod` with the following snippet:
 
     topic = "test"
     client_id = :my_client
@@ -228,7 +228,7 @@ You should see the output showing the generated batches:
 
 ## Tuning the configuration
 
-Some of the configuration options available for Broadway come already with a
+Some of the configuration options available for Broadway come with a
 "reasonable" default value. However, those values might not suit your
 requirements. Depending on the number of records you get, how much processing
 they need and how much IO work is going to take place, you might need completely
