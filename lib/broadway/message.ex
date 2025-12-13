@@ -44,7 +44,7 @@ defmodule Broadway.Message do
   """
   @type t :: %Message{
           data: term,
-          metadata: %{optional(atom) => term},
+          metadata: %{optional(atom | String.t()) => term},
           acknowledger: acknowledger,
           batcher: atom,
           batch_key: term,
