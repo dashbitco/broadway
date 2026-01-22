@@ -1372,6 +1372,7 @@ defmodule Broadway do
 
   defp test_messages(broadway, data, batch_mode, opts) when is_broadway_name(broadway) do
     metadata = opts |> Keyword.fetch!(:metadata) |> Map.new()
+    batcher = Keyword.get(opts, :batcher, :default)
 
     acknowledger =
       Keyword.get(opts, :acknowledger, fn _data, ack_ref ->
@@ -1383,7 +1384,7 @@ defmodule Broadway do
     messages =
       Enum.map(data, fn data ->
         ack = acknowledger.(data, {self(), ref})
-        %Message{data: data, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
+        %Message{data: data, acknowledger: ack, batch_mode: batch_mode, metadata: metadata, batcher: batcher}
       end)
 
     :ok = push_messages(broadway, messages)
