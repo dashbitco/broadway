@@ -1268,6 +1268,13 @@ defmodule Broadway do
       when set to `:flush`, the batch the message is in is immediately delivered. When set
       to `:bulk`, batch is delivered when its size or timeout is reached.
       """
+    ],
+    batcher: [
+      type: :atom,
+      default: :default,
+      doc: """
+      the name of the batcher to use for the test message.
+      """
     ]
   ]
 
