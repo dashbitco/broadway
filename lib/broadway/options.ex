@@ -168,7 +168,8 @@ defmodule Broadway.Options do
             min_demand: [
               type: :non_neg_integer,
               doc: """
-              Set the minimum demand of all processors stages.
+              Set the minimum demand of all processors stages. Default
+              value is half of `:max_demand`.
               """
             ],
             max_demand: [
@@ -266,7 +267,8 @@ defmodule Broadway.Options do
               doc: """
               Sets the maximum demand of batcher stages.
               By default it is set to `:batch_size`, if `:batch_size` is an integer.
-              Must be set if the `:batch_size` is a function.
+              Must be set if the `:batch_size` is a function. The minimum demand
+              of batcher stages is automatically set to half of `:max_demand`.
               """
             ],
             batch_timeout: [
