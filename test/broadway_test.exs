@@ -1939,6 +1939,134 @@ defmodule BroadwayTest do
     end
   end
 
+  describe "handle_failed telemetry" do
+    test "emits [:broadway, :handle_failed] span events from a processor" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      :telemetry.attach_many(
+        "#{broadway_name}-handle-failed",
+        [[:broadway, :handle_failed, :start], [:broadway, :handle_failed, :stop]],
+        fn event, _measurements, metadata, _config ->
+          send(test_pid, {:telemetry_event, event, metadata})
+        end,
+        %{}
+      )
+
+      {:ok, _broadway} =
+        Broadway.start_link(CustomHandlersWithHandleFailed,
+          name: broadway_name,
+          context: %{
+            handle_message: fn message, _ -> Message.failed(message, :failed) end,
+            handle_failed: fn messages, _ ->
+              send(test_pid, :handle_failed_called)
+              messages
+            end
+          },
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []]
+        )
+
+      ref = Broadway.test_batch(broadway_name, [:fail], batch_mode: :flush)
+
+      assert_receive {:telemetry_event, [:broadway, :handle_failed, :start], start_metadata}
+      assert start_metadata.module == CustomHandlersWithHandleFailed
+      assert [%Message{}] = start_metadata.messages
+
+      assert_receive {:telemetry_event, [:broadway, :handle_failed, :stop], stop_metadata}
+      assert stop_metadata.module == CustomHandlersWithHandleFailed
+      assert [%Message{}] = stop_metadata.messages
+
+      assert_receive :handle_failed_called
+      assert_receive {:ack, ^ref, _successful, _failed}
+
+      :telemetry.detach("#{broadway_name}-handle-failed")
+    end
+
+    test "emits [:broadway, :handle_failed] span events from a batch processor" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      :telemetry.attach_many(
+        "#{broadway_name}-handle-failed",
+        [[:broadway, :handle_failed, :start], [:broadway, :handle_failed, :stop]],
+        fn event, _measurements, metadata, _config ->
+          send(test_pid, {:telemetry_event, event, metadata})
+        end,
+        %{}
+      )
+
+      {:ok, _broadway} =
+        Broadway.start_link(CustomHandlersWithHandleFailed,
+          name: broadway_name,
+          context: %{
+            handle_message: fn message, _ -> message end,
+            handle_batch: fn _, messages, _, _ ->
+              Enum.map(messages, &Message.failed(&1, :failed))
+            end,
+            handle_failed: fn messages, _ ->
+              send(test_pid, :handle_failed_called)
+              messages
+            end
+          },
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []],
+          batchers: [default: []]
+        )
+
+      ref = Broadway.test_batch(broadway_name, [:fail], batch_mode: :flush)
+
+      assert_receive {:telemetry_event, [:broadway, :handle_failed, :start], start_metadata}
+      assert start_metadata.module == CustomHandlersWithHandleFailed
+      assert [%Message{}] = start_metadata.messages
+
+      assert_receive {:telemetry_event, [:broadway, :handle_failed, :stop], stop_metadata}
+      assert stop_metadata.module == CustomHandlersWithHandleFailed
+      assert [%Message{}] = stop_metadata.messages
+
+      assert_receive :handle_failed_called
+      assert_receive {:ack, ^ref, _successful, _failed}
+
+      :telemetry.detach("#{broadway_name}-handle-failed")
+    end
+
+    test "emits [:broadway, :handle_failed, :exception] when handle_failed/2 raises" do
+      broadway_name = new_unique_name()
+      test_pid = self()
+
+      :telemetry.attach_many(
+        "#{broadway_name}-handle-failed",
+        [[:broadway, :handle_failed, :start], [:broadway, :handle_failed, :exception]],
+        fn event, _measurements, metadata, _config ->
+          send(test_pid, {:telemetry_event, event, metadata})
+        end,
+        %{}
+      )
+
+      {:ok, _broadway} =
+        Broadway.start_link(CustomHandlersWithHandleFailed,
+          name: broadway_name,
+          context: %{
+            handle_message: fn message, _ -> Message.failed(message, :failed) end,
+            handle_failed: fn _messages, _ -> raise "oops" end
+          },
+          producer: [module: {ManualProducer, []}],
+          processors: [default: []]
+        )
+
+      capture_log(fn ->
+        ref = Broadway.test_batch(broadway_name, [:fail], batch_mode: :flush)
+        assert_receive {:ack, ^ref, _successful, _failed}
+      end)
+
+      assert_receive {:telemetry_event, [:broadway, :handle_failed, :start], _}
+      assert_receive {:telemetry_event, [:broadway, :handle_failed, :exception], metadata}
+      assert %{kind: :error, reason: %RuntimeError{message: "oops"}} = metadata
+
+      :telemetry.detach("#{broadway_name}-handle-failed")
+    end
+  end
+
   describe "handle producer crash" do
     setup do
       test_pid = self()

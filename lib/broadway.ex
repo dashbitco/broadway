@@ -795,6 +795,57 @@ defmodule Broadway do
         }
         ```
 
+    * `[:broadway, :handle_failed, :start]` - Dispatched before the `c:handle_failed/2`
+      callback is invoked
+
+      * Measurement: `%{system_time: integer}`
+
+      * Metadata:
+
+        ```
+        %{
+          module: atom,
+          messages: [Broadway.Message.t],
+          context: term,
+          telemetry_span_context: reference
+        }
+        ```
+
+    * `[:broadway, :handle_failed, :stop]` - Dispatched after the `c:handle_failed/2`
+      callback has returned
+
+      * Measurement: `%{duration: native_time}`
+
+      * Metadata:
+
+        ```
+        %{
+          module: atom,
+          messages: [Broadway.Message.t],
+          context: term,
+          telemetry_span_context: reference
+        }
+        ```
+
+    * `[:broadway, :handle_failed, :exception]` - Dispatched if the `c:handle_failed/2`
+      callback raises an exception
+
+      * Measurement: `%{duration: native_time}`
+
+      * Metadata:
+
+        ```
+        %{
+          module: atom,
+          messages: [Broadway.Message.t],
+          context: term,
+          kind: :error | :exit | :throw,
+          reason: term,
+          stacktrace: list,
+          telemetry_span_context: reference
+        }
+        ```
+
     * `[:broadway, :batcher, :start]` - Dispatched by a Broadway batcher before
       handling events
 
