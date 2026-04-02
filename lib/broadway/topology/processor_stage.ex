@@ -164,7 +164,8 @@ defmodule Broadway.Topology.ProcessorStage do
             index: state.partition,
             name: state.name,
             message: message,
-            context: state.context
+            context: state.context,
+            producer: state.producer
           },
           fn ->
             updated_message =
@@ -179,7 +180,8 @@ defmodule Broadway.Topology.ProcessorStage do
                index: state.partition,
                name: state.name,
                message: updated_message,
-               context: state.context
+               context: state.context,
+               producer: state.producer
              }}
           end
         )
