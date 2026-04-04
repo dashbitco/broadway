@@ -102,35 +102,50 @@ defmodule Broadway.Acknowledger do
   end
 
   defp handle_failed_messages(messages, module, context) do
-    module.handle_failed(messages, context)
-  catch
-    kind, reason ->
-      Logger.error(Exception.format(kind, reason, __STACKTRACE__),
-        crash_reason: crash_reason(kind, reason, __STACKTRACE__)
+    metadata = %{module: module, messages: messages, context: context}
+
+    try do
+      :telemetry.span(
+        [:broadway, :handle_failed],
+        metadata,
+        fn ->
+          result = do_handle_failed_messages(messages, module, context)
+          {result, Map.put(metadata, :messages, result)}
+        end
       )
-
-      messages
-  else
-    return_messages when is_list(return_messages) ->
-      size = length(messages)
-      return_size = length(return_messages)
-
-      if return_size != size do
-        Logger.error(
-          "#{inspect(module)}.handle_failed/2 received #{size} messages and " <>
-            "returned only #{return_size}. All messages given to handle_failed/2 " <>
-            "must be returned"
+    catch
+      kind, reason ->
+        Logger.error(Exception.format(kind, reason, __STACKTRACE__),
+          crash_reason: crash_reason(kind, reason, __STACKTRACE__)
         )
-      end
 
-      return_messages
+        messages
+    end
+  end
 
-    _other ->
-      Logger.error(
-        "#{inspect(module)}.handle_failed/2 didn't return a list of messages, " <>
-          "so ignoring its return value"
-      )
+  defp do_handle_failed_messages(messages, module, context) do
+    case module.handle_failed(messages, context) do
+      return_messages when is_list(return_messages) ->
+        size = length(messages)
+        return_size = length(return_messages)
 
-      messages
+        if return_size != size do
+          Logger.error(
+            "#{inspect(module)}.handle_failed/2 received #{size} messages and " <>
+              "returned only #{return_size}. All messages given to handle_failed/2 " <>
+              "must be returned"
+          )
+        end
+
+        return_messages
+
+      _other ->
+        Logger.error(
+          "#{inspect(module)}.handle_failed/2 didn't return a list of messages, " <>
+            "so ignoring its return value"
+        )
+
+        messages
+    end
   end
 end
