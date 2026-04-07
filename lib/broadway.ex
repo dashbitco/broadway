@@ -714,7 +714,8 @@ defmodule Broadway do
           name: atom,
           index: non_neg_integer,
           message: Broadway.Message.t,
-          telemetry_span_context: reference
+          telemetry_span_context: reference,
+          producer: {atom, list}
         }
         ```
 
@@ -732,7 +733,8 @@ defmodule Broadway do
           name: atom,
           index: non_neg_integer,
           message: Broadway.Message.t,
-          telemetry_span_context: reference
+          telemetry_span_context: reference,
+          producer: {atom, list}
         }
         ```
 
@@ -753,7 +755,8 @@ defmodule Broadway do
           kind: kind,
           reason: reason,
           stacktrace: stacktrace,
-          telemetry_span_context: reference
+          telemetry_span_context: reference,
+          producer: {atom, list}
         }
         ```
 

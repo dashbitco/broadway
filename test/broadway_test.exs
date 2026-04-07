@@ -946,10 +946,10 @@ defmodule BroadwayTest do
       assert_receive {:telemetry_event, [:broadway, :processor, :start], %{system_time: _}, %{}}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :start],
-                      %{system_time: _}, %{}}
+                      %{system_time: _}, %{producer: {ManualProducer, []}}}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :stop], %{duration: _},
-                      %{}}
+                      %{producer: {ManualProducer, []}}}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{duration: _}, metadata}
       assert [] = metadata.failed_messages
@@ -1022,7 +1022,7 @@ defmodule BroadwayTest do
                       %{system_time: _}, %{}}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :message, :exception],
-                      %{duration: _}, %{}}
+                      %{duration: _}, %{producer: {ManualProducer, []}}}
 
       assert_receive {:telemetry_event, [:broadway, :processor, :stop], %{duration: _}, %{}}
       assert_receive {:ack, ^ref, [], [%{status: {:error, _, _}}]}
