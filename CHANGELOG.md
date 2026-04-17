@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.0 (2026-04-17)
+
+* Add telemetry events around `handle_failed`
+* Include producer metadata in telemetry events
+* Add labels to Broadway stages
+* Fix race condition during graceful shutdown
+
 ## v1.2.1 (2025-02-12)
 
 * Run `setup` callback on Broadway startup
