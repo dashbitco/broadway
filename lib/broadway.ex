@@ -1322,6 +1322,13 @@ defmodule Broadway do
       when set to `:flush`, the batch the message is in is immediately delivered. When set
       to `:bulk`, batch is delivered when its size or timeout is reached.
       """
+    ],
+    batcher: [
+      type: :atom,
+      default: :default,
+      doc: """
+      the name of the batcher to use for the test message.
+      """
     ]
   ]
 
@@ -1426,6 +1433,7 @@ defmodule Broadway do
 
   defp test_messages(broadway, data, batch_mode, opts) when is_broadway_name(broadway) do
     metadata = opts |> Keyword.fetch!(:metadata) |> Map.new()
+    batcher = Keyword.get(opts, :batcher, :default)
 
     acknowledger =
       Keyword.get(opts, :acknowledger, fn _data, ack_ref ->
@@ -1437,7 +1445,14 @@ defmodule Broadway do
     messages =
       Enum.map(data, fn data ->
         ack = acknowledger.(data, {self(), ref})
-        %Message{data: data, acknowledger: ack, batch_mode: batch_mode, metadata: metadata}
+
+        %Message{
+          data: data,
+          acknowledger: ack,
+          batch_mode: batch_mode,
+          metadata: metadata,
+          batcher: batcher
+        }
       end)
 
     :ok = push_messages(broadway, messages)
